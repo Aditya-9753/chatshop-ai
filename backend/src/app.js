@@ -1,0 +1,82 @@
+const express = require("express");
+const mongoose = require("mongoose");
+const cors = require("cors");
+const helmet = require("helmet");
+const morgan = require("morgan");
+const rateLimit = require("express-rate-limit");
+require("dotenv").config();
+
+const app = express();
+
+// Database Connection
+const connectDB = require("./db/connection");
+connectDB();
+
+// Middleware
+app.use(helmet()); // Security headers
+app.use(
+  cors({
+    origin: [
+      process.env.FRONTEND_URL || "http://localhost:5174",
+      "http://localhost:5173",
+      "http://localhost:5174",
+    ],
+    credentials: true,
+  })
+);
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(morgan("dev")); // Logging
+
+// Rate Limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+});
+app.use("/api/", limiter);
+
+// Routes
+app.use("/api/auth", require("./routes/auth.routes"));
+app.use("/api/users", require("./routes/user.routes"));
+app.use("/api/subscriptions", require("./routes/subscription.routes"));
+app.use("/api/whatsapp", require("./routes/whatsapp.routes"));
+app.use("/api/instagram", require("./routes/instagram.routes"));
+app.use("/api/customers", require("./routes/customer.routes"));
+app.use("/api/messages", require("./routes/message.routes"));
+app.use("/api/products", require("./routes/product.routes"));
+app.use("/api/orders", require("./routes/order.routes"));
+app.use("/api/analytics", require("./routes/analytics.routes"));
+app.use("/api/admin", require("./routes/admin.routes"));
+
+// Health Check
+app.get("/", (req, res) => {
+  res.json({
+    success: true,
+    message: "WhatsApp & Instagram Automation API",
+    version: "1.0.0",
+  });
+});
+
+// Error Handler
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(err.status || 500).json({
+    success: false,
+    message: err.message || "Internal Server Error",
+  });
+});
+
+// 404 Handler
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: "Route not found",
+  });
+});
+
+const PORT = process.env.PORT || 3001;
+
+app.listen(PORT, () => {
+  console.log(`✅ Server running on http://localhost:${PORT}`);
+  console.log(`📊 Environment: ${process.env.NODE_ENV}`);
+});

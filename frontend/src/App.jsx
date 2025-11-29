@@ -1,0 +1,72 @@
+import React from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider } from "./context/AuthContext";
+import { ToastProvider } from "./components/Toast";
+import ProtectedRoute from "./components/ProtectedRoute";
+
+// Layouts
+import DashboardLayout from "./layouts/DashboardLayout";
+
+// Pages
+import LandingPage from "./pages/LandingPage";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import Dashboard from "./pages/Dashboard";
+import Customers from "./pages/Customers";
+import Products from "./pages/Products";
+import Orders from "./pages/Orders";
+import Messages from "./pages/Messages";
+import Analytics from "./pages/Analytics";
+import Settings from "./pages/Settings";
+
+function App() {
+  return (
+    <ToastProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+
+            {/* Protected Dashboard Routes */}
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<Dashboard />} />
+              <Route path="customers" element={<Customers />} />
+              <Route path="messages" element={<Messages />} />
+              <Route path="products" element={<Products />} />
+              <Route path="orders" element={<Orders />} />
+              <Route path="analytics" element={<Analytics />} />
+              <Route path="settings" element={<Settings />} />
+            </Route>
+
+            {/* Admin Routes (to be implemented) */}
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute adminOnly>
+                  <div className="text-2xl font-bold p-8">
+                    Admin Dashboard (Coming Soon)
+                  </div>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Catch all - redirect to home */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+    </ToastProvider>
+  );
+}
+
+export default App;
