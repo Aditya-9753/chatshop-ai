@@ -12,7 +12,7 @@ import { useAuth } from "../context/AuthContext";
 import Button from "../components/Button";
 import Input from "../components/Input";
 import { useToast } from "../components/Toast";
-import axios from "axios";
+import api from "../services/api.service";
 
 const Settings = () => {
   const { user } = useAuth();
@@ -61,15 +61,12 @@ const Settings = () => {
   const handleProfileUpdate = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.put(
-        `${import.meta.env.VITE_API_URL}/users/profile`,
-        profileForm
-      );
-      if (response.data.success) {
+      const response = await api.put("/users/profile", profileForm);
+      if (response.success) {
         success("Profile updated successfully");
       }
     } catch (err) {
-      error(err.response?.data?.message || "Failed to update profile");
+      error(err.message || "Failed to update profile");
     }
   };
 
@@ -80,14 +77,11 @@ const Settings = () => {
       return;
     }
     try {
-      const response = await axios.put(
-        `${import.meta.env.VITE_API_URL}/users/password`,
-        {
-          currentPassword: passwordForm.currentPassword,
-          newPassword: passwordForm.newPassword,
-        }
-      );
-      if (response.data.success) {
+      const response = await api.put("/users/password", {
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      });
+      if (response.success) {
         success("Password changed successfully");
         setPasswordForm({
           currentPassword: "",
@@ -96,52 +90,43 @@ const Settings = () => {
         });
       }
     } catch (err) {
-      error(err.response?.data?.message || "Failed to change password");
+      error(err.message || "Failed to change password");
     }
   };
 
   const handleWhatsAppConnect = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}/whatsapp/connect`,
-        whatsappForm
-      );
-      if (response.data.success) {
+      const response = await api.post("/whatsapp/connect", whatsappForm);
+      if (response.success) {
         success("WhatsApp connected successfully");
       }
     } catch (err) {
-      error(err.response?.data?.message || "Failed to connect WhatsApp");
+      error(err.message || "Failed to connect WhatsApp");
     }
   };
 
   const handleInstagramConnect = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}/instagram/connect`,
-        instagramForm
-      );
-      if (response.data.success) {
+      const response = await api.post("/instagram/connect", instagramForm);
+      if (response.success) {
         success("Instagram connected successfully");
       }
     } catch (err) {
-      error(err.response?.data?.message || "Failed to connect Instagram");
+      error(err.message || "Failed to connect Instagram");
     }
   };
 
   const handleBusinessUpdate = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.put(
-        `${import.meta.env.VITE_API_URL}/users/business`,
-        businessForm
-      );
-      if (response.data.success) {
+      const response = await api.put("/users/business", businessForm);
+      if (response.success) {
         success("Business information updated successfully");
       }
     } catch (err) {
-      error(err.response?.data?.message || "Failed to update business info");
+      error(err.message || "Failed to update business info");
     }
   };
 

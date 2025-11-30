@@ -121,6 +121,86 @@ class MessageService {
       }
     );
   }
+
+  // Get conversations grouped by customer
+  async getConversations(userId) {
+    const conversations = await Message.aggregate([
+      { $match: { userId } },
+      { $sort: { createdAt: -1 } },
+      {
+        $group: {
+          _id: "$customerId",
+          lastMessage: { $first: "$content" },
+          lastMessageDate: { $first: "$createdAt" },
+          platform: { $first: "$platform" },
+          unreadCount: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $eq: ["$direction", "incoming"] },
+                    { $eq: ["$isRead", false] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: "customers",
+          localField: "_id",
+          foreignField: "_id",
+          as: "customer",
+        },
+      },
+      { $unwind: "$customer" },
+      {
+        $project: {
+          _id: 1,
+          lastMessage: 1,
+          lastMessageDate: 1,
+          platform: 1,
+          unreadCount: 1,
+          customer: {
+            _id: "$customer._id",
+            name: "$customer.name",
+            phone: "$customer.phone",
+            platform: "$customer.platform",
+          },
+        },
+      },
+      { $sort: { lastMessageDate: -1 } },
+    ]);
+
+    return conversations;
+  }
+
+  // Get all messages for a specific customer
+  async getCustomerMessages(userId, customerId) {
+    const messages = await Message.find({
+      userId,
+      customerId,
+    })
+      .sort({ createdAt: 1 })
+      .lean();
+
+    // Mark messages as read
+    await Message.updateMany(
+      {
+        userId,
+        customerId,
+        direction: "incoming",
+        isRead: false,
+      },
+      { $set: { isRead: true } }
+    );
+
+    return messages;
+  }
 }
 
 module.exports = new MessageService();

@@ -42,6 +42,13 @@ class AuthService {
       phone,
       emailVerificationToken: verificationToken,
       emailVerificationExpires: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
+      isVerified: true, // Auto-verify for now (skip email verification)
+      subscription: {
+        plan: "premium", // Give premium by default (free trial)
+        status: "active",
+        startDate: new Date(),
+        endDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days trial
+      },
     });
 
     // Send verification email

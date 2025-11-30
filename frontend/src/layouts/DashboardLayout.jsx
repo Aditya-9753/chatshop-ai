@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Outlet, Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import SubscriptionBadge from "../components/SubscriptionBadge";
 import {
   LayoutDashboard,
   Users,
@@ -56,6 +57,11 @@ const DashboardLayout = () => {
 
           {/* Navigation */}
           <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
+            {/* Subscription Badge */}
+            <div className="mb-4 px-2">
+              <SubscriptionBadge user={user} showDetails={true} />
+            </div>
+
             {navigation.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.href;
@@ -185,6 +191,9 @@ const DashboardLayout = () => {
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
                 />
               </div>
+            </div>
+            <div className="hidden md:block">
+              <SubscriptionBadge user={user} />
             </div>
             <button className="relative p-2 text-gray-600 hover:text-gray-900">
               <Bell className="w-6 h-6" />

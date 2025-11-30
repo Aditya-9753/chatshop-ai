@@ -48,3 +48,28 @@ exports.getMessageStats = async (req, res) => {
     return ResponseHandler.error(res, error.message);
   }
 };
+
+// @desc    Get conversations grouped by customer
+exports.getConversations = async (req, res) => {
+  try {
+    const conversations = await messageService.getConversations(req.user._id);
+    return ResponseHandler.success(res, conversations);
+  } catch (error) {
+    console.error("Get conversations error:", error);
+    return ResponseHandler.error(res, error.message);
+  }
+};
+
+// @desc    Get messages for a specific customer
+exports.getCustomerMessages = async (req, res) => {
+  try {
+    const messages = await messageService.getCustomerMessages(
+      req.user._id,
+      req.params.customerId
+    );
+    return ResponseHandler.success(res, messages);
+  } catch (error) {
+    console.error("Get customer messages error:", error);
+    return ResponseHandler.error(res, error.message);
+  }
+};

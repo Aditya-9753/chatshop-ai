@@ -15,6 +15,11 @@ const {
 // @access  Private
 router.get("/", protect, checkSubscription, getOrders);
 
+// @route   GET /api/orders/stats
+// @desc    Get order statistics
+// @access  Private
+router.get("/stats", protect, checkSubscription, getOrderStats);
+
 // @route   GET /api/orders/:id
 // @desc    Get single order
 // @access  Private
@@ -34,10 +39,5 @@ router.put("/:id/status", protect, checkSubscription, updateOrderStatus);
 // @desc    Delete order
 // @access  Private
 router.delete("/:id", protect, checkSubscription, deleteOrder);
-
-// @route   GET /api/orders/stats/summary
-// @desc    Get order statistics
-// @access  Private
-router.get("/stats/summary", protect, checkSubscription, getOrderStats);
 
 module.exports = router;

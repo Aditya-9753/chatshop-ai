@@ -7,7 +7,7 @@ import {
   Instagram,
   MessageCircle,
 } from "lucide-react";
-import axios from "axios";
+import api from "../services/api.service";
 import { useToast } from "../components/Toast";
 
 const Messages = () => {
@@ -25,14 +25,12 @@ const Messages = () => {
   const fetchConversations = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(
-        `${import.meta.env.VITE_API_URL}/messages/conversations`
-      );
-      if (response.data.success) {
-        setConversations(response.data.data);
+      const response = await api.get("/messages/conversations");
+      if (response.success) {
+        setConversations(response.data);
       }
     } catch (err) {
-      error(err.response?.data?.message || "Failed to fetch conversations");
+      error(err.message || "Failed to fetch conversations");
     } finally {
       setLoading(false);
     }
@@ -40,14 +38,12 @@ const Messages = () => {
 
   const fetchMessages = async (customerId) => {
     try {
-      const response = await axios.get(
-        `${import.meta.env.VITE_API_URL}/messages/${customerId}`
-      );
-      if (response.data.success) {
-        setMessages(response.data.data);
+      const response = await api.get(`/messages/${customerId}`);
+      if (response.success) {
+        setMessages(response.data);
       }
     } catch (err) {
-      error(err.response?.data?.message || "Failed to fetch messages");
+      error(err.message || "Failed to fetch messages");
     }
   };
 

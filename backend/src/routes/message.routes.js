@@ -6,7 +6,24 @@ const {
   sendMessage,
   deleteMessage,
   getMessageStats,
+  getConversations,
+  getCustomerMessages,
 } = require("../controllers/message.controller");
+
+// @route   GET /api/messages/conversations
+// @desc    Get all conversations grouped by customer
+// @access  Private
+router.get("/conversations", protect, checkSubscription, getConversations);
+
+// @route   GET /api/messages/stats
+// @desc    Get message statistics
+// @access  Private
+router.get("/stats", protect, checkSubscription, getMessageStats);
+
+// @route   GET /api/messages/:customerId
+// @desc    Get messages for a specific customer
+// @access  Private
+router.get("/:customerId", protect, checkSubscription, getCustomerMessages);
 
 // @route   GET /api/messages
 // @desc    Get all messages
@@ -22,10 +39,5 @@ router.post("/send", protect, checkSubscription, sendMessage);
 // @desc    Delete message
 // @access  Private
 router.delete("/:id", protect, checkSubscription, deleteMessage);
-
-// @route   GET /api/messages/stats
-// @desc    Get message statistics
-// @access  Private
-router.get("/stats", protect, checkSubscription, getMessageStats);
 
 module.exports = router;

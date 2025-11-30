@@ -1,5 +1,8 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import SubscriptionBadge from "../components/SubscriptionBadge";
+import Modal from "../components/Modal";
 import api from "../services/api.service";
 import { API_ENDPOINTS } from "../config/api.config";
 import {
@@ -9,12 +12,42 @@ import {
   TrendingUp,
   DollarSign,
   Package,
+  Crown,
+  Zap,
 } from "lucide-react";
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Modal states
+  const [showCustomerModal, setShowCustomerModal] = useState(false);
+  const [showProductModal, setShowProductModal] = useState(false);
+  const [showOrderModal, setShowOrderModal] = useState(false);
+
+  // Form states
+  const [customerForm, setCustomerForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    platform: "whatsapp",
+  });
+
+  const [productForm, setProductForm] = useState({
+    name: "",
+    description: "",
+    price: "",
+    stock: "",
+    category: "",
+  });
+
+  const [orderForm, setOrderForm] = useState({
+    customerId: "",
+    products: [],
+    totalAmount: "",
+  });
 
   useEffect(() => {
     fetchDashboardData();
@@ -30,6 +63,56 @@ const Dashboard = () => {
       console.error("Error fetching dashboard data:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Handle Customer Creation
+  const handleCreateCustomer = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await api.post(
+        API_ENDPOINTS.CUSTOMERS.BASE,
+        customerForm
+      );
+      if (response.success) {
+        alert("Customer added successfully!");
+        setShowCustomerModal(false);
+        setCustomerForm({
+          name: "",
+          email: "",
+          phone: "",
+          platform: "whatsapp",
+        });
+        fetchDashboardData();
+      }
+    } catch (error) {
+      alert(error.message || "Failed to add customer");
+    }
+  };
+
+  // Handle Product Creation
+  const handleCreateProduct = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await api.post(API_ENDPOINTS.PRODUCTS.BASE, {
+        ...productForm,
+        price: parseFloat(productForm.price),
+        stock: parseInt(productForm.stock),
+      });
+      if (response.success) {
+        alert("Product added successfully!");
+        setShowProductModal(false);
+        setProductForm({
+          name: "",
+          description: "",
+          price: "",
+          stock: "",
+          category: "",
+        });
+        fetchDashboardData();
+      }
+    } catch (error) {
+      alert(error.message || "Failed to add product");
     }
   };
 
@@ -104,6 +187,154 @@ const Dashboard = () => {
         </p>
       </div>
 
+      {/* Subscription Status Card */}
+      {user?.subscription && (
+        <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-lg p-6 text-white">
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-2">
+                {user.subscription.plan === "premium" ? (
+                  <Crown className="w-8 h-8 text-yellow-300" />
+                ) : user.subscription.plan === "business" ? (
+                  <Zap className="w-8 h-8 text-blue-300" />
+                ) : (
+                  <Zap className="w-8 h-8 text-gray-300" />
+                )}
+                <h2 className="text-2xl font-bold capitalize">
+                  {user.subscription.plan} Plan
+                </h2>
+              </div>
+              <p className="text-indigo-100 mb-4">
+                {user.subscription.status === "active"
+                  ? "Your subscription is active and all features are unlocked"
+                  : "Your subscription has expired"}
+              </p>
+              {user.subscription.status === "active" &&
+                user.subscription.endDate && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-indigo-200">
+                      {Math.ceil(
+                        (new Date(user.subscription.endDate) - new Date()) /
+                          (1000 * 60 * 60 * 24)
+                      )}{" "}
+                      days remaining
+                    </span>
+                  </div>
+                )}
+            </div>
+            {user.subscription.plan !== "premium" && (
+              <button className="px-6 py-3 bg-white text-indigo-600 font-semibold rounded-lg hover:bg-indigo-50 transition-colors">
+                Upgrade Plan
+              </button>
+            )}
+          </div>
+
+          {/* Feature List */}
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="flex items-center gap-2 text-sm">
+              <div className="w-5 h-5 rounded-full bg-green-400 flex items-center justify-center">
+                <svg
+                  className="w-3 h-3 text-white"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </div>
+              <span>WhatsApp Integration</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <div className="w-5 h-5 rounded-full bg-green-400 flex items-center justify-center">
+                <svg
+                  className="w-3 h-3 text-white"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </div>
+              <span>Instagram Integration</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <div className="w-5 h-5 rounded-full bg-green-400 flex items-center justify-center">
+                <svg
+                  className="w-3 h-3 text-white"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </div>
+              <span>Analytics Dashboard</span>
+            </div>
+            {user.subscription.plan === "premium" && (
+              <>
+                <div className="flex items-center gap-2 text-sm">
+                  <div className="w-5 h-5 rounded-full bg-green-400 flex items-center justify-center">
+                    <svg
+                      className="w-3 h-3 text-white"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </div>
+                  <span>Unlimited Products</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <div className="w-5 h-5 rounded-full bg-green-400 flex items-center justify-center">
+                    <svg
+                      className="w-3 h-3 text-white"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </div>
+                  <span>Priority Support</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <div className="w-5 h-5 rounded-full bg-green-400 flex items-center justify-center">
+                    <svg
+                      className="w-3 h-3 text-white"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </div>
+                  <span>Advanced Automation</span>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {statCards.map((stat, index) => {
@@ -135,15 +366,24 @@ const Dashboard = () => {
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         <h2 className="text-xl font-bold text-gray-900 mb-4">Quick Actions</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button className="flex items-center gap-3 p-4 border-2 border-gray-200 rounded-lg hover:border-indigo-600 hover:bg-indigo-50 transition-all">
+          <button
+            onClick={() => setShowCustomerModal(true)}
+            className="flex items-center gap-3 p-4 border-2 border-gray-200 rounded-lg hover:border-indigo-600 hover:bg-indigo-50 transition-all"
+          >
             <Users className="w-6 h-6 text-indigo-600" />
             <span className="font-semibold text-gray-900">Add Customer</span>
           </button>
-          <button className="flex items-center gap-3 p-4 border-2 border-gray-200 rounded-lg hover:border-green-600 hover:bg-green-50 transition-all">
+          <button
+            onClick={() => setShowProductModal(true)}
+            className="flex items-center gap-3 p-4 border-2 border-gray-200 rounded-lg hover:border-green-600 hover:bg-green-50 transition-all"
+          >
             <Package className="w-6 h-6 text-green-600" />
             <span className="font-semibold text-gray-900">Add Product</span>
           </button>
-          <button className="flex items-center gap-3 p-4 border-2 border-gray-200 rounded-lg hover:border-purple-600 hover:bg-purple-50 transition-all">
+          <button
+            onClick={() => navigate("/orders")}
+            className="flex items-center gap-3 p-4 border-2 border-gray-200 rounded-lg hover:border-purple-600 hover:bg-purple-50 transition-all"
+          >
             <ShoppingCart className="w-6 h-6 text-purple-600" />
             <span className="font-semibold text-gray-900">Create Order</span>
           </button>
@@ -167,7 +407,10 @@ const Dashboard = () => {
             </span>
           </div>
           {!user?.whatsappConnected && (
-            <button className="mt-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+            <button
+              onClick={() => navigate("/settings")}
+              className="mt-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            >
               Connect WhatsApp
             </button>
           )}
@@ -188,7 +431,10 @@ const Dashboard = () => {
             </span>
           </div>
           {!user?.instagramConnected && (
-            <button className="mt-4 px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors">
+            <button
+              onClick={() => navigate("/settings")}
+              className="mt-4 px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors"
+            >
               Connect Instagram
             </button>
           )}
@@ -219,6 +465,204 @@ const Dashboard = () => {
           ))}
         </div>
       </div>
+
+      {/* Add Customer Modal */}
+      <Modal
+        isOpen={showCustomerModal}
+        onClose={() => setShowCustomerModal(false)}
+        title="Add New Customer"
+        size="md"
+      >
+        <form onSubmit={handleCreateCustomer} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Name *
+            </label>
+            <input
+              type="text"
+              required
+              value={customerForm.name}
+              onChange={(e) =>
+                setCustomerForm({ ...customerForm, name: e.target.value })
+              }
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="Enter customer name"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Email
+            </label>
+            <input
+              type="email"
+              value={customerForm.email}
+              onChange={(e) =>
+                setCustomerForm({ ...customerForm, email: e.target.value })
+              }
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="customer@example.com"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Phone *
+            </label>
+            <input
+              type="tel"
+              required
+              value={customerForm.phone}
+              onChange={(e) =>
+                setCustomerForm({ ...customerForm, phone: e.target.value })
+              }
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="+91 9876543210"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Platform *
+            </label>
+            <select
+              value={customerForm.platform}
+              onChange={(e) =>
+                setCustomerForm({ ...customerForm, platform: e.target.value })
+              }
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="whatsapp">WhatsApp</option>
+              <option value="instagram">Instagram</option>
+            </select>
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <button
+              type="button"
+              onClick={() => setShowCustomerModal(false)}
+              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+            >
+              Add Customer
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Add Product Modal */}
+      <Modal
+        isOpen={showProductModal}
+        onClose={() => setShowProductModal(false)}
+        title="Add New Product"
+        size="md"
+      >
+        <form onSubmit={handleCreateProduct} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Product Name *
+            </label>
+            <input
+              type="text"
+              required
+              value={productForm.name}
+              onChange={(e) =>
+                setProductForm({ ...productForm, name: e.target.value })
+              }
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+              placeholder="Enter product name"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Description
+            </label>
+            <textarea
+              value={productForm.description}
+              onChange={(e) =>
+                setProductForm({ ...productForm, description: e.target.value })
+              }
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+              placeholder="Product description..."
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Price (₹) *
+              </label>
+              <input
+                type="number"
+                required
+                min="0"
+                step="0.01"
+                value={productForm.price}
+                onChange={(e) =>
+                  setProductForm({ ...productForm, price: e.target.value })
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                placeholder="999"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Stock *
+              </label>
+              <input
+                type="number"
+                required
+                min="0"
+                value={productForm.stock}
+                onChange={(e) =>
+                  setProductForm({ ...productForm, stock: e.target.value })
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                placeholder="100"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Category
+            </label>
+            <input
+              type="text"
+              value={productForm.category}
+              onChange={(e) =>
+                setProductForm({ ...productForm, category: e.target.value })
+              }
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+              placeholder="e.g., Electronics, Fashion"
+            />
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <button
+              type="button"
+              onClick={() => setShowProductModal(false)}
+              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            >
+              Add Product
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };
