@@ -15,7 +15,24 @@ exports.getProfile = async (req, res) => {
 // @desc    Update user profile
 exports.updateProfile = async (req, res) => {
   try {
-    const user = await userService.updateProfile(req.user._id, req.body);
+    console.log("Profile update request received");
+    console.log("Request body:", req.body);
+    console.log("Uploaded file:", req.file);
+
+    const profilePhotoPath = req.file
+      ? `/uploads/profiles/${req.file.filename}`
+      : null;
+
+    console.log("Profile photo path:", profilePhotoPath);
+
+    const user = await userService.updateProfile(
+      req.user._id,
+      req.body,
+      profilePhotoPath
+    );
+
+    console.log("Updated user:", user);
+
     return ResponseHandler.success(res, user, "Profile updated successfully");
   } catch (error) {
     console.error("Update profile error:", error);

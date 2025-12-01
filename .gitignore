@@ -1,0 +1,17 @@
+# Guide files
+TEST-DATA-GUIDE.md
+QUICK-START-GUIDE.md
+ANALYTICS-GUIDE.md
+
+# Dependencies
+node_modules/
+
+# Environment variables
+.env
+.env.local
+
+# Build outputs
+dist/
+
+# Uploads
+uploads/

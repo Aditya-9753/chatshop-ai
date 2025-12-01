@@ -18,6 +18,7 @@ import Orders from "./pages/Orders";
 import Messages from "./pages/Messages";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
+import Profile from "./pages/Profile";
 
 function App() {
   return (
@@ -46,6 +47,7 @@ function App() {
               <Route path="orders" element={<Orders />} />
               <Route path="analytics" element={<Analytics />} />
               <Route path="settings" element={<Settings />} />
+              <Route path="profile" element={<Profile />} />
             </Route>
 
             {/* Admin Routes (to be implemented) */}

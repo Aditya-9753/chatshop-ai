@@ -173,7 +173,15 @@ const Products = () => {
               className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow"
             >
               <div className="h-48 bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center">
-                <Package className="w-20 h-20 text-indigo-400" />
+                {product.images && product.images.length > 0 ? (
+                  <img
+                    src={`http://localhost:5000${product.images[0]}`}
+                    alt={product.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <Package className="w-20 h-20 text-indigo-400" />
+                )}
               </div>
               <div className="p-6">
                 <h3 className="text-lg font-bold text-gray-900 mb-2">
@@ -253,8 +261,16 @@ const Products = () => {
                   <tr key={product._id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <div className="flex items-center">
-                        <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center">
-                          <Package className="w-6 h-6 text-indigo-400" />
+                        <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center overflow-hidden">
+                          {product.images && product.images.length > 0 ? (
+                            <img
+                              src={`http://localhost:5000${product.images[0]}`}
+                              alt={product.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <Package className="w-6 h-6 text-indigo-400" />
+                          )}
                         </div>
                         <div className="ml-4">
                           <div className="text-sm font-semibold text-gray-900">

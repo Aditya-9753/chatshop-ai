@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { protect, checkSubscription } = require("../middleware/auth.middleware");
+const upload = require("../middleware/upload.middleware");
 const {
   getProducts,
   getProduct,
@@ -22,12 +23,24 @@ router.get("/:id", protect, checkSubscription, getProduct);
 // @route   POST /api/products
 // @desc    Create new product
 // @access  Private
-router.post("/", protect, checkSubscription, createProduct);
+router.post(
+  "/",
+  protect,
+  checkSubscription,
+  upload.single("image"),
+  createProduct
+);
 
 // @route   PUT /api/products/:id
 // @desc    Update product
 // @access  Private
-router.put("/:id", protect, checkSubscription, updateProduct);
+router.put(
+  "/:id",
+  protect,
+  checkSubscription,
+  upload.single("image"),
+  updateProduct
+);
 
 // @route   DELETE /api/products/:id
 // @desc    Delete product

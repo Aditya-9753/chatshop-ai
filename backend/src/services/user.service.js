@@ -12,22 +12,43 @@ class UserService {
   }
 
   // Update user profile
-  async updateProfile(userId, updateData) {
-    const { name, phone } = updateData;
+  async updateProfile(userId, updateData, profilePhotoPath = null) {
+    const { name, email, phone, businessName } = updateData;
 
     const user = await User.findById(userId);
     if (!user) {
       throw new Error("User not found");
     }
 
+    // Check if email is being changed and if it already exists
+    if (email && email !== user.email) {
+      const existingUser = await User.findOne({ email });
+      if (existingUser) {
+        throw new Error("Email already in use");
+      }
+      user.email = email;
+    }
+
     if (name) user.name = name;
-    if (phone) user.phone = phone;
+    if (phone !== undefined) user.phone = phone;
+    if (businessName !== undefined) {
+      if (!user.businessInfo) {
+        user.businessInfo = {};
+      }
+      user.businessInfo.businessName = businessName;
+    }
+
+    // Update profile photo if provided
+    if (profilePhotoPath) {
+      user.profilePhoto = profilePhotoPath;
+    }
 
     await user.save();
-    return user;
-  }
 
-  // Update password
+    // Return user without password
+    const updatedUser = await User.findById(userId).select("-password");
+    return updatedUser;
+  } // Update password
   async updatePassword(userId, currentPassword, newPassword) {
     const user = await User.findById(userId);
     if (!user) {

@@ -4,6 +4,7 @@ const cors = require("cors");
 const helmet = require("helmet");
 const morgan = require("morgan");
 const rateLimit = require("express-rate-limit");
+const path = require("path");
 require("dotenv").config();
 
 const app = express();
@@ -13,7 +14,11 @@ const connectDB = require("./db/connection");
 connectDB();
 
 // Middleware
-app.use(helmet()); // Security headers
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  })
+); // Security headers with CORS exception for images
 app.use(
   cors({
     origin: [
@@ -27,6 +32,9 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan("dev")); // Logging
+
+// Serve static files (uploaded images)
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 // Rate Limiting
 const limiter = rateLimit({

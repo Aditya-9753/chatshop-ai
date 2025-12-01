@@ -33,7 +33,21 @@ exports.getProduct = async (req, res) => {
 // @desc    Create new product
 exports.createProduct = async (req, res) => {
   try {
-    const product = await productService.createProduct(req.user._id, req.body);
+    console.log("Create product - body:", req.body);
+    console.log("Create product - file:", req.file);
+
+    const productData = req.body;
+
+    // Add image to images array if file was uploaded
+    if (req.file) {
+      const imagePath = `/uploads/products/${req.file.filename}`;
+      productData.images = [imagePath];
+    }
+
+    const product = await productService.createProduct(
+      req.user._id,
+      productData
+    );
     return ResponseHandler.created(
       res,
       product,
@@ -48,10 +62,26 @@ exports.createProduct = async (req, res) => {
 // @desc    Update product
 exports.updateProduct = async (req, res) => {
   try {
+    console.log("Update product - body:", req.body);
+    console.log("Update product - file:", req.file);
+
+    const productData = req.body;
+
+    // Add image to images array if file was uploaded
+    if (req.file) {
+      const imagePath = `/uploads/products/${req.file.filename}`;
+      // If images already exist, append; otherwise create new array
+      if (productData.images && Array.isArray(productData.images)) {
+        productData.images.push(imagePath);
+      } else {
+        productData.images = [imagePath];
+      }
+    }
+
     const product = await productService.updateProduct(
       req.user._id,
       req.params.id,
-      req.body
+      productData
     );
     return ResponseHandler.success(
       res,

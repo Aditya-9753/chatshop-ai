@@ -23,6 +23,10 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: [true, "Phone number is required"],
     },
+    profilePhoto: {
+      type: String,
+      default: null,
+    },
     role: {
       type: String,
       enum: ["user", "admin"],

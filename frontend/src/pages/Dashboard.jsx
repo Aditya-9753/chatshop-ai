@@ -14,6 +14,8 @@ import {
   Package,
   Crown,
   Zap,
+  Camera,
+  Edit,
 } from "lucide-react";
 
 const Dashboard = () => {
@@ -26,6 +28,7 @@ const Dashboard = () => {
   const [showCustomerModal, setShowCustomerModal] = useState(false);
   const [showProductModal, setShowProductModal] = useState(false);
   const [showOrderModal, setShowOrderModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   // Form states
   const [customerForm, setCustomerForm] = useState({
@@ -43,11 +46,26 @@ const Dashboard = () => {
     category: "",
   });
 
+  const [productImage, setProductImage] = useState(null);
+  const [productImagePreview, setProductImagePreview] = useState(null);
+
   const [orderForm, setOrderForm] = useState({
     customerId: "",
     products: [],
     totalAmount: "",
   });
+
+  const [profileForm, setProfileForm] = useState({
+    name: user?.name || "",
+    email: user?.email || "",
+    phone: user?.phone || "",
+    businessName: user?.businessName || "",
+  });
+
+  const [profilePhoto, setProfilePhoto] = useState(null);
+  const [profilePhotoPreview, setProfilePhotoPreview] = useState(
+    user?.profilePhoto ? `http://localhost:5000${user.profilePhoto}` : null
+  );
 
   useEffect(() => {
     fetchDashboardData();
@@ -90,15 +108,47 @@ const Dashboard = () => {
     }
   };
 
+  // Handle Product Image Change
+  const handleProductImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setProductImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProductImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   // Handle Product Creation
   const handleCreateProduct = async (e) => {
     e.preventDefault();
     try {
-      const response = await api.post(API_ENDPOINTS.PRODUCTS.BASE, {
-        ...productForm,
-        price: parseFloat(productForm.price),
-        stock: parseInt(productForm.stock),
-      });
+      let response;
+
+      if (productImage) {
+        const formData = new FormData();
+        formData.append("name", productForm.name);
+        formData.append("description", productForm.description);
+        formData.append("price", productForm.price);
+        formData.append("stock", productForm.stock);
+        formData.append("category", productForm.category);
+        formData.append("image", productImage);
+
+        response = await api.post(API_ENDPOINTS.PRODUCTS.BASE, formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
+      } else {
+        response = await api.post(API_ENDPOINTS.PRODUCTS.BASE, {
+          ...productForm,
+          price: parseFloat(productForm.price),
+          stock: parseInt(productForm.stock),
+        });
+      }
+
       if (response.success) {
         alert("Product added successfully!");
         setShowProductModal(false);
@@ -109,11 +159,66 @@ const Dashboard = () => {
           stock: "",
           category: "",
         });
+        setProductImage(null);
+        setProductImagePreview(null);
         fetchDashboardData();
       }
     } catch (error) {
       alert(error.message || "Failed to add product");
     }
+  };
+
+  // Handle Profile Photo Change
+  const handlePhotoChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setProfilePhoto(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfilePhotoPreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Handle Profile Update
+  const handleUpdateProfile = async (e) => {
+    e.preventDefault();
+    try {
+      const formData = new FormData();
+      formData.append("name", profileForm.name);
+      formData.append("email", profileForm.email);
+      formData.append("phone", profileForm.phone);
+      formData.append("businessName", profileForm.businessName);
+
+      if (profilePhoto) {
+        formData.append("profilePhoto", profilePhoto);
+      }
+
+      const response = await api.put(
+        API_ENDPOINTS.USER.UPDATE_PROFILE,
+        profileForm
+      );
+      if (response.success) {
+        alert("Profile updated successfully!");
+        setShowProfileModal(false);
+        window.location.reload(); // Reload to update user data
+      }
+    } catch (error) {
+      alert(error.message || "Failed to update profile");
+    }
+  };
+
+  // Open profile modal and populate form
+  const openProfileModal = () => {
+    setProfileForm({
+      name: user?.name || "",
+      email: user?.email || "",
+      phone: user?.phone || "",
+      businessName: user?.businessName || "",
+    });
+    setProfilePhotoPreview(user?.profilePhoto || null);
+    setShowProfileModal(true);
   };
 
   if (loading) {
@@ -177,14 +282,43 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">
-          Welcome back, {user?.name}!
-        </h1>
-        <p className="text-gray-600 mt-2">
-          Here's what's happening with your business today.
-        </p>
+      {/* Header with Profile */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">
+            Welcome back, {user?.name}!
+          </h1>
+          <p className="text-gray-600 mt-2">
+            Here's what's happening with your business today.
+          </p>
+        </div>
+
+        {/* Profile Section */}
+        <div className="flex items-center gap-4">
+          <div className="text-right hidden md:block">
+            <p className="text-sm font-semibold text-gray-900">{user?.name}</p>
+            <p className="text-xs text-gray-500">{user?.email}</p>
+          </div>
+          <button
+            onClick={() => navigate("/dashboard/profile")}
+            className="relative group"
+          >
+            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold cursor-pointer hover:shadow-lg transition-shadow overflow-hidden">
+              {profilePhotoPreview ? (
+                <img
+                  src={profilePhotoPreview}
+                  alt="Profile"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                user?.name?.charAt(0).toUpperCase()
+              )}
+            </div>
+            <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-indigo-600 text-white rounded-full flex items-center justify-center shadow-md">
+              <Edit className="w-3 h-3" />
+            </div>
+          </button>
+        </div>
       </div>
 
       {/* Subscription Status Card */}
@@ -563,6 +697,48 @@ const Dashboard = () => {
         size="md"
       >
         <form onSubmit={handleCreateProduct} className="space-y-4">
+          {/* Product Image Upload */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Product Image
+            </label>
+            <div className="flex items-center gap-4">
+              <div className="w-24 h-24 rounded-lg border-2 border-gray-300 border-dashed flex items-center justify-center overflow-hidden bg-gray-50">
+                {productImagePreview ? (
+                  <img
+                    src={productImagePreview}
+                    alt="Product preview"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <Package className="w-8 h-8 text-gray-400" />
+                )}
+              </div>
+              <label className="cursor-pointer px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors border border-gray-300">
+                <Camera className="w-4 h-4 inline mr-2" />
+                Choose Image
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleProductImageChange}
+                  className="hidden"
+                />
+              </label>
+              {productImagePreview && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProductImage(null);
+                    setProductImagePreview(null);
+                  }}
+                  className="text-sm text-red-600 hover:text-red-700"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Product Name *
@@ -659,6 +835,123 @@ const Dashboard = () => {
               className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
             >
               Add Product
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Edit Profile Modal */}
+      <Modal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        title="Edit Profile"
+        size="md"
+      >
+        <form onSubmit={handleUpdateProfile} className="space-y-4">
+          {/* Profile Photo Upload */}
+          <div className="flex flex-col items-center mb-6">
+            <div className="relative group">
+              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-4xl font-bold overflow-hidden">
+                {profilePhotoPreview ? (
+                  <img
+                    src={profilePhotoPreview}
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  user?.name?.charAt(0).toUpperCase()
+                )}
+              </div>
+              <label className="absolute bottom-0 right-0 w-8 h-8 bg-indigo-600 text-white rounded-full flex items-center justify-center cursor-pointer hover:bg-indigo-700 transition-colors shadow-lg">
+                <Camera className="w-4 h-4" />
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePhotoChange}
+                  className="hidden"
+                />
+              </label>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              Click camera icon to upload photo
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Full Name *
+            </label>
+            <input
+              type="text"
+              required
+              value={profileForm.name}
+              onChange={(e) =>
+                setProfileForm({ ...profileForm, name: e.target.value })
+              }
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="Enter your name"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Email *
+            </label>
+            <input
+              type="email"
+              required
+              value={profileForm.email}
+              onChange={(e) =>
+                setProfileForm({ ...profileForm, email: e.target.value })
+              }
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="your@email.com"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Phone
+            </label>
+            <input
+              type="tel"
+              value={profileForm.phone}
+              onChange={(e) =>
+                setProfileForm({ ...profileForm, phone: e.target.value })
+              }
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="+91 9876543210"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Business Name
+            </label>
+            <input
+              type="text"
+              value={profileForm.businessName}
+              onChange={(e) =>
+                setProfileForm({ ...profileForm, businessName: e.target.value })
+              }
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="Your Business Name"
+            />
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <button
+              type="button"
+              onClick={() => setShowProfileModal(false)}
+              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+            >
+              Save Changes
             </button>
           </div>
         </form>

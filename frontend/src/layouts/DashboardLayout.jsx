@@ -84,19 +84,30 @@ const DashboardLayout = () => {
 
           {/* User section */}
           <div className="p-4 border-t border-gray-200">
-            <div className="flex items-center gap-3 px-4 py-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-400 to-purple-400 flex items-center justify-center text-white font-semibold">
-                {user?.name?.charAt(0).toUpperCase()}
+            <button
+              onClick={() => navigate("/dashboard/profile")}
+              className="flex items-center gap-3 px-4 py-3 w-full hover:bg-gray-50 rounded-lg transition-colors mb-2"
+            >
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-400 to-purple-400 flex items-center justify-center text-white font-semibold overflow-hidden">
+                {user?.profilePhoto ? (
+                  <img
+                    src={`http://localhost:5000${user.profilePhoto}`}
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  user?.name?.charAt(0).toUpperCase()
+                )}
               </div>
-              <div className="flex-1 min-w-0">
+              <div className="flex-1 min-w-0 text-left">
                 <div className="text-sm font-semibold text-gray-900 truncate">
                   {user?.name}
                 </div>
                 <div className="text-xs text-gray-500 truncate">
-                  {user?.email}
+                  View Profile
                 </div>
               </div>
-            </div>
+            </button>
             <button
               onClick={handleLogout}
               className="flex items-center gap-3 w-full px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"

@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { protect } = require("../middleware/auth.middleware");
+const upload = require("../middleware/upload.middleware");
 const {
   getProfile,
   updateProfile,
@@ -20,7 +21,7 @@ router.get("/profile", protect, getProfile);
 // @route   PUT /api/users/profile
 // @desc    Update user profile
 // @access  Private
-router.put("/profile", protect, updateProfile);
+router.put("/profile", protect, upload.single("profilePhoto"), updateProfile);
 
 // @route   PUT /api/users/password
 // @desc    Update user password
