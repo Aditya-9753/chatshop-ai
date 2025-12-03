@@ -97,3 +97,81 @@ exports.blockCustomer = async (req, res) => {
     return ResponseHandler.notFound(res, error.message);
   }
 };
+
+// @desc    Add tag to customer
+exports.addTag = async (req, res) => {
+  try {
+    const { tag } = req.body;
+    const customer = await customerService.addTag(
+      req.user._id,
+      req.params.id,
+      tag
+    );
+    return ResponseHandler.success(res, customer, "Tag added successfully");
+  } catch (error) {
+    console.error("Add tag error:", error);
+    return ResponseHandler.badRequest(res, error.message);
+  }
+};
+
+// @desc    Remove tag from customer
+exports.removeTag = async (req, res) => {
+  try {
+    const { tag } = req.body;
+    const customer = await customerService.removeTag(
+      req.user._id,
+      req.params.id,
+      tag
+    );
+    return ResponseHandler.success(res, customer, "Tag removed successfully");
+  } catch (error) {
+    console.error("Remove tag error:", error);
+    return ResponseHandler.badRequest(res, error.message);
+  }
+};
+
+// @desc    Add internal note
+exports.addInternalNote = async (req, res) => {
+  try {
+    const { note } = req.body;
+    const internalNote = await customerService.addInternalNote(
+      req.user._id,
+      req.params.id,
+      note,
+      req.user.name
+    );
+    return ResponseHandler.created(
+      res,
+      internalNote,
+      "Note added successfully"
+    );
+  } catch (error) {
+    console.error("Add internal note error:", error);
+    return ResponseHandler.badRequest(res, error.message);
+  }
+};
+
+// @desc    Get internal notes
+exports.getInternalNotes = async (req, res) => {
+  try {
+    const notes = await customerService.getInternalNotes(
+      req.user._id,
+      req.params.id
+    );
+    return ResponseHandler.success(res, notes);
+  } catch (error) {
+    console.error("Get internal notes error:", error);
+    return ResponseHandler.error(res, error.message);
+  }
+};
+
+// @desc    Delete internal note
+exports.deleteInternalNote = async (req, res) => {
+  try {
+    await customerService.deleteInternalNote(req.user._id, req.params.noteId);
+    return ResponseHandler.success(res, null, "Note deleted successfully");
+  } catch (error) {
+    console.error("Delete internal note error:", error);
+    return ResponseHandler.notFound(res, error.message);
+  }
+};

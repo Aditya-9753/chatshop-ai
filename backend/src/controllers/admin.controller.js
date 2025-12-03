@@ -1,6 +1,17 @@
 const adminService = require("../services/admin.service");
 const ResponseHandler = require("../utils/response.handler");
 
+// @desc    Get admin dashboard stats
+exports.getDashboardStats = async (req, res) => {
+  try {
+    const stats = await adminService.getDashboardStats();
+    return ResponseHandler.success(res, stats);
+  } catch (error) {
+    console.error("Get dashboard stats error:", error);
+    return ResponseHandler.error(res, error.message);
+  }
+};
+
 // @desc    Get all users
 exports.getAllUsers = async (req, res) => {
   try {

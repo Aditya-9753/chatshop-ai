@@ -6,13 +6,38 @@ const orderHelper = require("../utils/order.helper");
 class OrderService {
   // Get all orders with filters
   async getOrders(userId, filters = {}) {
-    const { status, paymentStatus, customerId, page = 1, limit = 20 } = filters;
+    const {
+      status,
+      paymentStatus,
+      customerId,
+      search,
+      page = 1,
+      limit = 20,
+    } = filters;
 
     const query = { userId };
 
-    if (status) query.orderStatus = status;
+    if (status) query.status = status;
     if (paymentStatus) query.paymentStatus = paymentStatus;
     if (customerId) query.customerId = customerId;
+
+    // Handle search - search by order number or customer name/phone
+    if (search) {
+      const customers = await Customer.find({
+        userId,
+        $or: [
+          { name: { $regex: search, $options: "i" } },
+          { phone: { $regex: search, $options: "i" } },
+        ],
+      }).select("_id");
+
+      const customerIds = customers.map((c) => c._id);
+
+      query.$or = [
+        { orderNumber: { $regex: search, $options: "i" } },
+        { customerId: { $in: customerIds } },
+      ];
+    }
 
     const orders = await Order.find(query)
       .populate("customerId", "name phone platform")
@@ -96,9 +121,9 @@ class OrderService {
       throw new Error("Order not found");
     }
 
-    const { orderStatus, paymentStatus } = statusData;
+    const { status, paymentStatus } = statusData;
 
-    if (orderStatus) order.orderStatus = orderStatus;
+    if (status) order.status = status;
     if (paymentStatus) order.paymentStatus = paymentStatus;
 
     await order.save();
@@ -139,23 +164,23 @@ class OrderService {
           _id: null,
           totalOrders: { $sum: 1 },
           totalRevenue: { $sum: "$total" },
-          pendingOrders: {
-            $sum: { $cond: [{ $eq: ["$orderStatus", "pending"] }, 1, 0] },
+          pending: {
+            $sum: { $cond: [{ $eq: ["$status", "pending"] }, 1, 0] },
           },
-          confirmedOrders: {
-            $sum: { $cond: [{ $eq: ["$orderStatus", "confirmed"] }, 1, 0] },
+          confirmed: {
+            $sum: { $cond: [{ $eq: ["$status", "confirmed"] }, 1, 0] },
           },
-          processingOrders: {
-            $sum: { $cond: [{ $eq: ["$orderStatus", "processing"] }, 1, 0] },
+          processing: {
+            $sum: { $cond: [{ $eq: ["$status", "processing"] }, 1, 0] },
           },
-          shippedOrders: {
-            $sum: { $cond: [{ $eq: ["$orderStatus", "shipped"] }, 1, 0] },
+          shipped: {
+            $sum: { $cond: [{ $eq: ["$status", "shipped"] }, 1, 0] },
           },
-          deliveredOrders: {
-            $sum: { $cond: [{ $eq: ["$orderStatus", "delivered"] }, 1, 0] },
+          delivered: {
+            $sum: { $cond: [{ $eq: ["$status", "delivered"] }, 1, 0] },
           },
-          cancelledOrders: {
-            $sum: { $cond: [{ $eq: ["$orderStatus", "cancelled"] }, 1, 0] },
+          cancelled: {
+            $sum: { $cond: [{ $eq: ["$status", "cancelled"] }, 1, 0] },
           },
           paidOrders: {
             $sum: { $cond: [{ $eq: ["$paymentStatus", "paid"] }, 1, 0] },
@@ -171,12 +196,12 @@ class OrderService {
       stats[0] || {
         totalOrders: 0,
         totalRevenue: 0,
-        pendingOrders: 0,
-        confirmedOrders: 0,
-        processingOrders: 0,
-        shippedOrders: 0,
-        deliveredOrders: 0,
-        cancelledOrders: 0,
+        pending: 0,
+        confirmed: 0,
+        processing: 0,
+        shipped: 0,
+        delivered: 0,
+        cancelled: 0,
         paidOrders: 0,
         pendingPayments: 0,
       }

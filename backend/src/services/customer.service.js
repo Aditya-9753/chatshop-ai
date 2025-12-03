@@ -1,4 +1,5 @@
 const Customer = require("../models/Customer.model");
+const InternalNote = require("../models/InternalNote.model");
 
 class CustomerService {
   // Get all customers with filters
@@ -129,6 +130,78 @@ class CustomerService {
     await customer.save();
 
     return customer;
+  }
+
+  // Add tag to customer
+  async addTag(userId, customerId, tag) {
+    const customer = await Customer.findOne({ _id: customerId, userId });
+
+    if (!customer) {
+      throw new Error("Customer not found");
+    }
+
+    if (!customer.tags.includes(tag)) {
+      customer.tags.push(tag);
+      await customer.save();
+    }
+
+    return customer;
+  }
+
+  // Remove tag from customer
+  async removeTag(userId, customerId, tag) {
+    const customer = await Customer.findOne({ _id: customerId, userId });
+
+    if (!customer) {
+      throw new Error("Customer not found");
+    }
+
+    customer.tags = customer.tags.filter((t) => t !== tag);
+    await customer.save();
+
+    return customer;
+  }
+
+  // Add internal note
+  async addInternalNote(userId, customerId, note, createdByName) {
+    const customer = await Customer.findOne({ _id: customerId, userId });
+
+    if (!customer) {
+      throw new Error("Customer not found");
+    }
+
+    const internalNote = await InternalNote.create({
+      userId,
+      customerId,
+      note,
+      createdBy: userId,
+      createdByName,
+    });
+
+    return internalNote;
+  }
+
+  // Get internal notes for a customer
+  async getInternalNotes(userId, customerId) {
+    const notes = await InternalNote.find({ customerId, userId })
+      .sort({ createdAt: -1 })
+      .limit(50);
+
+    return notes;
+  }
+
+  // Delete internal note
+  async deleteInternalNote(userId, noteId) {
+    const note = await InternalNote.findOneAndDelete({
+      _id: noteId,
+      userId,
+    });
+
+    if (!note) {
+      throw new Error("Note not found");
+    }
+
+    return true;
   }
 }
 

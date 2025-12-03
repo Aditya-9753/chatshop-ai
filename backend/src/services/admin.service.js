@@ -2,8 +2,130 @@ const User = require("../models/User.model");
 const Customer = require("../models/Customer.model");
 const Message = require("../models/Message.model");
 const Order = require("../models/Order.model");
+const Product = require("../models/Product.model");
 
 class AdminService {
+  // Get dashboard overview stats
+  async getDashboardStats() {
+    // Total users
+    const totalUsers = await User.countDocuments({ role: "user" });
+
+    // Active users (logged in within last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const activeUsers = await User.countDocuments({
+      role: "user",
+      updatedAt: { $gte: thirtyDaysAgo },
+    });
+
+    // Premium users
+    const premiumUsers = await User.countDocuments({
+      role: "user",
+      "subscription.status": "active",
+    });
+
+    // Free users
+    const freeUsers = totalUsers - premiumUsers;
+
+    // Users by plan
+    const starterUsers = await User.countDocuments({
+      role: "user",
+      "subscription.plan": "starter",
+      "subscription.status": "active",
+    });
+
+    const businessUsers = await User.countDocuments({
+      role: "user",
+      "subscription.plan": "business",
+      "subscription.status": "active",
+    });
+
+    const premiumPlanUsers = await User.countDocuments({
+      role: "user",
+      "subscription.plan": "premium",
+      "subscription.status": "active",
+    });
+
+    // Total revenue
+    const totalRevenue = await this.calculateTotalRevenue();
+
+    // Platform connections
+    const whatsappConnected = await User.countDocuments({
+      role: "user",
+      "whatsappConfig.isConnected": true,
+    });
+
+    const instagramConnected = await User.countDocuments({
+      role: "user",
+      "instagramConfig.isConnected": true,
+    });
+
+    // Total entities across all users
+    const totalCustomers = await Customer.countDocuments();
+    const totalOrders = await Order.countDocuments();
+    const totalProducts = await Product.countDocuments();
+    const totalMessages = await Message.countDocuments();
+
+    // Recent signups (last 7 days)
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const recentSignups = await User.countDocuments({
+      role: "user",
+      createdAt: { $gte: sevenDaysAgo },
+    });
+
+    return {
+      users: {
+        total: totalUsers,
+        active: activeUsers,
+        premium: premiumUsers,
+        free: freeUsers,
+        recentSignups,
+      },
+      subscriptions: {
+        starter: starterUsers,
+        business: businessUsers,
+        premium: premiumPlanUsers,
+      },
+      platforms: {
+        whatsapp: whatsappConnected,
+        instagram: instagramConnected,
+      },
+      entities: {
+        customers: totalCustomers,
+        orders: totalOrders,
+        products: totalProducts,
+        messages: totalMessages,
+      },
+      revenue: {
+        total: totalRevenue,
+      },
+    };
+  }
+
+  // Calculate total revenue
+  async calculateTotalRevenue() {
+    const planPrices = {
+      starter: 499,
+      business: 999,
+      premium: 1999,
+    };
+
+    const activeSubscriptions = await User.find({
+      role: "user",
+      "subscription.status": "active",
+    }).select("subscription.plan");
+
+    let total = 0;
+    activeSubscriptions.forEach((user) => {
+      if (user.subscription && user.subscription.plan) {
+        total += planPrices[user.subscription.plan] || 0;
+      }
+    });
+
+    return total;
+  }
+
   // Get all users
   async getAllUsers(filters = {}) {
     const { page = 1, limit = 20, search, subscriptionStatus } = filters;

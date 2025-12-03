@@ -1,6 +1,16 @@
 import React, { useState, useEffect } from "react";
-import { Package, Plus, Search, Edit, Trash2, Grid, List } from "lucide-react";
+import {
+  Package,
+  Plus,
+  Search,
+  Edit,
+  Trash2,
+  Grid,
+  List,
+  Camera,
+} from "lucide-react";
 import productService from "../services/product.service";
+import { API_CONFIG } from "../config/api.config";
 import Modal from "../components/Modal";
 import Button from "../components/Button";
 import Input from "../components/Input";
@@ -20,6 +30,8 @@ const Products = () => {
     stock: "",
     category: "",
   });
+  const [productImage, setProductImage] = useState(null);
+  const [productImagePreview, setProductImagePreview] = useState(null);
   const { success, error } = useToast();
 
   useEffect(() => {
@@ -43,16 +55,22 @@ const Products = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const data = {
-        ...formData,
-        price: parseFloat(formData.price),
-        stock: parseInt(formData.stock),
-      };
+      const formDataToSend = new FormData();
+      formDataToSend.append("name", formData.name);
+      formDataToSend.append("description", formData.description);
+      formDataToSend.append("price", parseFloat(formData.price));
+      formDataToSend.append("stock", parseInt(formData.stock));
+      formDataToSend.append("category", formData.category);
+
+      if (productImage) {
+        formDataToSend.append("image", productImage);
+      }
+
       if (selectedProduct) {
-        await productService.updateProduct(selectedProduct._id, data);
+        await productService.updateProduct(selectedProduct._id, formDataToSend);
         success("Product updated successfully");
       } else {
-        await productService.createProduct(data);
+        await productService.createProduct(formDataToSend);
         success("Product created successfully");
       }
       setIsModalOpen(false);
@@ -85,6 +103,10 @@ const Products = () => {
         stock: product.stock.toString(),
         category: product.category || "",
       });
+      if (product.images && product.images.length > 0) {
+        const baseURL = API_CONFIG.BASE_URL.replace("/api", "");
+        setProductImagePreview(`${baseURL}${product.images[0]}`);
+      }
     }
     setIsModalOpen(true);
   };
@@ -98,6 +120,20 @@ const Products = () => {
       stock: "",
       category: "",
     });
+    setProductImage(null);
+    setProductImagePreview(null);
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setProductImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProductImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleChange = (e) => {
@@ -175,7 +211,9 @@ const Products = () => {
               <div className="h-48 bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center">
                 {product.images && product.images.length > 0 ? (
                   <img
-                    src={`http://localhost:5000${product.images[0]}`}
+                    src={`${API_CONFIG.BASE_URL.replace("/api", "")}${
+                      product.images[0]
+                    }`}
                     alt={product.name}
                     className="w-full h-full object-cover"
                   />
@@ -264,7 +302,9 @@ const Products = () => {
                         <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center overflow-hidden">
                           {product.images && product.images.length > 0 ? (
                             <img
-                              src={`http://localhost:5000${product.images[0]}`}
+                              src={`${API_CONFIG.BASE_URL.replace("/api", "")}${
+                                product.images[0]
+                              }`}
                               alt={product.name}
                               className="w-full h-full object-cover"
                             />
@@ -341,6 +381,48 @@ const Products = () => {
         title={selectedProduct ? "Edit Product" : "Add New Product"}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Product Image Upload */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Product Image
+            </label>
+            <div className="flex items-center gap-4">
+              <div className="w-24 h-24 rounded-lg border-2 border-gray-300 border-dashed flex items-center justify-center overflow-hidden bg-gray-50">
+                {productImagePreview ? (
+                  <img
+                    src={productImagePreview}
+                    alt="Product preview"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <Package className="w-8 h-8 text-gray-400" />
+                )}
+              </div>
+              <label className="cursor-pointer px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors border border-gray-300 text-sm font-medium">
+                <Camera className="w-4 h-4 inline mr-2" />
+                Choose Image
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  className="hidden"
+                />
+              </label>
+              {productImagePreview && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProductImage(null);
+                    setProductImagePreview(null);
+                  }}
+                  className="text-sm text-red-600 hover:text-red-700 font-medium"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          </div>
+
           <Input
             label="Product Name"
             name="name"

@@ -101,9 +101,10 @@ export const API_ENDPOINTS = {
 
   // Admin
   ADMIN: {
+    DASHBOARD: "/admin/dashboard",
     USERS: "/admin/users",
     USER: (id) => `/admin/users/${id}`,
-    BLOCK_USER: (id) => `/admin/users/${id}/block`,
+    UPDATE_USER: (id) => `/admin/users/${id}`,
     DELETE_USER: (id) => `/admin/users/${id}`,
     STATS: "/admin/stats",
   },

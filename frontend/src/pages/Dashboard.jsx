@@ -496,34 +496,6 @@ const Dashboard = () => {
         })}
       </div>
 
-      {/* Quick Actions */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button
-            onClick={() => setShowCustomerModal(true)}
-            className="flex items-center gap-3 p-4 border-2 border-gray-200 rounded-lg hover:border-indigo-600 hover:bg-indigo-50 transition-all"
-          >
-            <Users className="w-6 h-6 text-indigo-600" />
-            <span className="font-semibold text-gray-900">Add Customer</span>
-          </button>
-          <button
-            onClick={() => setShowProductModal(true)}
-            className="flex items-center gap-3 p-4 border-2 border-gray-200 rounded-lg hover:border-green-600 hover:bg-green-50 transition-all"
-          >
-            <Package className="w-6 h-6 text-green-600" />
-            <span className="font-semibold text-gray-900">Add Product</span>
-          </button>
-          <button
-            onClick={() => navigate("/orders")}
-            className="flex items-center gap-3 p-4 border-2 border-gray-200 rounded-lg hover:border-purple-600 hover:bg-purple-50 transition-all"
-          >
-            <ShoppingCart className="w-6 h-6 text-purple-600" />
-            <span className="font-semibold text-gray-900">Create Order</span>
-          </button>
-        </div>
-      </div>
-
       {/* Connection Status */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
@@ -668,6 +640,7 @@ const Dashboard = () => {
             >
               <option value="whatsapp">WhatsApp</option>
               <option value="instagram">Instagram</option>
+              <option value="other">Other</option>
             </select>
           </div>
 
@@ -697,48 +670,6 @@ const Dashboard = () => {
         size="md"
       >
         <form onSubmit={handleCreateProduct} className="space-y-4">
-          {/* Product Image Upload */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Product Image
-            </label>
-            <div className="flex items-center gap-4">
-              <div className="w-24 h-24 rounded-lg border-2 border-gray-300 border-dashed flex items-center justify-center overflow-hidden bg-gray-50">
-                {productImagePreview ? (
-                  <img
-                    src={productImagePreview}
-                    alt="Product preview"
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <Package className="w-8 h-8 text-gray-400" />
-                )}
-              </div>
-              <label className="cursor-pointer px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors border border-gray-300">
-                <Camera className="w-4 h-4 inline mr-2" />
-                Choose Image
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleProductImageChange}
-                  className="hidden"
-                />
-              </label>
-              {productImagePreview && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setProductImage(null);
-                    setProductImagePreview(null);
-                  }}
-                  className="text-sm text-red-600 hover:text-red-700"
-                >
-                  Remove
-                </button>
-              )}
-            </div>
-          </div>
-
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Product Name *

@@ -26,6 +26,28 @@ class CustomerService {
   async blockCustomer(id, isBlocked) {
     return await api.put(API_ENDPOINTS.CUSTOMERS.BLOCK(id), { isBlocked });
   }
+
+  async addTag(id, tag) {
+    return await api.post(`${API_ENDPOINTS.CUSTOMERS.GET(id)}/tags`, { tag });
+  }
+
+  async removeTag(id, tag) {
+    return await api.delete(`${API_ENDPOINTS.CUSTOMERS.GET(id)}/tags`, {
+      data: { tag },
+    });
+  }
+
+  async addInternalNote(id, note) {
+    return await api.post(`${API_ENDPOINTS.CUSTOMERS.GET(id)}/notes`, { note });
+  }
+
+  async getInternalNotes(id) {
+    return await api.get(`${API_ENDPOINTS.CUSTOMERS.GET(id)}/notes`);
+  }
+
+  async deleteInternalNote(noteId) {
+    return await api.delete(`/customers/notes/${noteId}`);
+  }
 }
 
 export default new CustomerService();

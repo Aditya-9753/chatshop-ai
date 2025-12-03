@@ -9,6 +9,10 @@ import {
   CheckCircle,
   Phone,
   Mail,
+  Tag,
+  StickyNote,
+  X,
+  Filter,
 } from "lucide-react";
 import customerService from "../services/customer.service";
 import Modal from "../components/Modal";
@@ -16,12 +20,38 @@ import Button from "../components/Button";
 import Input from "../components/Input";
 import { useToast } from "../components/Toast";
 
+const AVAILABLE_TAGS = [
+  { id: "vip", label: "VIP", color: "bg-purple-100 text-purple-800" },
+  {
+    id: "first-time",
+    label: "First Time",
+    color: "bg-green-100 text-green-800",
+  },
+  { id: "inactive", label: "Inactive", color: "bg-gray-100 text-gray-800" },
+  { id: "returning", label: "Returning", color: "bg-blue-100 text-blue-800" },
+  {
+    id: "high-value",
+    label: "High Value",
+    color: "bg-yellow-100 text-yellow-800",
+  },
+  {
+    id: "needs-followup",
+    label: "Needs Follow-up",
+    color: "bg-red-100 text-red-800",
+  },
+];
+
 const Customers = () => {
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
+  const [customerNotes, setCustomerNotes] = useState([]);
+  const [newNote, setNewNote] = useState("");
+  const [tagFilter, setTagFilter] = useState("");
+  const [showTagDropdown, setShowTagDropdown] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
@@ -87,6 +117,72 @@ const Customers = () => {
       fetchCustomers();
     } catch (err) {
       error(err.message || "Operation failed");
+    }
+  };
+
+  const handleAddTag = async (customerId, tag) => {
+    try {
+      await customerService.addTag(customerId, tag);
+      success("Tag added successfully");
+      fetchCustomers();
+      setShowTagDropdown(null);
+    } catch (err) {
+      error(err.message || "Failed to add tag");
+    }
+  };
+
+  const handleRemoveTag = async (customerId, tag) => {
+    try {
+      await customerService.removeTag(customerId, tag);
+      success("Tag removed successfully");
+      fetchCustomers();
+    } catch (err) {
+      error(err.message || "Failed to remove tag");
+    }
+  };
+
+  const openNotesModal = async (customer) => {
+    setSelectedCustomer(customer);
+    setIsNotesModalOpen(true);
+    try {
+      const response = await customerService.getInternalNotes(customer._id);
+      if (response.success) {
+        setCustomerNotes(response.data);
+      }
+    } catch (err) {
+      error("Failed to load notes");
+    }
+  };
+
+  const handleAddNote = async () => {
+    if (!newNote.trim()) return;
+    try {
+      await customerService.addInternalNote(selectedCustomer._id, newNote);
+      success("Note added successfully");
+      setNewNote("");
+      const response = await customerService.getInternalNotes(
+        selectedCustomer._id
+      );
+      if (response.success) {
+        setCustomerNotes(response.data);
+      }
+    } catch (err) {
+      error("Failed to add note");
+    }
+  };
+
+  const handleDeleteNote = async (noteId) => {
+    try {
+      await customerService.deleteInternalNote(noteId);
+      success("Note deleted successfully");
+      const response = await customerService.getInternalNotes(
+        selectedCustomer._id
+      );
+      if (response.success) {
+        setCustomerNotes(response.data);
+      }
+    } catch (err) {
+      error("Failed to delete note");
     }
   };
 
@@ -323,6 +419,7 @@ const Customers = () => {
             >
               <option value="whatsapp">WhatsApp</option>
               <option value="instagram">Instagram</option>
+              <option value="other">Other</option>
             </select>
           </div>
           <div className="flex gap-3 pt-4">
