@@ -128,19 +128,43 @@ class AdminService {
 
   // Get all users
   async getAllUsers(filters = {}) {
-    const { page = 1, limit = 20, search, subscriptionStatus } = filters;
+    const {
+      page = 1,
+      limit = 20,
+      search,
+      subscriptionStatus,
+      plan,
+      status,
+    } = filters;
 
-    const query = {};
+    const query = { role: { $ne: "admin" } }; // Exclude admin users
 
     if (search) {
       query.$or = [
         { name: { $regex: search, $options: "i" } },
         { email: { $regex: search, $options: "i" } },
+        { phone: { $regex: search, $options: "i" } },
       ];
     }
 
     if (subscriptionStatus) {
       query["subscription.status"] = subscriptionStatus;
+    }
+
+    if (plan && plan !== "all") {
+      if (plan === "free") {
+        query.$or = [
+          { "subscription.plan": { $exists: false } },
+          { "subscription.plan": null },
+          { "subscription.plan": "" },
+        ];
+      } else {
+        query["subscription.plan"] = plan;
+      }
+    }
+
+    if (status && status !== "all") {
+      query["subscription.status"] = status;
     }
 
     const users = await User.find(query)
@@ -171,6 +195,7 @@ class AdminService {
     const totalCustomers = await Customer.countDocuments({ userId: user._id });
     const totalMessages = await Message.countDocuments({ userId: user._id });
     const totalOrders = await Order.countDocuments({ userId: user._id });
+    const totalProducts = await Product.countDocuments({ userId: user._id });
 
     const revenueData = await Order.aggregate([
       { $match: { userId: user._id, paymentStatus: "paid" } },
@@ -180,12 +205,13 @@ class AdminService {
     const totalRevenue = revenueData[0]?.totalRevenue || 0;
 
     return {
-      ...user.toObject(),
+      user: user.toObject(),
       stats: {
-        totalCustomers,
-        totalMessages,
-        totalOrders,
-        totalRevenue,
+        customers: totalCustomers,
+        messages: totalMessages,
+        orders: totalOrders,
+        products: totalProducts,
+        revenue: totalRevenue,
       },
     };
   }

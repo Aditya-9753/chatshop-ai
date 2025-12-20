@@ -89,7 +89,7 @@ const Dashboard = () => {
     e.preventDefault();
     try {
       const response = await api.post(
-        API_ENDPOINTS.CUSTOMERS.BASE,
+        API_ENDPOINTS.CUSTOMERS.CREATE,
         customerForm
       );
       if (response.success) {
@@ -136,13 +136,13 @@ const Dashboard = () => {
         formData.append("category", productForm.category);
         formData.append("image", productImage);
 
-        response = await api.post(API_ENDPOINTS.PRODUCTS.BASE, formData, {
+        response = await api.post(API_ENDPOINTS.PRODUCTS.CREATE, formData, {
           headers: {
             "Content-Type": "multipart/form-data",
           },
         });
       } else {
-        response = await api.post(API_ENDPOINTS.PRODUCTS.BASE, {
+        response = await api.post(API_ENDPOINTS.PRODUCTS.CREATE, {
           ...productForm,
           price: parseFloat(productForm.price),
           stock: parseInt(productForm.stock),
@@ -247,7 +247,7 @@ const Dashboard = () => {
       textColor: "text-green-600",
     },
     {
-      title: "Total Orders",
+      title: "Orders & Invoices",
       value: stats?.totalOrders || 0,
       icon: ShoppingCart,
       color: "bg-purple-500",

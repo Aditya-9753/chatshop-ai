@@ -36,7 +36,18 @@ exports.createProduct = async (req, res) => {
     console.log("Create product - body:", req.body);
     console.log("Create product - file:", req.file);
 
-    const productData = req.body;
+    const productData = { ...req.body };
+
+    // Convert numeric fields from strings (when sent via FormData)
+    if (productData.price) {
+      productData.price = parseFloat(productData.price);
+    }
+    if (productData.comparePrice) {
+      productData.comparePrice = parseFloat(productData.comparePrice);
+    }
+    if (productData.stock) {
+      productData.stock = parseInt(productData.stock, 10);
+    }
 
     // Add image to images array if file was uploaded
     if (req.file) {
@@ -65,7 +76,18 @@ exports.updateProduct = async (req, res) => {
     console.log("Update product - body:", req.body);
     console.log("Update product - file:", req.file);
 
-    const productData = req.body;
+    const productData = { ...req.body };
+
+    // Convert numeric fields from strings (when sent via FormData)
+    if (productData.price) {
+      productData.price = parseFloat(productData.price);
+    }
+    if (productData.comparePrice) {
+      productData.comparePrice = parseFloat(productData.comparePrice);
+    }
+    if (productData.stock) {
+      productData.stock = parseInt(productData.stock, 10);
+    }
 
     // Add image to images array if file was uploaded
     if (req.file) {

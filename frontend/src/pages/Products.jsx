@@ -58,8 +58,8 @@ const Products = () => {
       const formDataToSend = new FormData();
       formDataToSend.append("name", formData.name);
       formDataToSend.append("description", formData.description);
-      formDataToSend.append("price", parseFloat(formData.price));
-      formDataToSend.append("stock", parseInt(formData.stock));
+      formDataToSend.append("price", formData.price);
+      formDataToSend.append("stock", formData.stock);
       formDataToSend.append("category", formData.category);
 
       if (productImage) {

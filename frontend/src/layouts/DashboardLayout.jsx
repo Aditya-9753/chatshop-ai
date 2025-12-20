@@ -28,7 +28,11 @@ const DashboardLayout = () => {
     { name: "Customers", href: "/dashboard/customers", icon: Users },
     { name: "Messages", href: "/dashboard/messages", icon: MessageSquare },
     { name: "Products", href: "/dashboard/products", icon: Package },
-    { name: "Orders", href: "/dashboard/orders", icon: ShoppingCart },
+    {
+      name: "Orders & Invoices",
+      href: "/dashboard/orders",
+      icon: ShoppingCart,
+    },
     { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
     { name: "Settings", href: "/dashboard/settings", icon: Settings },
   ];

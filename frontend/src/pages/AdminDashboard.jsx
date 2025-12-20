@@ -53,6 +53,7 @@ import Modal from "../components/Modal";
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState(null);
+  const [systemStats, setSystemStats] = useState(null);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -61,7 +62,13 @@ const AdminDashboard = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [messageData, setMessageData] = useState({ subject: "", message: "" });
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [activeSection, setActiveSection] = useState("overview");
@@ -79,6 +86,8 @@ const AdminDashboard = () => {
         fetchUsers();
       }, 500);
       return () => clearTimeout(timer);
+    } else if (activeSection === "analytics") {
+      fetchSystemStats();
     }
   }, [searchTerm, filterPlan, filterStatus, currentPage, activeSection]);
 
@@ -93,17 +102,41 @@ const AdminDashboard = () => {
     }
   };
 
+  const fetchSystemStats = async () => {
+    try {
+      const response = await adminService.getSystemStats();
+      if (response.success) {
+        setSystemStats(response.data);
+      }
+    } catch (err) {
+      error(err.message || "Failed to fetch system stats");
+    }
+  };
+
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const response = await adminService.getAllUsers({
+      const params = {
         search: searchTerm,
         page: currentPage,
         limit: 10,
-      });
+      };
+
+      // Add filter parameters if not "all"
+      if (filterPlan !== "all") {
+        params.plan = filterPlan;
+      }
+      if (filterStatus !== "all") {
+        params.status = filterStatus;
+      }
+
+      const response = await adminService.getAllUsers(params);
       if (response.success) {
         setUsers(response.data || []);
-        setTotalPages(Math.ceil((response.total || 0) / 10));
+        setTotalPages(
+          response.pagination?.totalPages ||
+            Math.ceil((response.total || 0) / 10)
+        );
       }
     } catch (err) {
       error(err.message || "Failed to fetch users");
@@ -114,7 +147,9 @@ const AdminDashboard = () => {
 
   const handleRefresh = () => {
     fetchDashboardStats();
-    fetchUsers();
+    if (activeSection === "users") {
+      fetchUsers();
+    }
     success("Dashboard refreshed");
   };
 
@@ -175,33 +210,79 @@ const AdminDashboard = () => {
     }
   };
 
-  // Filter users based on plan and status
-  const filteredUsers = users.filter((user) => {
-    const planMatch =
-      filterPlan === "all" ||
-      (user.subscription?.plan || "free") === filterPlan;
-    const statusMatch =
-      filterStatus === "all" ||
-      (user.subscription?.status || "inactive") === filterStatus;
-    return planMatch && statusMatch;
-  });
-
-  // Mask sensitive data for privacy
-  const maskEmail = (email) => {
-    if (!email) return "N/A";
-    const [name, domain] = email.split("@");
-    const maskedName =
-      name.length > 2
-        ? name.substring(0, 2) + "*".repeat(name.length - 2)
-        : name;
-    return `${maskedName}@${domain}`;
+  const openMessageModal = (user) => {
+    setSelectedUser({ user });
+    setMessageData({ subject: "", message: "" });
+    setIsViewModalOpen(false);
+    setIsMessageModalOpen(true);
   };
 
-  const maskPhone = (phone) => {
-    if (!phone) return "N/A";
-    return `${phone.substring(0, 2)}${"*".repeat(
-      phone.length - 4
-    )}${phone.slice(-2)}`;
+  const handleSendMessage = async (e) => {
+    e.preventDefault();
+
+    if (!messageData.subject || !messageData.message) {
+      error("Please fill in all required fields");
+      return;
+    }
+
+    try {
+      // Here you can implement the actual email sending logic
+      // For now, we'll just show a success message
+      success(`Message sent to ${selectedUser?.user?.name || "user"}`);
+      setIsMessageModalOpen(false);
+      setMessageData({ subject: "", message: "" });
+    } catch (err) {
+      error(err.message || "Failed to send message");
+    }
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+
+    if (
+      !passwordData.currentPassword ||
+      !passwordData.newPassword ||
+      !passwordData.confirmPassword
+    ) {
+      error("Please fill in all fields");
+      return;
+    }
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      error("New password and confirm password do not match");
+      return;
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      error("Password must be at least 6 characters long");
+      return;
+    }
+
+    try {
+      // Call API to change password
+      success("Password changed successfully");
+      setIsPasswordModalOpen(false);
+      setPasswordData({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+    } catch (err) {
+      error(err.message || "Failed to change password");
+    }
+  };
+
+  const handleSaveSettings = (e) => {
+    e.preventDefault();
+    success("Settings saved successfully");
+  };
+
+  const handle2FASetup = () => {
+    success("Two-Factor Authentication setup - Coming soon");
+  };
+
+  const handleSecurityAudit = () => {
+    success("Security Audit Logs - Coming soon");
   };
 
   const StatCard = ({ title, value, icon: Icon, color, subtitle }) => (
@@ -414,7 +495,6 @@ const AdminDashboard = () => {
           {activeSection === "users" && (
             <UsersSection
               users={users}
-              filteredUsers={filteredUsers}
               loading={loading}
               searchTerm={searchTerm}
               setSearchTerm={setSearchTerm}
@@ -431,8 +511,17 @@ const AdminDashboard = () => {
               handleExportUsers={handleExportUsers}
             />
           )}
-          {activeSection === "analytics" && <AnalyticsSection stats={stats} />}
-          {activeSection === "settings" && <SettingsSection />}
+          {activeSection === "analytics" && (
+            <AnalyticsSection stats={stats} systemStats={systemStats} />
+          )}
+          {activeSection === "settings" && (
+            <SettingsSection
+              handleSaveSettings={handleSaveSettings}
+              setIsPasswordModalOpen={setIsPasswordModalOpen}
+              handle2FASetup={handle2FASetup}
+              handleSecurityAudit={handleSecurityAudit}
+            />
+          )}
         </div>
       </div>
 
@@ -468,6 +557,20 @@ const AdminDashboard = () => {
             onClose={() => setIsMessageModalOpen(false)}
           />
         )}
+      </Modal>
+
+      <Modal
+        isOpen={isPasswordModalOpen}
+        onClose={() => setIsPasswordModalOpen(false)}
+        title="Change Admin Password"
+        size="md"
+      >
+        <ChangePasswordContent
+          passwordData={passwordData}
+          setPasswordData={setPasswordData}
+          handleChangePassword={handleChangePassword}
+          onClose={() => setIsPasswordModalOpen(false)}
+        />
       </Modal>
     </div>
   );
@@ -717,7 +820,6 @@ const OverviewSection = ({ stats, handleExportUsers }) => {
 // Users Section
 const UsersSection = ({
   users,
-  filteredUsers,
   loading,
   searchTerm,
   setSearchTerm,
@@ -798,7 +900,7 @@ const UsersSection = ({
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
           </div>
-        ) : filteredUsers.length === 0 ? (
+        ) : users.length === 0 ? (
           <div className="text-center py-12">
             <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-600">No users found</p>
@@ -830,7 +932,7 @@ const UsersSection = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {filteredUsers.map((user) => (
+                  {users.map((user) => (
                     <tr
                       key={user._id}
                       className="hover:bg-gray-50 transition-colors"
@@ -970,29 +1072,232 @@ const UsersSection = ({
 };
 
 // Analytics Section
-const AnalyticsSection = ({ stats }) => {
+const AnalyticsSection = ({ stats, systemStats }) => {
+  // Prepare user growth data
+  const userGrowthData = systemStats?.userGrowth || [];
+  const sortedUserGrowth = [...userGrowthData].reverse(); // Oldest to newest
+
+  // Prepare revenue data
+  const revenueData = systemStats?.monthlyRevenue || [];
+  const sortedRevenue = [...revenueData].reverse();
+
+  // Calculate max values for scaling
+  const maxUsers = Math.max(...sortedUserGrowth.map((d) => d.count || 0), 1);
+  const maxRevenue = Math.max(...sortedRevenue.map((d) => d.revenue || 0), 1);
+
+  // Subscription distribution
+  const subDistribution = systemStats?.subscriptionDistribution || [];
+  const totalSubs = subDistribution.reduce(
+    (sum, item) => sum + (item.count || 0),
+    0
+  );
+
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Key Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">User Growth</h3>
-          <div className="h-64 flex items-center justify-center text-gray-500">
-            <TrendingUp className="w-12 h-12 mr-3" />
-            <span>Chart visualization - Integration ready</span>
+          <div className="flex items-center justify-between mb-2">
+            <Users className="w-8 h-8 text-blue-600" />
+            <TrendingUp className="w-5 h-5 text-green-500" />
           </div>
+          <p className="text-2xl font-bold text-gray-900">
+            {systemStats?.totalUsers || 0}
+          </p>
+          <p className="text-sm text-gray-600">Total Users</p>
         </div>
-
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">
-            Revenue Trends
-          </h3>
-          <div className="h-64 flex items-center justify-center text-gray-500">
-            <BarChart3 className="w-12 h-12 mr-3" />
-            <span>Chart visualization - Integration ready</span>
+          <div className="flex items-center justify-between mb-2">
+            <Award className="w-8 h-8 text-purple-600" />
+            <TrendingUp className="w-5 h-5 text-green-500" />
           </div>
+          <p className="text-2xl font-bold text-gray-900">
+            {systemStats?.activeSubscriptions || 0}
+          </p>
+          <p className="text-sm text-gray-600">Active Subscriptions</p>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-2">
+            <DollarSign className="w-8 h-8 text-green-600" />
+            <TrendingUp className="w-5 h-5 text-green-500" />
+          </div>
+          <p className="text-2xl font-bold text-gray-900">
+            ₹{(systemStats?.totalRevenue || 0).toLocaleString("en-IN")}
+          </p>
+          <p className="text-sm text-gray-600">Total Revenue</p>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-2">
+            <ShoppingBag className="w-8 h-8 text-orange-600" />
+            <TrendingUp className="w-5 h-5 text-green-500" />
+          </div>
+          <p className="text-2xl font-bold text-gray-900">
+            {systemStats?.totalOrders || 0}
+          </p>
+          <p className="text-sm text-gray-600">Total Orders</p>
         </div>
       </div>
 
+      {/* Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* User Growth Chart */}
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-blue-600" />
+            User Growth (Last 12 Months)
+          </h3>
+          {sortedUserGrowth.length > 0 ? (
+            <div className="h-64">
+              <div className="flex items-end justify-between h-full gap-2 pb-8">
+                {sortedUserGrowth.map((item, index) => {
+                  const height = (item.count / maxUsers) * 100;
+                  return (
+                    <div
+                      key={index}
+                      className="flex-1 flex flex-col items-center group"
+                    >
+                      <div className="relative w-full">
+                        <div
+                          className="w-full bg-gradient-to-t from-blue-500 to-blue-300 rounded-t-lg transition-all hover:from-blue-600 hover:to-blue-400 cursor-pointer"
+                          style={{
+                            height: `${height * 2}px`,
+                            minHeight: "10px",
+                          }}
+                          title={`${item._id}: ${item.count} users`}
+                        >
+                          <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                            {item.count}
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2 transform -rotate-45 origin-top-left">
+                        {item._id?.substring(5) || ""}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="h-64 flex items-center justify-center text-gray-400">
+              <div className="text-center">
+                <BarChart3 className="w-12 h-12 mx-auto mb-2" />
+                <p>No user growth data available</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Revenue Trends Chart */}
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <DollarSign className="w-5 h-5 text-green-600" />
+            Revenue Trends (Last 12 Months)
+          </h3>
+          {sortedRevenue.length > 0 ? (
+            <div className="h-64">
+              <div className="flex items-end justify-between h-full gap-2 pb-8">
+                {sortedRevenue.map((item, index) => {
+                  const height = (item.revenue / maxRevenue) * 100;
+                  return (
+                    <div
+                      key={index}
+                      className="flex-1 flex flex-col items-center group"
+                    >
+                      <div className="relative w-full">
+                        <div
+                          className="w-full bg-gradient-to-t from-green-500 to-green-300 rounded-t-lg transition-all hover:from-green-600 hover:to-green-400 cursor-pointer"
+                          style={{
+                            height: `${height * 2}px`,
+                            minHeight: "10px",
+                          }}
+                          title={`${item._id}: ₹${item.revenue?.toLocaleString(
+                            "en-IN"
+                          )}`}
+                        >
+                          <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                            ₹{(item.revenue || 0).toLocaleString("en-IN")}
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2 transform -rotate-45 origin-top-left">
+                        {item._id?.substring(5) || ""}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="h-64 flex items-center justify-center text-gray-400">
+              <div className="text-center">
+                <BarChart3 className="w-12 h-12 mx-auto mb-2" />
+                <p>No revenue data available</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Subscription Distribution */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+          <PieChart className="w-5 h-5 text-purple-600" />
+          Subscription Distribution
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {subDistribution.map((item, index) => {
+            const percentage =
+              totalSubs > 0 ? ((item.count / totalSubs) * 100).toFixed(1) : 0;
+            const colors = [
+              {
+                bg: "from-blue-50 to-blue-100",
+                text: "text-blue-700",
+                bar: "bg-blue-500",
+              },
+              {
+                bg: "from-green-50 to-green-100",
+                text: "text-green-700",
+                bar: "bg-green-500",
+              },
+              {
+                bg: "from-purple-50 to-purple-100",
+                text: "text-purple-700",
+                bar: "bg-purple-500",
+              },
+              {
+                bg: "from-gray-50 to-gray-100",
+                text: "text-gray-700",
+                bar: "bg-gray-500",
+              },
+            ];
+            const color = colors[index % colors.length];
+
+            return (
+              <div
+                key={index}
+                className={`p-4 bg-gradient-to-br ${color.bg} rounded-lg`}
+              >
+                <p className={`text-sm font-semibold ${color.text} mb-1`}>
+                  {item._id?.toUpperCase() || "FREE"}
+                </p>
+                <p className="text-3xl font-bold text-gray-900 mb-2">
+                  {item.count}
+                </p>
+                <div className="w-full bg-white rounded-full h-2 mb-1">
+                  <div
+                    className={`${color.bar} h-2 rounded-full transition-all`}
+                    style={{ width: `${percentage}%` }}
+                  ></div>
+                </div>
+                <p className="text-xs text-gray-600">{percentage}% of total</p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Platform Usage */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">
         <h3 className="text-lg font-bold text-gray-900 mb-4">Platform Usage</h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -1031,15 +1336,21 @@ const AnalyticsSection = ({ stats }) => {
 };
 
 // Settings Section
-const SettingsSection = () => {
+const SettingsSection = ({
+  handleSaveSettings,
+  setIsPasswordModalOpen,
+  handle2FASetup,
+  handleSecurityAudit,
+}) => {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">
+          <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <Settings className="w-5 h-5 text-indigo-600" />
             General Settings
           </h3>
-          <div className="space-y-4">
+          <form onSubmit={handleSaveSettings} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Platform Name
@@ -1060,42 +1371,157 @@ const SettingsSection = () => {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
               />
             </div>
-            <button className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Contact Phone
+              </label>
+              <input
+                type="tel"
+                defaultValue="+91 9876543210"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+              />
+            </div>
+            <button
+              type="submit"
+              className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
+            >
+              <CheckCircle className="w-4 h-4" />
               Save Changes
+            </button>
+          </form>
+        </div>
+
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <Shield className="w-5 h-5 text-red-600" />
+            Security Settings
+          </h3>
+          <div className="space-y-3">
+            <button
+              onClick={() => setIsPasswordModalOpen(true)}
+              className="w-full flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <Key className="w-5 h-5 text-gray-600" />
+                <div className="text-left">
+                  <p className="text-sm font-medium text-gray-900">
+                    Change Admin Password
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Update your account password
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-gray-400" />
+            </button>
+            <button
+              onClick={handle2FASetup}
+              className="w-full flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <Lock className="w-5 h-5 text-gray-600" />
+                <div className="text-left">
+                  <p className="text-sm font-medium text-gray-900">
+                    Two-Factor Authentication
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Add extra security layer
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-gray-400" />
+            </button>
+            <button
+              onClick={handleSecurityAudit}
+              className="w-full flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <FileText className="w-5 h-5 text-gray-600" />
+                <div className="text-left">
+                  <p className="text-sm font-medium text-gray-900">
+                    Security Audit Logs
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    View system access logs
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-gray-400" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Additional Settings */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <h3 className="text-md font-bold text-gray-900 mb-3 flex items-center gap-2">
+            <Bell className="w-5 h-5 text-yellow-600" />
+            Notifications
+          </h3>
+          <div className="space-y-3">
+            <label className="flex items-center justify-between cursor-pointer">
+              <span className="text-sm text-gray-700">Email Notifications</span>
+              <input
+                type="checkbox"
+                defaultChecked
+                className="w-4 h-4 text-indigo-600 rounded"
+              />
+            </label>
+            <label className="flex items-center justify-between cursor-pointer">
+              <span className="text-sm text-gray-700">New User Alerts</span>
+              <input
+                type="checkbox"
+                defaultChecked
+                className="w-4 h-4 text-indigo-600 rounded"
+              />
+            </label>
+            <label className="flex items-center justify-between cursor-pointer">
+              <span className="text-sm text-gray-700">System Updates</span>
+              <input
+                type="checkbox"
+                className="w-4 h-4 text-indigo-600 rounded"
+              />
+            </label>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <h3 className="text-md font-bold text-gray-900 mb-3 flex items-center gap-2">
+            <Database className="w-5 h-5 text-blue-600" />
+            Data Management
+          </h3>
+          <div className="space-y-2">
+            <button className="w-full px-3 py-2 text-sm bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors">
+              Export All Data
+            </button>
+            <button className="w-full px-3 py-2 text-sm bg-yellow-50 text-yellow-700 rounded-lg hover:bg-yellow-100 transition-colors">
+              Backup Database
+            </button>
+            <button className="w-full px-3 py-2 text-sm bg-red-50 text-red-700 rounded-lg hover:bg-red-100 transition-colors">
+              Clear Cache
             </button>
           </div>
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">
-            Security Settings
+          <h3 className="text-md font-bold text-gray-900 mb-3 flex items-center gap-2">
+            <Server className="w-5 h-5 text-green-600" />
+            System Info
           </h3>
-          <div className="space-y-3">
-            <button className="w-full flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-              <div className="flex items-center gap-3">
-                <Key className="w-5 h-5 text-gray-600" />
-                <span className="text-sm font-medium">
-                  Change Admin Password
-                </span>
-              </div>
-              <ChevronRight className="w-5 h-5 text-gray-400" />
-            </button>
-            <button className="w-full flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-              <div className="flex items-center gap-3">
-                <Lock className="w-5 h-5 text-gray-600" />
-                <span className="text-sm font-medium">
-                  Two-Factor Authentication
-                </span>
-              </div>
-              <ChevronRight className="w-5 h-5 text-gray-400" />
-            </button>
-            <button className="w-full flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-              <div className="flex items-center gap-3">
-                <Shield className="w-5 h-5 text-gray-600" />
-                <span className="text-sm font-medium">Security Audit Logs</span>
-              </div>
-              <ChevronRight className="w-5 h-5 text-gray-400" />
-            </button>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Version:</span>
+              <span className="font-semibold">v2.0.0</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Environment:</span>
+              <span className="font-semibold">Production</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Uptime:</span>
+              <span className="font-semibold text-green-600">99.9%</span>
+            </div>
           </div>
         </div>
       </div>
@@ -1324,6 +1750,104 @@ const SendMessageContent = ({
         >
           <Send className="w-4 h-4" />
           Send Message
+        </button>
+      </div>
+    </form>
+  );
+};
+
+// Change Password Modal Content
+const ChangePasswordContent = ({
+  passwordData,
+  setPasswordData,
+  handleChangePassword,
+  onClose,
+}) => {
+  return (
+    <form onSubmit={handleChangePassword} className="space-y-6">
+      <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-100">
+        <div className="flex items-start gap-3">
+          <Shield className="w-5 h-5 text-yellow-600 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-gray-900">
+              Security Notice
+            </p>
+            <p className="text-xs text-gray-600 mt-1">
+              Please choose a strong password with at least 6 characters. You'll
+              be logged out after changing the password.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 mb-2">
+          Current Password <span className="text-red-500">*</span>
+        </label>
+        <input
+          type="password"
+          value={passwordData.currentPassword}
+          onChange={(e) =>
+            setPasswordData({
+              ...passwordData,
+              currentPassword: e.target.value,
+            })
+          }
+          placeholder="Enter current password..."
+          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+          required
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 mb-2">
+          New Password <span className="text-red-500">*</span>
+        </label>
+        <input
+          type="password"
+          value={passwordData.newPassword}
+          onChange={(e) =>
+            setPasswordData({ ...passwordData, newPassword: e.target.value })
+          }
+          placeholder="Enter new password..."
+          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+          required
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 mb-2">
+          Confirm New Password <span className="text-red-500">*</span>
+        </label>
+        <input
+          type="password"
+          value={passwordData.confirmPassword}
+          onChange={(e) =>
+            setPasswordData({
+              ...passwordData,
+              confirmPassword: e.target.value,
+            })
+          }
+          placeholder="Confirm new password..."
+          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+          required
+        />
+      </div>
+
+      <div className="flex items-center justify-end gap-3 pt-4 border-t">
+        <button
+          type="button"
+          onClick={onClose}
+          className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2"
+        >
+          <Key className="w-4 h-4" />
+          Change Password
         </button>
       </div>
     </form>

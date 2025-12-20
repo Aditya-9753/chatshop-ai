@@ -2,6 +2,7 @@ const User = require("../models/User.model");
 const Customer = require("../models/Customer.model");
 const Message = require("../models/Message.model");
 const Order = require("../models/Order.model");
+const Product = require("../models/Product.model");
 
 class AnalyticsService {
   // Get dashboard statistics
@@ -15,6 +16,7 @@ class AnalyticsService {
     const totalCustomers = await Customer.countDocuments({ userId });
     const totalMessages = await Message.countDocuments({ userId });
     const totalOrders = await Order.countDocuments({ userId });
+    const totalProducts = await Product.countDocuments({ userId });
 
     // Get revenue
     const revenueData = await Order.aggregate([
@@ -49,11 +51,19 @@ class AnalyticsService {
       platform: "instagram",
     });
 
+    // Calculate conversion rate (orders / customers)
+    const conversionRate =
+      totalCustomers > 0
+        ? ((totalOrders / totalCustomers) * 100).toFixed(2)
+        : 0;
+
     return {
       totalCustomers,
       totalMessages,
       totalOrders,
+      totalProducts,
       totalRevenue,
+      conversionRate,
       todayMessages,
       todayOrders,
       whatsappCustomers,
