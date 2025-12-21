@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
+import { Moon, Sun } from "lucide-react";
 
 const Logo = () => (
   <div className="flex items-center gap-3 hover:scale-105 transition-transform duration-300">
@@ -15,9 +18,11 @@ const Logo = () => (
   </div>
 );
 
-function Navbar() {
+function Navbar({ isAuthenticated, user }) {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const { isDarkMode, toggleTheme } = useTheme();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 10);
@@ -29,7 +34,11 @@ function Navbar() {
     <nav
       className={`py-4 px-6 flex items-center justify-between transition-all duration-300 ${
         scrolled
-          ? "bg-white shadow-lg"
+          ? isDarkMode
+            ? "bg-gray-800 shadow-lg"
+            : "bg-white shadow-lg"
+          : isDarkMode
+          ? "bg-gray-800/80 backdrop-blur-md shadow-sm"
           : "bg-white/80 backdrop-blur-md shadow-sm"
       } sticky top-0 z-40`}
     >
@@ -37,36 +46,97 @@ function Navbar() {
       <div className="hidden md:flex gap-8 items-center">
         <a
           href="#features"
-          className="text-sm text-gray-700 hover:text-indigo-600 transition-colors duration-300 font-medium"
+          className={`text-sm transition-colors duration-300 font-medium ${
+            isDarkMode
+              ? "text-gray-300 hover:text-indigo-400"
+              : "text-gray-700 hover:text-indigo-600"
+          }`}
         >
           Features
         </a>
         <a
           href="#pricing"
-          className="text-sm text-gray-700 hover:text-indigo-600 transition-colors duration-300 font-medium"
+          className={`text-sm transition-colors duration-300 font-medium ${
+            isDarkMode
+              ? "text-gray-300 hover:text-indigo-400"
+              : "text-gray-700 hover:text-indigo-600"
+          }`}
         >
           Pricing
         </a>
         <a
           href="#faq"
-          className="text-sm text-gray-700 hover:text-indigo-600 transition-colors duration-300 font-medium"
+          className={`text-sm transition-colors duration-300 font-medium ${
+            isDarkMode
+              ? "text-gray-300 hover:text-indigo-400"
+              : "text-gray-700 hover:text-indigo-600"
+          }`}
         >
           FAQ
         </a>
         <a
           href="#contact"
-          className="px-4 py-2 rounded-lg border-2 border-indigo-600 text-indigo-600 hover:bg-indigo-50 text-sm font-medium transition-all duration-300 hover:shadow-md"
+          className={`px-4 py-2 rounded-lg border-2 border-indigo-600 text-sm font-medium transition-all duration-300 hover:shadow-md ${
+            isDarkMode
+              ? "text-indigo-400 hover:bg-indigo-900"
+              : "text-indigo-600 hover:bg-indigo-50"
+          }`}
         >
           Contact
         </a>
-        <Link to="/login" className="btn-primary">
-          Login
-        </Link>
+        {/* Dark Mode Toggle */}
+        <button
+          onClick={toggleTheme}
+          className={`p-2 rounded-lg transition-colors ${
+            isDarkMode
+              ? "text-yellow-300 hover:bg-gray-700"
+              : "text-gray-600 hover:bg-gray-100"
+          }`}
+          title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+        >
+          {isDarkMode ? (
+            <Sun className="w-5 h-5" />
+          ) : (
+            <Moon className="w-5 h-5" />
+          )}
+        </button>
+        {isAuthenticated ? (
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate("/dashboard/profile")}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg ${
+                isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-100"
+              } transition-colors`}
+            >
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-purple-400 flex items-center justify-center text-white font-semibold text-sm">
+                {user?.name?.charAt(0).toUpperCase()}
+              </div>
+              <span
+                className={`text-sm font-medium ${
+                  isDarkMode ? "text-gray-300" : "text-gray-700"
+                }`}
+              >
+                {user?.name}
+              </span>
+            </button>
+            <Link to="/dashboard" className="btn-primary">
+              Go to Dashboard
+            </Link>
+          </div>
+        ) : (
+          <Link to="/login" className="btn-primary">
+            Login
+          </Link>
+        )}
       </div>
       <div className="md:hidden">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="p-2 rounded-lg border border-gray-300 hover:bg-gray-100 transition-colors duration-300"
+          className={`p-2 rounded-lg border ${
+            isDarkMode
+              ? "border-gray-600 hover:bg-gray-700 text-gray-300"
+              : "border-gray-300 hover:bg-gray-100"
+          } transition-colors duration-300`}
         >
           ☰
         </button>
@@ -74,33 +144,53 @@ function Navbar() {
 
       {/* Mobile Menu */}
       {isOpen && (
-        <div className="absolute top-16 left-0 right-0 bg-white shadow-lg md:hidden animate-slideInDown">
+        <div
+          className={`absolute top-16 left-0 right-0 ${
+            isDarkMode ? "bg-gray-800 border-t border-gray-700" : "bg-white"
+          } shadow-lg md:hidden animate-slideInDown`}
+        >
           <div className="flex flex-col p-4 gap-3">
             <a
               href="#features"
               onClick={() => setIsOpen(false)}
-              className="px-4 py-2 text-gray-700 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors font-medium"
+              className={`px-4 py-2 ${
+                isDarkMode
+                  ? "text-gray-300 hover:text-indigo-400 hover:bg-gray-700"
+                  : "text-gray-700 hover:text-indigo-600 hover:bg-indigo-50"
+              } rounded-lg transition-colors font-medium`}
             >
               Features
             </a>
             <a
               href="#pricing"
               onClick={() => setIsOpen(false)}
-              className="px-4 py-2 text-gray-700 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors font-medium"
+              className={`px-4 py-2 ${
+                isDarkMode
+                  ? "text-gray-300 hover:text-indigo-400 hover:bg-gray-700"
+                  : "text-gray-700 hover:text-indigo-600 hover:bg-indigo-50"
+              } rounded-lg transition-colors font-medium`}
             >
               Pricing
             </a>
             <a
               href="#faq"
               onClick={() => setIsOpen(false)}
-              className="px-4 py-2 text-gray-700 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors font-medium"
+              className={`px-4 py-2 ${
+                isDarkMode
+                  ? "text-gray-300 hover:text-indigo-400 hover:bg-gray-700"
+                  : "text-gray-700 hover:text-indigo-600 hover:bg-indigo-50"
+              } rounded-lg transition-colors font-medium`}
             >
               FAQ
             </a>
             <a
               href="#contact"
               onClick={() => setIsOpen(false)}
-              className="px-4 py-2 rounded-lg border-2 border-indigo-600 text-indigo-600 hover:bg-indigo-50 text-sm font-medium transition-all"
+              className={`px-4 py-2 rounded-lg border-2 ${
+                isDarkMode
+                  ? "border-indigo-500 text-indigo-400 hover:bg-indigo-900/30"
+                  : "border-indigo-600 text-indigo-600 hover:bg-indigo-50"
+              } text-sm font-medium transition-all`}
             >
               Contact
             </a>
@@ -120,19 +210,38 @@ function Navbar() {
 
 function Hero() {
   const [activeChat, setActiveChat] = useState("whatsapp");
+  const { isDarkMode } = useTheme();
 
   return (
-    <header className="bg-gradient-to-b from-white via-indigo-50/40 to-indigo-50/20 pt-16 pb-20 relative overflow-hidden">
+    <header
+      className={`${
+        isDarkMode
+          ? "bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900"
+          : "bg-gradient-to-b from-white via-indigo-50/40 to-indigo-50/20"
+      } pt-16 pb-20 relative overflow-hidden`}
+    >
       {/* Animated Background Elements */}
-      <div className="absolute top-0 -left-40 w-80 h-80 bg-indigo-300/10 rounded-full blur-3xl animate-pulse"></div>
       <div
-        className="absolute bottom-0 -right-40 w-80 h-80 bg-purple-300/10 rounded-full blur-3xl animate-pulse"
+        className={`absolute top-0 -left-40 w-80 h-80 ${
+          isDarkMode ? "bg-indigo-500/10" : "bg-indigo-300/10"
+        } rounded-full blur-3xl animate-pulse`}
+      ></div>
+      <div
+        className={`absolute bottom-0 -right-40 w-80 h-80 ${
+          isDarkMode ? "bg-purple-500/10" : "bg-purple-300/10"
+        } rounded-full blur-3xl animate-pulse`}
         style={{ animationDelay: "1s" }}
       ></div>
 
       <div className="max-w-6xl mx-auto px-6 grid md:grid-cols-2 gap-12 items-center relative z-10">
         <div className="slide-in-left">
-          <div className="inline-block mb-4 px-4 py-2 bg-gradient-to-r from-green-100 to-blue-100 rounded-full hover:shadow-lg transition-all duration-300">
+          <div
+            className={`inline-block mb-4 px-4 py-2 ${
+              isDarkMode
+                ? "bg-gradient-to-r from-green-900/40 to-blue-900/40"
+                : "bg-gradient-to-r from-green-100 to-blue-100"
+            } rounded-full hover:shadow-lg transition-all duration-300`}
+          >
             <span className="text-sm font-semibold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
               🚀 WhatsApp + Instagram AI Agents
             </span>
@@ -142,7 +251,11 @@ function Hero() {
             Build a 24/7 AI Shop on WhatsApp & Instagram
           </h1>
 
-          <p className="mt-6 text-lg text-gray-600 leading-relaxed">
+          <p
+            className={`mt-6 text-lg ${
+              isDarkMode ? "text-gray-300" : "text-gray-600"
+            } leading-relaxed`}
+          >
             Instant AI replies, product catalog, order tracking, payment links
             and customer follow-ups — all through WhatsApp DMs and Instagram
             Direct Messages. No apps to teach, no training required.
@@ -172,7 +285,11 @@ function Hero() {
             </a>
           </div>
 
-          <ul className="mt-8 text-sm text-gray-700 space-y-3 font-medium">
+          <ul
+            className={`mt-8 text-sm ${
+              isDarkMode ? "text-gray-300" : "text-gray-700"
+            } space-y-3 font-medium`}
+          >
             <li className="flex items-center gap-3">
               <span className="text-2xl">✅</span> Setup in 30 minutes
             </li>
@@ -185,7 +302,11 @@ function Hero() {
             </li>
           </ul>
 
-          <div className="mt-8 text-sm text-gray-500">
+          <div
+            className={`mt-8 text-sm ${
+              isDarkMode ? "text-gray-400" : "text-gray-500"
+            }`}
+          >
             Trusted by neighbourhood shops & local franchises
           </div>
         </div>
@@ -324,22 +445,51 @@ function ChatContent({ platform }) {
   );
 }
 
-const FeatureCard = ({ title, desc, icon }) => (
-  <div className="p-8 border-2 border-gray-100 rounded-2xl bg-white shadow-md card-hover group overflow-hidden">
-    <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+const FeatureCard = ({ title, desc, icon, isDarkMode }) => (
+  <div
+    className={`p-8 border-2 ${
+      isDarkMode ? "border-gray-700 bg-gray-800" : "border-gray-100 bg-white"
+    } rounded-2xl shadow-md card-hover group overflow-hidden`}
+  >
+    <div
+      className={`absolute inset-0 ${
+        isDarkMode
+          ? "bg-gradient-to-br from-indigo-900/30 to-transparent"
+          : "bg-gradient-to-br from-indigo-50 to-transparent"
+      } opacity-0 group-hover:opacity-100 transition-opacity duration-300`}
+    ></div>
     <div className="flex items-start gap-4 relative z-10">
-      <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-3xl group-hover:scale-110 transition-transform duration-300">
+      <div
+        className={`w-14 h-14 rounded-xl ${
+          isDarkMode
+            ? "bg-gradient-to-br from-indigo-900 to-purple-900"
+            : "bg-gradient-to-br from-indigo-100 to-purple-100"
+        } flex items-center justify-center text-3xl group-hover:scale-110 transition-transform duration-300`}
+      >
         {icon}
       </div>
       <div>
-        <div className="font-bold text-lg text-gray-900">{title}</div>
-        <div className="text-sm text-gray-600 mt-3 leading-relaxed">{desc}</div>
+        <div
+          className={`font-bold text-lg ${
+            isDarkMode ? "text-white" : "text-gray-900"
+          }`}
+        >
+          {title}
+        </div>
+        <div
+          className={`text-sm ${
+            isDarkMode ? "text-gray-300" : "text-gray-600"
+          } mt-3 leading-relaxed`}
+        >
+          {desc}
+        </div>
       </div>
     </div>
   </div>
 );
 
 function Features() {
+  const { isDarkMode } = useTheme();
   const features = [
     {
       title: "🤖 AI WhatsApp Replies",
@@ -378,18 +528,34 @@ function Features() {
   return (
     <section
       id="features"
-      className="py-20 bg-gradient-to-b from-gray-50 to-white relative overflow-hidden"
+      className={`py-20 ${
+        isDarkMode
+          ? "bg-gradient-to-b from-gray-900 to-gray-800"
+          : "bg-gradient-to-b from-gray-50 to-white"
+      } relative overflow-hidden`}
     >
       {/* Animated Background */}
-      <div className="absolute top-0 left-0 w-96 h-96 bg-indigo-200/5 rounded-full blur-3xl"></div>
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-purple-200/5 rounded-full blur-3xl"></div>
+      <div
+        className={`absolute top-0 left-0 w-96 h-96 ${
+          isDarkMode ? "bg-indigo-500/5" : "bg-indigo-200/5"
+        } rounded-full blur-3xl`}
+      ></div>
+      <div
+        className={`absolute bottom-0 right-0 w-96 h-96 ${
+          isDarkMode ? "bg-purple-500/5" : "bg-purple-200/5"
+        } rounded-full blur-3xl`}
+      ></div>
 
       <div className="max-w-6xl mx-auto px-6 relative z-10">
         <div className="slide-in-up text-center mb-12">
           <h2 className="text-4xl md:text-5xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
             Everything you need
           </h2>
-          <p className="mt-4 text-lg text-gray-600 max-w-3xl mx-auto">
+          <p
+            className={`mt-4 text-lg ${
+              isDarkMode ? "text-gray-300" : "text-gray-600"
+            } max-w-3xl mx-auto`}
+          >
             Powerful features for WhatsApp & Instagram automation. Manage both
             platforms from one dashboard.
           </p>
@@ -402,7 +568,12 @@ function Features() {
               style={{ animationDelay: `${i * 0.1}s` }}
               className="slide-in-up"
             >
-              <FeatureCard title={f.title} desc={f.desc} icon={""} />
+              <FeatureCard
+                title={f.title}
+                desc={f.desc}
+                icon={""}
+                isDarkMode={isDarkMode}
+              />
             </div>
           ))}
         </div>
@@ -418,19 +589,34 @@ function PricingCard({
   bullets,
   popular,
   isOneTime,
+  isDarkMode,
 }) {
   return (
     <div
       className={`p-8 rounded-2xl border-2 transition-all duration-300 ${
         popular
-          ? "border-indigo-600 bg-gradient-to-br from-indigo-50 to-white shadow-2xl scale-105"
+          ? isDarkMode
+            ? "border-indigo-500 bg-gradient-to-br from-indigo-900/30 to-gray-800 shadow-2xl scale-105"
+            : "border-indigo-600 bg-gradient-to-br from-indigo-50 to-white shadow-2xl scale-105"
+          : isDarkMode
+          ? "border-gray-700 bg-gray-800 shadow-lg hover:shadow-xl"
           : "border-gray-200 bg-white shadow-lg hover:shadow-xl"
       } card-hover group`}
     >
       <div className="flex items-center justify-between mb-6">
         <div>
-          <div className="font-bold text-2xl text-gray-900">{title}</div>
-          <div className="text-sm text-gray-600 mt-1 font-medium">
+          <div
+            className={`font-bold text-2xl ${
+              isDarkMode ? "text-white" : "text-gray-900"
+            }`}
+          >
+            {title}
+          </div>
+          <div
+            className={`text-sm ${
+              isDarkMode ? "text-gray-400" : "text-gray-600"
+            } mt-1 font-medium`}
+          >
             {bullets.length} features included
           </div>
         </div>
@@ -449,15 +635,27 @@ function PricingCard({
       <div className="mb-8">
         <div className="flex items-baseline gap-2">
           {originalPrice && (
-            <div className="text-sm text-gray-400 line-through font-semibold">
+            <div
+              className={`text-sm ${
+                isDarkMode ? "text-gray-500" : "text-gray-400"
+              } line-through font-semibold`}
+            >
               ₹{originalPrice.toLocaleString("en-IN")}
             </div>
           )}
-          <div className="text-3xl font-extrabold text-gray-900">
+          <div
+            className={`text-3xl font-extrabold ${
+              isDarkMode ? "text-white" : "text-gray-900"
+            }`}
+          >
             ₹{price.toLocaleString("en-IN")}
           </div>
         </div>
-        <div className="text-sm text-gray-600 mt-2 font-medium">
+        <div
+          className={`text-sm ${
+            isDarkMode ? "text-gray-400" : "text-gray-600"
+          } mt-2 font-medium`}
+        >
           {isOneTime ? "one-time setup" : "/month, billed annually"}
         </div>
       </div>
@@ -466,7 +664,9 @@ function PricingCard({
         {bullets.map((b, i) => (
           <li
             key={i}
-            className="text-sm text-gray-700 font-medium flex items-center gap-3"
+            className={`text-sm ${
+              isDarkMode ? "text-gray-300" : "text-gray-700"
+            } font-medium flex items-center gap-3`}
           >
             <span className="text-indigo-600 font-bold">✓</span> {b}
           </li>
@@ -478,6 +678,8 @@ function PricingCard({
         className={`block w-full py-3 rounded-xl font-bold transition-all duration-300 text-center ${
           popular
             ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg hover:shadow-xl hover:scale-105"
+            : isDarkMode
+            ? "border-2 border-indigo-500 text-indigo-400 hover:bg-indigo-900/30"
             : "border-2 border-indigo-600 text-indigo-600 hover:bg-indigo-50"
         }`}
       >
@@ -488,6 +690,7 @@ function PricingCard({
 }
 
 function Pricing() {
+  const { isDarkMode } = useTheme();
   const plans = [
     {
       title: "Starter",
@@ -537,13 +740,20 @@ function Pricing() {
   ];
 
   return (
-    <section id="pricing" className="py-20 bg-white">
+    <section
+      id="pricing"
+      className={`py-20 ${isDarkMode ? "bg-gray-900" : "bg-white"}`}
+    >
       <div className="max-w-6xl mx-auto px-6">
         <div className="slide-in-up text-center mb-12">
           <h2 className="text-4xl md:text-5xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
             Simple, Transparent Pricing
           </h2>
-          <p className="mt-4 text-lg text-gray-600 max-w-3xl mx-auto">
+          <p
+            className={`mt-4 text-lg ${
+              isDarkMode ? "text-gray-300" : "text-gray-600"
+            } max-w-3xl mx-auto`}
+          >
             No hidden fees. Scale your plan as your business grows.
           </p>
         </div>
@@ -555,13 +765,17 @@ function Pricing() {
               style={{ animationDelay: `${i * 0.1}s` }}
               className="slide-in-up"
             >
-              <PricingCard {...p} />
+              <PricingCard {...p} isDarkMode={isDarkMode} />
             </div>
           ))}
         </div>
 
         <div className="mt-12 text-center">
-          <p className="text-gray-600 font-medium">
+          <p
+            className={`${
+              isDarkMode ? "text-gray-400" : "text-gray-600"
+            } font-medium`}
+          >
             7-day free trial. No credit card required. Cancel anytime.
           </p>
         </div>
@@ -572,6 +786,7 @@ function Pricing() {
 
 function FAQ() {
   const [openId, setOpenId] = useState(0);
+  const { isDarkMode } = useTheme();
   const qas = [
     {
       q: "⏱️ How long does setup take?",
@@ -596,13 +811,24 @@ function FAQ() {
   ];
 
   return (
-    <section id="faq" className="py-20 bg-gradient-to-b from-gray-50 to-white">
+    <section
+      id="faq"
+      className={`py-20 ${
+        isDarkMode
+          ? "bg-gradient-to-b from-gray-800 to-gray-900"
+          : "bg-gradient-to-b from-gray-50 to-white"
+      }`}
+    >
       <div className="max-w-4xl mx-auto px-6">
         <div className="slide-in-up text-center mb-12">
           <h2 className="text-4xl md:text-5xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
             Common Questions
           </h2>
-          <p className="mt-4 text-lg text-gray-600">
+          <p
+            className={`mt-4 text-lg ${
+              isDarkMode ? "text-gray-300" : "text-gray-600"
+            }`}
+          >
             Find answers to what shopkeepers ask us most.
           </p>
         </div>
@@ -612,15 +838,27 @@ function FAQ() {
               key={i}
               open={openId === i}
               onClick={() => setOpenId(openId === i ? -1 : i)}
-              className="p-6 bg-white border-2 border-gray-100 rounded-xl card-hover cursor-pointer group"
+              className={`p-6 ${
+                isDarkMode
+                  ? "bg-gray-800 border-gray-700"
+                  : "bg-white border-gray-100"
+              } border-2 rounded-xl card-hover cursor-pointer group`}
             >
-              <summary className="font-bold text-lg text-gray-900 flex items-center justify-between cursor-pointer">
+              <summary
+                className={`font-bold text-lg ${
+                  isDarkMode ? "text-white" : "text-gray-900"
+                } flex items-center justify-between cursor-pointer`}
+              >
                 <span>{qa.q}</span>
                 <span className="text-indigo-600 transform group-hover:rotate-180 transition-transform duration-300">
                   ▼
                 </span>
               </summary>
-              <div className="mt-4 text-gray-700 leading-relaxed animate-fadeIn">
+              <div
+                className={`mt-4 ${
+                  isDarkMode ? "text-gray-300" : "text-gray-700"
+                } leading-relaxed animate-fadeIn`}
+              >
                 {qa.a}
               </div>
             </details>
@@ -816,9 +1054,49 @@ function Footer() {
 }
 
 export default function LandingPage() {
+  const { isAuthenticated, user, loading } = useAuth();
+  const { isDarkMode } = useTheme();
+
+  // Redirect authenticated users to dashboard
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
+      // Use window.location for a clean redirect
+      window.location.href = "/dashboard";
+    }
+  }, [isAuthenticated, loading]);
+
+  if (loading) {
+    return (
+      <div
+        className={`min-h-screen flex items-center justify-center ${
+          isDarkMode ? "bg-gray-900" : "bg-white"
+        }`}
+      >
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
+
+  // Show loading state while redirecting
+  if (isAuthenticated) {
+    return (
+      <div
+        className={`min-h-screen flex items-center justify-center ${
+          isDarkMode ? "bg-gray-900" : "bg-white"
+        }`}
+      >
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen text-gray-800 bg-white overflow-x-hidden">
-      <Navbar />
+    <div
+      className={`min-h-screen overflow-x-hidden ${
+        isDarkMode ? "bg-gray-900 text-gray-100" : "bg-white text-gray-800"
+      }`}
+    >
+      <Navbar isAuthenticated={isAuthenticated} user={user} />
       <main>
         <Hero />
         <Features />

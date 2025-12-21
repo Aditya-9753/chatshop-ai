@@ -19,6 +19,7 @@ import Modal from "../components/Modal";
 import Button from "../components/Button";
 import Input from "../components/Input";
 import { useToast } from "../components/Toast";
+import { useTheme } from "../context/ThemeContext";
 
 const AVAILABLE_TAGS = [
   { id: "vip", label: "VIP", color: "bg-purple-100 text-purple-800" },
@@ -59,6 +60,7 @@ const Customers = () => {
     platform: "whatsapp",
   });
   const { success, error } = useToast();
+  const { isDarkMode } = useTheme();
 
   useEffect(() => {
     fetchCustomers();
@@ -213,8 +215,18 @@ const Customers = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Customers</h1>
-          <p className="text-gray-600 mt-1">Manage your customer database</p>
+          <h1
+            className={`text-3xl font-bold ${
+              isDarkMode ? "text-white" : "text-gray-900"
+            }`}
+          >
+            Customers
+          </h1>
+          <p
+            className={isDarkMode ? "text-gray-400 mt-1" : "text-gray-600 mt-1"}
+          >
+            Manage your customer database
+          </p>
         </div>
         <Button icon={Plus} onClick={() => openModal()}>
           Add Customer
@@ -222,81 +234,170 @@ const Customers = () => {
       </div>
 
       {/* Search */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+      <div
+        className={`rounded-xl shadow-sm border p-4 ${
+          isDarkMode
+            ? "bg-gray-800 border-gray-700"
+            : "bg-white border-gray-100"
+        }`}
+      >
         <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <Search
+            className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 ${
+              isDarkMode ? "text-gray-500" : "text-gray-400"
+            }`}
+          />
           <input
             type="text"
             placeholder="Search customers..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+            className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none ${
+              isDarkMode
+                ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                : "border-gray-300 bg-white"
+            }`}
           />
         </div>
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div
+        className={`rounded-xl shadow-sm border overflow-hidden ${
+          isDarkMode
+            ? "bg-gray-800 border-gray-700"
+            : "bg-white border-gray-100"
+        }`}
+      >
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
           </div>
         ) : customers.length === 0 ? (
           <div className="text-center py-12">
-            <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600">No customers found</p>
+            <Users
+              className={`w-12 h-12 mx-auto mb-4 ${
+                isDarkMode ? "text-gray-500" : "text-gray-400"
+              }`}
+            />
+            <p className={isDarkMode ? "text-gray-400" : "text-gray-600"}>
+              No customers found
+            </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
+              <thead
+                className={`border-b ${
+                  isDarkMode
+                    ? "bg-gray-700/50 border-gray-600"
+                    : "bg-gray-50 border-gray-200"
+                }`}
+              >
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  <th
+                    className={`px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider ${
+                      isDarkMode ? "text-gray-300" : "text-gray-700"
+                    }`}
+                  >
                     Customer
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  <th
+                    className={`px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider ${
+                      isDarkMode ? "text-gray-300" : "text-gray-700"
+                    }`}
+                  >
                     Contact
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  <th
+                    className={`px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider ${
+                      isDarkMode ? "text-gray-300" : "text-gray-700"
+                    }`}
+                  >
                     Platform
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  <th
+                    className={`px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider ${
+                      isDarkMode ? "text-gray-300" : "text-gray-700"
+                    }`}
+                  >
                     Orders
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  <th
+                    className={`px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider ${
+                      isDarkMode ? "text-gray-300" : "text-gray-700"
+                    }`}
+                  >
                     Total Spent
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  <th
+                    className={`px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider ${
+                      isDarkMode ? "text-gray-300" : "text-gray-700"
+                    }`}
+                  >
                     Status
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  <th
+                    className={`px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider ${
+                      isDarkMode ? "text-gray-300" : "text-gray-700"
+                    }`}
+                  >
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody
+                className={`divide-y ${
+                  isDarkMode ? "divide-gray-700" : "divide-gray-200"
+                }`}
+              >
                 {customers.map((customer) => (
-                  <tr key={customer._id} className="hover:bg-gray-50">
+                  <tr
+                    key={customer._id}
+                    className={
+                      isDarkMode ? "hover:bg-gray-700/50" : "hover:bg-gray-50"
+                    }
+                  >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-400 to-purple-400 flex items-center justify-center text-white font-semibold">
                           {customer.name.charAt(0).toUpperCase()}
                         </div>
                         <div className="ml-4">
-                          <div className="text-sm font-semibold text-gray-900">
+                          <div
+                            className={`text-sm font-semibold ${
+                              isDarkMode ? "text-gray-200" : "text-gray-900"
+                            }`}
+                          >
                             {customer.name}
                           </div>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 flex items-center gap-1">
-                        <Phone className="w-4 h-4 text-gray-400" />
+                      <div
+                        className={`text-sm flex items-center gap-1 ${
+                          isDarkMode ? "text-gray-300" : "text-gray-900"
+                        }`}
+                      >
+                        <Phone
+                          className={`w-4 h-4 ${
+                            isDarkMode ? "text-gray-500" : "text-gray-400"
+                          }`}
+                        />
                         {customer.phone}
                       </div>
                       {customer.email && (
-                        <div className="text-sm text-gray-500 flex items-center gap-1 mt-1">
-                          <Mail className="w-4 h-4 text-gray-400" />
+                        <div
+                          className={`text-sm flex items-center gap-1 mt-1 ${
+                            isDarkMode ? "text-gray-400" : "text-gray-500"
+                          }`}
+                        >
+                          <Mail
+                            className={`w-4 h-4 ${
+                              isDarkMode ? "text-gray-500" : "text-gray-400"
+                            }`}
+                          />
                           {customer.email}
                         </div>
                       )}
@@ -314,10 +415,18 @@ const Customers = () => {
                           : "📸 Instagram"}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td
+                      className={`px-6 py-4 whitespace-nowrap text-sm ${
+                        isDarkMode ? "text-gray-300" : "text-gray-900"
+                      }`}
+                    >
                       {customer.totalOrders || 0}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                    <td
+                      className={`px-6 py-4 whitespace-nowrap text-sm font-semibold ${
+                        isDarkMode ? "text-gray-200" : "text-gray-900"
+                      }`}
+                    >
                       ₹{(customer.totalSpent || 0).toLocaleString("en-IN")}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

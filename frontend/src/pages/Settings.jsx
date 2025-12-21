@@ -9,6 +9,7 @@ import {
   Bell,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
 import Button from "../components/Button";
 import Input from "../components/Input";
 import { useToast } from "../components/Toast";
@@ -16,6 +17,7 @@ import api from "../services/api.service";
 
 const Settings = () => {
   const { user } = useAuth();
+  const { isDarkMode } = useTheme();
   const [activeTab, setActiveTab] = useState("profile");
   const { success, error } = useToast();
 
@@ -142,15 +144,27 @@ const Settings = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-        <p className="text-gray-600 mt-1">
+        <h1
+          className={`text-3xl font-bold ${
+            isDarkMode ? "text-white" : "text-gray-900"
+          }`}
+        >
+          Settings
+        </h1>
+        <p className={`mt-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
           Manage your account and integrations
         </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Tabs Sidebar */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <div
+          className={`rounded-xl shadow-sm border p-4 ${
+            isDarkMode
+              ? "bg-gray-800 border-gray-700"
+              : "bg-white border-gray-100"
+          }`}
+        >
           <nav className="space-y-2">
             {tabs.map((tab) => (
               <button
@@ -158,7 +172,11 @@ const Settings = () => {
                 onClick={() => setActiveTab(tab.id)}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                   activeTab === tab.id
-                    ? "bg-indigo-50 text-indigo-600 font-semibold"
+                    ? isDarkMode
+                      ? "bg-indigo-900/50 text-indigo-400 font-semibold"
+                      : "bg-indigo-50 text-indigo-600 font-semibold"
+                    : isDarkMode
+                    ? "text-gray-300 hover:bg-gray-700"
                     : "text-gray-700 hover:bg-gray-50"
                 }`}
               >
@@ -170,11 +188,21 @@ const Settings = () => {
         </div>
 
         {/* Content Area */}
-        <div className="lg:col-span-3 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div
+          className={`lg:col-span-3 rounded-xl shadow-sm border p-6 ${
+            isDarkMode
+              ? "bg-gray-800 border-gray-700"
+              : "bg-white border-gray-100"
+          }`}
+        >
           {/* Profile Tab */}
           {activeTab === "profile" && (
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">
+              <h2
+                className={`text-2xl font-bold mb-6 ${
+                  isDarkMode ? "text-white" : "text-gray-900"
+                }`}
+              >
                 Profile Information
               </h2>
               <form onSubmit={handleProfileUpdate} className="space-y-4">
@@ -221,10 +249,18 @@ const Settings = () => {
           {/* WhatsApp Tab */}
           {activeTab === "whatsapp" && (
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              <h2
+                className={`text-2xl font-bold mb-2 ${
+                  isDarkMode ? "text-white" : "text-gray-900"
+                }`}
+              >
                 WhatsApp Business Integration
               </h2>
-              <p className="text-gray-600 mb-6">
+              <p
+                className={`mb-6 ${
+                  isDarkMode ? "text-gray-400" : "text-gray-600"
+                }`}
+              >
                 Connect your WhatsApp Business API to automate customer
                 conversations
               </p>
@@ -309,10 +345,18 @@ const Settings = () => {
           {/* Instagram Tab */}
           {activeTab === "instagram" && (
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              <h2
+                className={`text-2xl font-bold mb-2 ${
+                  isDarkMode ? "text-white" : "text-gray-900"
+                }`}
+              >
                 Instagram Business Integration
               </h2>
-              <p className="text-gray-600 mb-6">
+              <p
+                className={`mb-6 ${
+                  isDarkMode ? "text-gray-400" : "text-gray-600"
+                }`}
+              >
                 Connect your Instagram Business account to manage DMs and
                 comments
               </p>
@@ -384,7 +428,11 @@ const Settings = () => {
           {/* Business Info Tab */}
           {activeTab === "business" && (
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">
+              <h2
+                className={`text-2xl font-bold mb-6 ${
+                  isDarkMode ? "text-white" : "text-gray-900"
+                }`}
+              >
                 Business Information
               </h2>
               <form onSubmit={handleBusinessUpdate} className="space-y-4">
@@ -443,7 +491,11 @@ const Settings = () => {
                   placeholder="https://yourbusiness.com"
                 />
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label
+                    className={`block text-sm font-semibold mb-2 ${
+                      isDarkMode ? "text-gray-300" : "text-gray-700"
+                    }`}
+                  >
                     Address
                   </label>
                   <textarea
@@ -457,11 +509,19 @@ const Settings = () => {
                     }
                     placeholder="Business address"
                     rows="3"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none ${
+                      isDarkMode
+                        ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                        : "bg-white border-gray-300 text-gray-900"
+                    }`}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label
+                    className={`block text-sm font-semibold mb-2 ${
+                      isDarkMode ? "text-gray-300" : "text-gray-700"
+                    }`}
+                  >
                     Business Description
                   </label>
                   <textarea
@@ -475,7 +535,11 @@ const Settings = () => {
                     }
                     placeholder="Describe your business"
                     rows="4"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none ${
+                      isDarkMode
+                        ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                        : "bg-white border-gray-300 text-gray-900"
+                    }`}
                   />
                 </div>
                 <div className="pt-4">
@@ -490,7 +554,11 @@ const Settings = () => {
           {/* Security Tab */}
           {activeTab === "security" && (
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">
+              <h2
+                className={`text-2xl font-bold mb-6 ${
+                  isDarkMode ? "text-white" : "text-gray-900"
+                }`}
+              >
                 Security Settings
               </h2>
               <form

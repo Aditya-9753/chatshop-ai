@@ -15,6 +15,7 @@ import Modal from "../components/Modal";
 import Button from "../components/Button";
 import Input from "../components/Input";
 import { useToast } from "../components/Toast";
+import { useTheme } from "../context/ThemeContext";
 
 const Products = () => {
   const [products, setProducts] = useState([]);
@@ -33,6 +34,7 @@ const Products = () => {
   const [productImage, setProductImage] = useState(null);
   const [productImagePreview, setProductImagePreview] = useState(null);
   const { success, error } = useToast();
+  const { isDarkMode } = useTheme();
 
   useEffect(() => {
     fetchProducts();
@@ -145,8 +147,18 @@ const Products = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Products</h1>
-          <p className="text-gray-600 mt-1">Manage your product catalog</p>
+          <h1
+            className={`text-3xl font-bold ${
+              isDarkMode ? "text-white" : "text-gray-900"
+            }`}
+          >
+            Products
+          </h1>
+          <p
+            className={isDarkMode ? "text-gray-400 mt-1" : "text-gray-600 mt-1"}
+          >
+            Manage your product catalog
+          </p>
         </div>
         <Button icon={Plus} onClick={() => openModal()}>
           Add Product
@@ -154,35 +166,53 @@ const Products = () => {
       </div>
 
       {/* Search & View Toggle */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+      <div
+        className={`rounded-xl shadow-sm border p-4 ${
+          isDarkMode
+            ? "bg-gray-800 border-gray-700"
+            : "bg-white border-gray-100"
+        }`}
+      >
         <div className="flex items-center justify-between gap-4">
           <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Search
+              className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 ${
+                isDarkMode ? "text-gray-500" : "text-gray-400"
+              }`}
+            />
             <input
               type="text"
               placeholder="Search products..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+              className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none ${
+                isDarkMode
+                  ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                  : "border-gray-300 bg-white"
+              }`}
             />
           </div>
           <div className="flex gap-2">
             <button
               onClick={() => setViewMode("grid")}
-              className={`p-2 rounded-lg ${
+              className={`p-2 rounded-lg transition-colors ${
                 viewMode === "grid"
                   ? "bg-indigo-100 text-indigo-600"
-                  : "bg-gray-100 text-gray-600"
+                  : isDarkMode
+                  ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               }`}
             >
               <Grid className="w-5 h-5" />
             </button>
             <button
               onClick={() => setViewMode("list")}
-              className={`p-2 rounded-lg ${
+              className={`p-2 rounded-lg transition-colors ${
                 viewMode === "list"
                   ? "bg-indigo-100 text-indigo-600"
-                  : "bg-gray-100 text-gray-600"
+                  : isDarkMode
+                  ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               }`}
             >
               <List className="w-5 h-5" />
@@ -197,16 +227,32 @@ const Products = () => {
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
         </div>
       ) : products.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
-          <Package className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-600">No products found</p>
+        <div
+          className={`rounded-xl shadow-sm border p-12 text-center ${
+            isDarkMode
+              ? "bg-gray-800 border-gray-700"
+              : "bg-white border-gray-100"
+          }`}
+        >
+          <Package
+            className={`w-12 h-12 mx-auto mb-4 ${
+              isDarkMode ? "text-gray-600" : "text-gray-400"
+            }`}
+          />
+          <p className={isDarkMode ? "text-gray-400" : "text-gray-600"}>
+            No products found
+          </p>
         </div>
       ) : viewMode === "grid" ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {products.map((product) => (
             <div
               key={product._id}
-              className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow"
+              className={`rounded-xl shadow-sm border overflow-hidden hover:shadow-md transition-shadow ${
+                isDarkMode
+                  ? "bg-gray-800 border-gray-700"
+                  : "bg-white border-gray-100"
+              }`}
             >
               <div className="h-48 bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center">
                 {product.images && product.images.length > 0 ? (
@@ -222,10 +268,18 @@ const Products = () => {
                 )}
               </div>
               <div className="p-6">
-                <h3 className="text-lg font-bold text-gray-900 mb-2">
+                <h3
+                  className={`text-lg font-bold mb-2 ${
+                    isDarkMode ? "text-white" : "text-gray-900"
+                  }`}
+                >
                   {product.name}
                 </h3>
-                <p className="text-sm text-gray-600 mb-4 line-clamp-2">
+                <p
+                  className={`text-sm mb-4 line-clamp-2 ${
+                    isDarkMode ? "text-gray-400" : "text-gray-600"
+                  }`}
+                >
                   {product.description || "No description"}
                 </p>
                 <div className="flex items-center justify-between mb-4">
@@ -245,7 +299,13 @@ const Products = () => {
                   </span>
                 </div>
                 {product.category && (
-                  <span className="inline-block px-3 py-1 bg-gray-100 text-gray-700 text-xs rounded-full mb-4">
+                  <span
+                    className={`inline-block px-3 py-1 text-xs rounded-full mb-4 ${
+                      isDarkMode
+                        ? "bg-gray-700 text-gray-300"
+                        : "bg-gray-100 text-gray-700"
+                    }`}
+                  >
                     {product.category}
                   </span>
                 )}
@@ -272,31 +332,72 @@ const Products = () => {
           ))}
         </div>
       ) : (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div
+          className={`rounded-xl shadow-sm border overflow-hidden ${
+            isDarkMode
+              ? "bg-gray-800 border-gray-700"
+              : "bg-white border-gray-100"
+          }`}
+        >
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
+              <thead
+                className={`border-b ${
+                  isDarkMode
+                    ? "bg-gray-900 border-gray-700"
+                    : "bg-gray-50 border-gray-200"
+                }`}
+              >
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  <th
+                    className={`px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider ${
+                      isDarkMode ? "text-gray-300" : "text-gray-700"
+                    }`}
+                  >
                     Product
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  <th
+                    className={`px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider ${
+                      isDarkMode ? "text-gray-300" : "text-gray-700"
+                    }`}
+                  >
                     Category
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  <th
+                    className={`px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider ${
+                      isDarkMode ? "text-gray-300" : "text-gray-700"
+                    }`}
+                  >
                     Price
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  <th
+                    className={`px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider ${
+                      isDarkMode ? "text-gray-300" : "text-gray-700"
+                    }`}
+                  >
                     Stock
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  <th
+                    className={`px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider ${
+                      isDarkMode ? "text-gray-300" : "text-gray-700"
+                    }`}
+                  >
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody
+                className={`divide-y ${
+                  isDarkMode ? "divide-gray-700" : "divide-gray-200"
+                }`}
+              >
                 {products.map((product) => (
-                  <tr key={product._id} className="hover:bg-gray-50">
+                  <tr
+                    key={product._id}
+                    className={
+                      isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-50"
+                    }
+                  >
                     <td className="px-6 py-4">
                       <div className="flex items-center">
                         <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center overflow-hidden">
@@ -313,10 +414,18 @@ const Products = () => {
                           )}
                         </div>
                         <div className="ml-4">
-                          <div className="text-sm font-semibold text-gray-900">
+                          <div
+                            className={`text-sm font-semibold ${
+                              isDarkMode ? "text-white" : "text-gray-900"
+                            }`}
+                          >
                             {product.name}
                           </div>
-                          <div className="text-sm text-gray-500 max-w-xs truncate">
+                          <div
+                            className={`text-sm max-w-xs truncate ${
+                              isDarkMode ? "text-gray-400" : "text-gray-500"
+                            }`}
+                          >
                             {product.description || "No description"}
                           </div>
                         </div>
@@ -324,14 +433,24 @@ const Products = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {product.category ? (
-                        <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                        <span
+                          className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            isDarkMode
+                              ? "bg-gray-700 text-gray-300"
+                              : "bg-gray-100 text-gray-800"
+                          }`}
+                        >
                           {product.category}
                         </span>
                       ) : (
                         <span className="text-gray-400 text-sm">-</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                    <td
+                      className={`px-6 py-4 whitespace-nowrap text-sm font-semibold ${
+                        isDarkMode ? "text-white" : "text-gray-900"
+                      }`}
+                    >
                       ₹{product.price.toLocaleString("en-IN")}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

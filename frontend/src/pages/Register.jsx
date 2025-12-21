@@ -1,10 +1,13 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
+import { Moon, Sun } from "lucide-react";
 
 const Register = () => {
   const navigate = useNavigate();
-  const { register } = useAuth();
+  const { register, isAuthenticated, loading: authLoading } = useAuth();
+  const { isDarkMode, toggleTheme } = useTheme();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -16,6 +19,13 @@ const Register = () => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [isAuthenticated, authLoading, navigate]);
 
   const handleChange = (e) => {
     setFormData({
@@ -52,7 +62,7 @@ const Register = () => {
       });
       setSuccess(true);
       setTimeout(() => {
-        navigate("/login");
+        navigate("/login", { replace: true });
       }, 3000);
     } catch (err) {
       setError(err.message || "Registration failed. Please try again.");
@@ -63,25 +73,66 @@ const Register = () => {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center">
+      <div
+        className={`min-h-screen ${
+          isDarkMode
+            ? "bg-gray-900"
+            : "bg-gradient-to-br from-indigo-50 via-white to-purple-50"
+        } flex items-center justify-center p-4`}
+      >
+        <div
+          className={`max-w-md w-full ${
+            isDarkMode ? "bg-gray-800 border border-gray-700" : "bg-white"
+          } rounded-2xl shadow-xl p-8 text-center`}
+        >
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <span className="text-3xl">✅</span>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+          <h2
+            className={`text-2xl font-bold ${
+              isDarkMode ? "text-white" : "text-gray-900"
+            } mb-2`}
+          >
             Registration Successful!
           </h2>
-          <p className="text-gray-600 mb-6">
+          <p
+            className={`${isDarkMode ? "text-gray-300" : "text-gray-600"} mb-6`}
+          >
             Please check your email to verify your account.
           </p>
-          <p className="text-sm text-gray-500">Redirecting to login page...</p>
+          <p
+            className={`text-sm ${
+              isDarkMode ? "text-gray-400" : "text-gray-500"
+            }`}
+          >
+            Redirecting to login page...
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center p-4">
+    <div
+      className={`min-h-screen ${
+        isDarkMode
+          ? "bg-gray-900"
+          : "bg-gradient-to-br from-indigo-50 via-white to-purple-50"
+      } flex items-center justify-center p-4`}
+    >
+      {/* Dark Mode Toggle */}
+      <button
+        onClick={toggleTheme}
+        className={`fixed top-4 right-4 p-3 rounded-full ${
+          isDarkMode
+            ? "bg-gray-800 text-yellow-400 hover:bg-gray-700"
+            : "bg-white text-gray-700 hover:bg-gray-100"
+        } shadow-lg transition-all z-50`}
+        aria-label="Toggle dark mode"
+      >
+        {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+      </button>
+
       <div className="max-w-md w-full">
         {/* Logo */}
         <div className="text-center mb-8">
@@ -93,23 +144,45 @@ const Register = () => {
               ChatShop AI
             </div>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          <h1
+            className={`text-3xl font-bold ${
+              isDarkMode ? "text-white" : "text-gray-900"
+            } mb-2`}
+          >
             Create Account
           </h1>
-          <p className="text-gray-600">Start automating your business today</p>
+          <p className={`${isDarkMode ? "text-gray-300" : "text-gray-600"}`}>
+            Start automating your business today
+          </p>
         </div>
 
         {/* Form */}
-        <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+        <div
+          className={`${
+            isDarkMode
+              ? "bg-gray-800 border border-gray-700"
+              : "bg-white border border-gray-100"
+          } rounded-2xl shadow-xl p-8`}
+        >
           {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+            <div
+              className={`mb-6 p-4 ${
+                isDarkMode
+                  ? "bg-red-900/30 border-red-700 text-red-300"
+                  : "bg-red-50 border-red-200 text-red-700"
+              } border rounded-lg text-sm`}
+            >
               {error}
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
+              <label
+                className={`block text-sm font-semibold ${
+                  isDarkMode ? "text-gray-300" : "text-gray-700"
+                } mb-2`}
+              >
                 Full Name
               </label>
               <input
@@ -118,13 +191,21 @@ const Register = () => {
                 value={formData.name}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
+                className={`w-full px-4 py-3 border ${
+                  isDarkMode
+                    ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                    : "bg-white border-gray-300 placeholder-gray-400"
+                } rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all`}
                 placeholder="John Doe"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
+              <label
+                className={`block text-sm font-semibold ${
+                  isDarkMode ? "text-gray-300" : "text-gray-700"
+                } mb-2`}
+              >
                 Email Address
               </label>
               <input
@@ -133,13 +214,21 @@ const Register = () => {
                 value={formData.email}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
+                className={`w-full px-4 py-3 border ${
+                  isDarkMode
+                    ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                    : "bg-white border-gray-300 placeholder-gray-400"
+                } rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all`}
                 placeholder="you@example.com"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
+              <label
+                className={`block text-sm font-semibold ${
+                  isDarkMode ? "text-gray-300" : "text-gray-700"
+                } mb-2`}
+              >
                 Business Name
               </label>
               <input
@@ -147,13 +236,21 @@ const Register = () => {
                 name="businessName"
                 value={formData.businessName}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
+                className={`w-full px-4 py-3 border ${
+                  isDarkMode
+                    ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                    : "bg-white border-gray-300 placeholder-gray-400"
+                } rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all`}
                 placeholder="Your Shop Name"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
+              <label
+                className={`block text-sm font-semibold ${
+                  isDarkMode ? "text-gray-300" : "text-gray-700"
+                } mb-2`}
+              >
                 Phone Number
               </label>
               <input
@@ -161,13 +258,21 @@ const Register = () => {
                 name="phone"
                 value={formData.phone}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
+                className={`w-full px-4 py-3 border ${
+                  isDarkMode
+                    ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                    : "bg-white border-gray-300 placeholder-gray-400"
+                } rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all`}
                 placeholder="+91 98765 43210"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
+              <label
+                className={`block text-sm font-semibold ${
+                  isDarkMode ? "text-gray-300" : "text-gray-700"
+                } mb-2`}
+              >
                 Password
               </label>
               <input
@@ -176,13 +281,21 @@ const Register = () => {
                 value={formData.password}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
+                className={`w-full px-4 py-3 border ${
+                  isDarkMode
+                    ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                    : "bg-white border-gray-300 placeholder-gray-400"
+                } rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all`}
                 placeholder="••••••••"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
+              <label
+                className={`block text-sm font-semibold ${
+                  isDarkMode ? "text-gray-300" : "text-gray-700"
+                } mb-2`}
+              >
                 Confirm Password
               </label>
               <input
@@ -191,7 +304,11 @@ const Register = () => {
                 value={formData.confirmPassword}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
+                className={`w-full px-4 py-3 border ${
+                  isDarkMode
+                    ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                    : "bg-white border-gray-300 placeholder-gray-400"
+                } rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all`}
                 placeholder="••••••••"
               />
             </div>
@@ -205,11 +322,19 @@ const Register = () => {
             </button>
           </form>
 
-          <div className="mt-6 text-center text-sm text-gray-600">
+          <div
+            className={`mt-6 text-center text-sm ${
+              isDarkMode ? "text-gray-300" : "text-gray-600"
+            }`}
+          >
             Already have an account?{" "}
             <Link
               to="/login"
-              className="text-indigo-600 hover:text-indigo-700 font-semibold"
+              className={`${
+                isDarkMode
+                  ? "text-indigo-400 hover:text-indigo-300"
+                  : "text-indigo-600 hover:text-indigo-700"
+              } font-semibold`}
             >
               Login
             </Link>
@@ -219,7 +344,11 @@ const Register = () => {
         <div className="mt-6 text-center">
           <Link
             to="/"
-            className="text-sm text-gray-600 hover:text-gray-900 font-medium"
+            className={`text-sm ${
+              isDarkMode
+                ? "text-gray-400 hover:text-gray-200"
+                : "text-gray-600 hover:text-gray-900"
+            } font-medium`}
           >
             ← Back to home
           </Link>

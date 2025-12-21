@@ -45,10 +45,13 @@ import {
   Smartphone,
   Layout,
   Home,
+  Sun,
+  Moon,
 } from "lucide-react";
 import adminService from "../services/admin.service";
 import { useToast } from "../components/Toast";
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
 import Modal from "../components/Modal";
 
 const AdminDashboard = () => {
@@ -75,6 +78,7 @@ const AdminDashboard = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { success, error } = useToast();
   const { logout } = useAuth();
+  const { isDarkMode, toggleTheme } = useTheme();
 
   useEffect(() => {
     fetchDashboardStats();
@@ -339,10 +343,18 @@ const AdminDashboard = () => {
 
   if (!stats) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div
+        className={`flex items-center justify-center min-h-screen ${
+          isDarkMode ? "bg-gray-900" : "bg-gray-50"
+        }`}
+      >
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-indigo-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 font-medium">
+          <p
+            className={`font-medium ${
+              isDarkMode ? "text-gray-300" : "text-gray-600"
+            }`}
+          >
             Loading Admin Dashboard...
           </p>
         </div>
@@ -351,23 +363,47 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div
+      className={`flex h-screen overflow-hidden ${
+        isDarkMode ? "bg-gray-900" : "bg-gray-50"
+      }`}
+    >
       {/* Sidebar Navigation - Google Admin Console Style */}
       <div
         className={`${
           sidebarCollapsed ? "w-20" : "w-64"
-        } bg-white border-r border-gray-200 flex flex-col transition-all duration-300 shadow-lg`}
+        } flex flex-col transition-all duration-300 shadow-lg ${
+          isDarkMode
+            ? "bg-gray-800 border-r border-gray-700"
+            : "bg-white border-r border-gray-200"
+        }`}
       >
         {/* Logo/Header */}
-        <div className="p-6 border-b border-gray-200">
+        <div
+          className={`p-6 border-b ${
+            isDarkMode ? "border-gray-700" : "border-gray-200"
+          }`}
+        >
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center flex-shrink-0">
               <Shield className="w-6 h-6 text-white" />
             </div>
             {!sidebarCollapsed && (
               <div>
-                <h1 className="text-lg font-bold text-gray-900">Admin Panel</h1>
-                <p className="text-xs text-gray-500">ChatShop-AI</p>
+                <h1
+                  className={`text-lg font-bold ${
+                    isDarkMode ? "text-white" : "text-gray-900"
+                  }`}
+                >
+                  Admin Panel
+                </h1>
+                <p
+                  className={`text-xs ${
+                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                  }`}
+                >
+                  ChatShop-AI
+                </p>
               </div>
             )}
           </div>
@@ -384,7 +420,11 @@ const AdminDashboard = () => {
                 onClick={() => setActiveSection(item.id)}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all group ${
                   isActive
-                    ? "bg-indigo-50 text-indigo-700 font-medium shadow-sm"
+                    ? isDarkMode
+                      ? "bg-indigo-900/50 text-indigo-400 font-medium shadow-sm"
+                      : "bg-indigo-50 text-indigo-700 font-medium shadow-sm"
+                    : isDarkMode
+                    ? "text-gray-300 hover:bg-gray-700"
                     : "text-gray-700 hover:bg-gray-50"
                 }`}
                 title={sidebarCollapsed ? item.label : ""}
@@ -393,6 +433,8 @@ const AdminDashboard = () => {
                   className={`w-5 h-5 flex-shrink-0 ${
                     isActive
                       ? item.color
+                      : isDarkMode
+                      ? "text-gray-500 group-hover:text-gray-400"
                       : "text-gray-400 group-hover:text-gray-600"
                   }`}
                 />
@@ -408,17 +450,31 @@ const AdminDashboard = () => {
         </nav>
 
         {/* User Info & Logout */}
-        <div className="p-4 border-t border-gray-200">
+        <div
+          className={`p-4 border-t ${
+            isDarkMode ? "border-gray-700" : "border-gray-200"
+          }`}
+        >
           {!sidebarCollapsed && (
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 bg-gradient-to-br from-indigo-400 to-purple-400 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0">
                 A
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900 truncate">
+                <p
+                  className={`text-sm font-semibold truncate ${
+                    isDarkMode ? "text-white" : "text-gray-900"
+                  }`}
+                >
                   Admin
                 </p>
-                <p className="text-xs text-gray-500">Super Admin</p>
+                <p
+                  className={`text-xs ${
+                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                  }`}
+                >
+                  Super Admin
+                </p>
               </div>
             </div>
           )}
@@ -426,7 +482,9 @@ const AdminDashboard = () => {
             onClick={logout}
             className={`w-full flex items-center ${
               sidebarCollapsed ? "justify-center" : "gap-2"
-            } px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors`}
+            } px-4 py-2 text-sm text-red-600 rounded-lg transition-colors ${
+              isDarkMode ? "hover:bg-red-900/30" : "hover:bg-red-50"
+            }`}
             title={sidebarCollapsed ? "Logout" : ""}
           >
             <LogOut className="w-4 h-4 flex-shrink-0" />
@@ -438,24 +496,44 @@ const AdminDashboard = () => {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top Header Bar */}
-        <div className="bg-white border-b border-gray-200 px-8 py-4 shadow-sm">
+        <div
+          className={`px-8 py-4 shadow-sm border-b ${
+            isDarkMode
+              ? "bg-gray-800 border-gray-700"
+              : "bg-white border-gray-200"
+          }`}
+        >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
                 onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className={`p-2 rounded-lg transition-colors ${
+                  isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-100"
+                }`}
                 title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
               >
-                <Layout className="w-5 h-5 text-gray-600" />
+                <Layout
+                  className={`w-5 h-5 ${
+                    isDarkMode ? "text-gray-300" : "text-gray-600"
+                  }`}
+                />
               </button>
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">
+                <h2
+                  className={`text-2xl font-bold ${
+                    isDarkMode ? "text-white" : "text-gray-900"
+                  }`}
+                >
                   {
                     navigationItems.find((item) => item.id === activeSection)
                       ?.label
                   }
                 </h2>
-                <p className="text-sm text-gray-500 mt-1">
+                <p
+                  className={`text-sm mt-1 ${
+                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                  }`}
+                >
                   {activeSection === "overview" &&
                     "Monitor your platform performance and key metrics"}
                   {activeSection === "users" &&
@@ -469,14 +547,41 @@ const AdminDashboard = () => {
             </div>
             <div className="flex items-center gap-3">
               <button
+                onClick={toggleTheme}
+                className={`p-2 rounded-lg transition-colors ${
+                  isDarkMode
+                    ? "text-yellow-300 hover:bg-gray-700"
+                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                }`}
+                title={
+                  isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"
+                }
+              >
+                {isDarkMode ? (
+                  <Sun className="w-5 h-5" />
+                ) : (
+                  <Moon className="w-5 h-5" />
+                )}
+              </button>
+              <button
                 onClick={handleRefresh}
-                className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                  isDarkMode
+                    ? "text-gray-300 hover:bg-gray-700"
+                    : "text-gray-700 hover:bg-gray-100"
+                }`}
                 title="Refresh data"
               >
                 <RefreshCw className="w-4 h-4" />
                 <span className="hidden sm:inline">Refresh</span>
               </button>
-              <button className="relative p-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+              <button
+                className={`relative p-2 rounded-lg transition-colors ${
+                  isDarkMode
+                    ? "text-gray-300 hover:bg-gray-700"
+                    : "text-gray-700 hover:bg-gray-100"
+                }`}
+              >
                 <Bell className="w-5 h-5" />
                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
               </button>
@@ -485,11 +590,16 @@ const AdminDashboard = () => {
         </div>
 
         {/* Content Area - Scrollable */}
-        <div className="flex-1 overflow-y-auto p-8">
+        <div
+          className={`flex-1 overflow-y-auto p-8 ${
+            isDarkMode ? "bg-gray-900" : "bg-gray-50"
+          }`}
+        >
           {activeSection === "overview" && (
             <OverviewSection
               stats={stats}
               handleExportUsers={handleExportUsers}
+              isDarkMode={isDarkMode}
             />
           )}
           {activeSection === "users" && (
@@ -509,10 +619,15 @@ const AdminDashboard = () => {
               openMessageModal={openMessageModal}
               handleDeleteUser={handleDeleteUser}
               handleExportUsers={handleExportUsers}
+              isDarkMode={isDarkMode}
             />
           )}
           {activeSection === "analytics" && (
-            <AnalyticsSection stats={stats} systemStats={systemStats} />
+            <AnalyticsSection
+              stats={stats}
+              systemStats={systemStats}
+              isDarkMode={isDarkMode}
+            />
           )}
           {activeSection === "settings" && (
             <SettingsSection
@@ -520,6 +635,7 @@ const AdminDashboard = () => {
               setIsPasswordModalOpen={setIsPasswordModalOpen}
               handle2FASetup={handle2FASetup}
               handleSecurityAudit={handleSecurityAudit}
+              isDarkMode={isDarkMode}
             />
           )}
         </div>
@@ -579,7 +695,7 @@ const AdminDashboard = () => {
 // ==================== SECTION COMPONENTS ====================
 
 // Overview Section
-const OverviewSection = ({ stats, handleExportUsers }) => {
+const OverviewSection = ({ stats, handleExportUsers, isDarkMode }) => {
   const statCards = [
     {
       title: "Total Users",
@@ -628,12 +744,26 @@ const OverviewSection = ({ stats, handleExportUsers }) => {
           return (
             <div
               key={index}
-              className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow"
+              className={`rounded-xl border p-6 hover:shadow-lg transition-shadow ${
+                isDarkMode
+                  ? "bg-gray-800 border-gray-700"
+                  : "bg-white border-gray-200"
+              }`}
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <p className="text-sm text-gray-600 mb-1">{stat.title}</p>
-                  <h3 className="text-3xl font-bold text-gray-900 mb-2">
+                  <p
+                    className={`text-sm mb-1 ${
+                      isDarkMode ? "text-gray-400" : "text-gray-600"
+                    }`}
+                  >
+                    {stat.title}
+                  </p>
+                  <h3
+                    className={`text-3xl font-bold mb-2 ${
+                      isDarkMode ? "text-white" : "text-gray-900"
+                    }`}
+                  >
                     {stat.value}
                   </h3>
                   <div className="flex items-center gap-2">
@@ -644,7 +774,13 @@ const OverviewSection = ({ stats, handleExportUsers }) => {
                     >
                       {stat.change}
                     </span>
-                    <span className="text-xs text-gray-500">vs last month</span>
+                    <span
+                      className={`text-xs ${
+                        isDarkMode ? "text-gray-500" : "text-gray-500"
+                      }`}
+                    >
+                      vs last month
+                    </span>
                   </div>
                 </div>
                 <div
@@ -662,8 +798,18 @@ const OverviewSection = ({ stats, handleExportUsers }) => {
 
       {/* Quick Actions & Platform Stats */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+        <div
+          className={`rounded-xl border p-6 ${
+            isDarkMode
+              ? "bg-gray-800 border-gray-700"
+              : "bg-white border-gray-200"
+          }`}
+        >
+          <h3
+            className={`text-lg font-bold mb-4 flex items-center gap-2 ${
+              isDarkMode ? "text-white" : "text-gray-900"
+            }`}
+          >
             <Zap className="w-5 h-5 text-indigo-600" />
             Quick Actions
           </h3>
@@ -696,8 +842,18 @@ const OverviewSection = ({ stats, handleExportUsers }) => {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+        <div
+          className={`rounded-xl border p-6 ${
+            isDarkMode
+              ? "bg-gray-800 border-gray-700"
+              : "bg-white border-gray-200"
+          }`}
+        >
+          <h3
+            className={`text-lg font-bold mb-4 flex items-center gap-2 ${
+              isDarkMode ? "text-white" : "text-gray-900"
+            }`}
+          >
             <Server className="w-5 h-5 text-teal-600" />
             System Status
           </h3>
@@ -741,8 +897,18 @@ const OverviewSection = ({ stats, handleExportUsers }) => {
 
       {/* Platform Connections */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">
+        <div
+          className={`rounded-xl border p-6 ${
+            isDarkMode
+              ? "bg-gray-800 border-gray-700"
+              : "bg-white border-gray-200"
+          }`}
+        >
+          <h3
+            className={`text-lg font-bold mb-4 ${
+              isDarkMode ? "text-white" : "text-gray-900"
+            }`}
+          >
             Platform Connections
           </h3>
           <div className="space-y-4">
@@ -777,38 +943,104 @@ const OverviewSection = ({ stats, handleExportUsers }) => {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">
+        <div
+          className={`rounded-xl border p-6 ${
+            isDarkMode
+              ? "bg-gray-800 border-gray-700"
+              : "bg-white border-gray-200"
+          }`}
+        >
+          <h3
+            className={`text-lg font-bold mb-4 ${
+              isDarkMode ? "text-white" : "text-gray-900"
+            }`}
+          >
             System Wide Data
           </h3>
           <div className="grid grid-cols-2 gap-4">
-            <div className="p-4 bg-gray-50 rounded-lg">
+            <div
+              className={`p-4 rounded-lg ${
+                isDarkMode ? "bg-gray-700" : "bg-gray-50"
+              }`}
+            >
               <Users className="w-8 h-8 text-indigo-600 mb-2" />
-              <p className="text-2xl font-bold text-gray-900">
+              <p
+                className={`text-2xl font-bold ${
+                  isDarkMode ? "text-white" : "text-gray-900"
+                }`}
+              >
                 {stats?.entities?.customers?.toLocaleString() || 0}
               </p>
-              <p className="text-sm text-gray-600">Total Customers</p>
+              <p
+                className={`text-sm ${
+                  isDarkMode ? "text-gray-400" : "text-gray-600"
+                }`}
+              >
+                Total Customers
+              </p>
             </div>
-            <div className="p-4 bg-gray-50 rounded-lg">
+            <div
+              className={`p-4 rounded-lg ${
+                isDarkMode ? "bg-gray-700" : "bg-gray-50"
+              }`}
+            >
               <ShoppingBag className="w-8 h-8 text-green-600 mb-2" />
-              <p className="text-2xl font-bold text-gray-900">
+              <p
+                className={`text-2xl font-bold ${
+                  isDarkMode ? "text-white" : "text-gray-900"
+                }`}
+              >
                 {stats?.entities?.orders?.toLocaleString() || 0}
               </p>
-              <p className="text-sm text-gray-600">Total Orders</p>
+              <p
+                className={`text-sm ${
+                  isDarkMode ? "text-gray-400" : "text-gray-600"
+                }`}
+              >
+                Total Orders
+              </p>
             </div>
-            <div className="p-4 bg-gray-50 rounded-lg">
+            <div
+              className={`p-4 rounded-lg ${
+                isDarkMode ? "bg-gray-700" : "bg-gray-50"
+              }`}
+            >
               <Package className="w-8 h-8 text-purple-600 mb-2" />
-              <p className="text-2xl font-bold text-gray-900">
+              <p
+                className={`text-2xl font-bold ${
+                  isDarkMode ? "text-white" : "text-gray-900"
+                }`}
+              >
                 {stats?.entities?.products?.toLocaleString() || 0}
               </p>
-              <p className="text-sm text-gray-600">Total Products</p>
+              <p
+                className={`text-sm ${
+                  isDarkMode ? "text-gray-400" : "text-gray-600"
+                }`}
+              >
+                Total Products
+              </p>
             </div>
-            <div className="p-4 bg-gray-50 rounded-lg">
+            <div
+              className={`p-4 rounded-lg ${
+                isDarkMode ? "bg-gray-700" : "bg-gray-50"
+              }`}
+            >
               <MessageSquare className="w-8 h-8 text-blue-600 mb-2" />
-              <p className="text-2xl font-bold text-gray-900">
+              <p
+                className={`text-2xl font-bold ${
+                  isDarkMode ? "text-white" : "text-gray-900"
+                }`}
+              >
                 {stats?.entities?.messages?.toLocaleString() || 0}
               </p>
-              <p className="text-sm text-gray-600">Total Messages</p>
+              <p
+                className={`text-sm ${
+                  isDarkMode ? "text-gray-400" : "text-gray-600"
+                }`}
+              >
+                Total Messages
+              </p>
             </div>
           </div>
         </div>
@@ -834,14 +1066,25 @@ const UsersSection = ({
   openMessageModal,
   handleDeleteUser,
   handleExportUsers,
+  isDarkMode,
 }) => {
   return (
     <div className="space-y-6">
       {/* Filters and Actions */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div
+        className={`rounded-xl border p-6 ${
+          isDarkMode
+            ? "bg-gray-800 border-gray-700"
+            : "bg-white border-gray-200"
+        }`}
+      >
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Search
+              className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 ${
+                isDarkMode ? "text-gray-500" : "text-gray-400"
+              }`}
+            />
             <input
               type="text"
               placeholder="Search by name, email, or phone..."
@@ -850,7 +1093,11 @@ const UsersSection = ({
                 setSearchTerm(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+              className={`w-full pl-10 pr-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none ${
+                isDarkMode
+                  ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                  : "bg-white border-gray-300 text-gray-900"
+              }`}
             />
           </div>
 
@@ -861,7 +1108,11 @@ const UsersSection = ({
                 setFilterPlan(e.target.value);
                 setCurrentPage(1);
               }}
-              className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+              className={`px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
+                isDarkMode
+                  ? "bg-gray-700 border-gray-600 text-white"
+                  : "bg-white border-gray-300 text-gray-900"
+              }`}
             >
               <option value="all">All Plans</option>
               <option value="free">Free</option>
@@ -876,7 +1127,11 @@ const UsersSection = ({
                 setFilterStatus(e.target.value);
                 setCurrentPage(1);
               }}
-              className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+              className={`px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
+                isDarkMode
+                  ? "bg-gray-700 border-gray-600 text-white"
+                  : "bg-white border-gray-300 text-gray-900"
+              }`}
             >
               <option value="all">All Status</option>
               <option value="active">Active</option>
@@ -895,47 +1150,91 @@ const UsersSection = ({
       </div>
 
       {/* Users Table */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div
+        className={`rounded-xl border overflow-hidden ${
+          isDarkMode
+            ? "bg-gray-800 border-gray-700"
+            : "bg-white border-gray-200"
+        }`}
+      >
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
           </div>
         ) : users.length === 0 ? (
           <div className="text-center py-12">
-            <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600">No users found</p>
+            <Users
+              className={`w-12 h-12 mx-auto mb-4 ${
+                isDarkMode ? "text-gray-600" : "text-gray-400"
+              }`}
+            />
+            <p className={isDarkMode ? "text-gray-400" : "text-gray-600"}>
+              No users found
+            </p>
           </div>
         ) : (
           <>
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
+                <thead
+                  className={`border-b ${
+                    isDarkMode
+                      ? "bg-gray-700 border-gray-600"
+                      : "bg-gray-50 border-gray-200"
+                  }`}
+                >
                   <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase">
+                    <th
+                      className={`px-6 py-4 text-left text-xs font-semibold uppercase ${
+                        isDarkMode ? "text-gray-300" : "text-gray-700"
+                      }`}
+                    >
                       User
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase">
+                    <th
+                      className={`px-6 py-4 text-left text-xs font-semibold uppercase ${
+                        isDarkMode ? "text-gray-300" : "text-gray-700"
+                      }`}
+                    >
                       Contact
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase">
                       Plan
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase">
+                    <th
+                      className={`px-6 py-4 text-left text-xs font-semibold uppercase ${
+                        isDarkMode ? "text-gray-300" : "text-gray-700"
+                      }`}
+                    >
                       Status
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase">
+                    <th
+                      className={`px-6 py-4 text-left text-xs font-semibold uppercase ${
+                        isDarkMode ? "text-gray-300" : "text-gray-700"
+                      }`}
+                    >
                       Joined
                     </th>
-                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase">
+                    <th
+                      className={`px-6 py-4 text-right text-xs font-semibold uppercase ${
+                        isDarkMode ? "text-gray-300" : "text-gray-700"
+                      }`}
+                    >
                       Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
+                <tbody
+                  className={`divide-y ${
+                    isDarkMode ? "divide-gray-700" : "divide-gray-200"
+                  }`}
+                >
                   {users.map((user) => (
                     <tr
                       key={user._id}
-                      className="hover:bg-gray-50 transition-colors"
+                      className={`transition-colors ${
+                        isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-50"
+                      }`}
                     >
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
@@ -943,7 +1242,11 @@ const UsersSection = ({
                             {user.name?.charAt(0)?.toUpperCase()}
                           </div>
                           <div>
-                            <p className="text-sm font-semibold text-gray-900">
+                            <p
+                              className={`text-sm font-semibold ${
+                                isDarkMode ? "text-white" : "text-gray-900"
+                              }`}
+                            >
                               {user.name}
                             </p>
                             {user.role === "admin" && (
@@ -957,13 +1260,29 @@ const UsersSection = ({
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-sm">
-                          <p className="text-gray-900 flex items-center gap-1">
-                            <Mail className="w-3 h-3 text-gray-400" />
+                          <p
+                            className={`flex items-center gap-1 ${
+                              isDarkMode ? "text-gray-300" : "text-gray-900"
+                            }`}
+                          >
+                            <Mail
+                              className={`w-3 h-3 ${
+                                isDarkMode ? "text-gray-500" : "text-gray-400"
+                              }`}
+                            />
                             {user.email}
                           </p>
                           {user.phone && (
-                            <p className="text-gray-600 flex items-center gap-1 mt-1">
-                              <Phone className="w-3 h-3 text-gray-400" />
+                            <p
+                              className={`flex items-center gap-1 mt-1 ${
+                                isDarkMode ? "text-gray-400" : "text-gray-600"
+                              }`}
+                            >
+                              <Phone
+                                className={`w-3 h-3 ${
+                                  isDarkMode ? "text-gray-600" : "text-gray-400"
+                                }`}
+                              />
                               {user.phone}
                             </p>
                           )}
@@ -1001,21 +1320,33 @@ const UsersSection = ({
                             "INACTIVE"}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
+                      <td
+                        className={`px-6 py-4 text-sm ${
+                          isDarkMode ? "text-gray-400" : "text-gray-600"
+                        }`}
+                      >
                         {new Date(user.createdAt).toLocaleDateString("en-IN")}
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => viewUserDetails(user)}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            className={`p-2 text-blue-600 rounded-lg transition-colors ${
+                              isDarkMode
+                                ? "hover:bg-blue-900/30"
+                                : "hover:bg-blue-50"
+                            }`}
                             title="View Details"
                           >
                             <Eye className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => openMessageModal(user)}
-                            className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                            className={`p-2 text-green-600 rounded-lg transition-colors ${
+                              isDarkMode
+                                ? "hover:bg-green-900/30"
+                                : "hover:bg-green-50"
+                            }`}
                             title="Send Message"
                           >
                             <Send className="w-4 h-4" />
@@ -1023,7 +1354,11 @@ const UsersSection = ({
                           {user.role !== "admin" && (
                             <button
                               onClick={() => handleDeleteUser(user._id)}
-                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              className={`p-2 text-red-600 rounded-lg transition-colors ${
+                                isDarkMode
+                                  ? "hover:bg-red-900/30"
+                                  : "hover:bg-red-50"
+                              }`}
                               title="Delete User"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -1038,8 +1373,16 @@ const UsersSection = ({
             </div>
 
             {totalPages > 1 && (
-              <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200">
-                <p className="text-sm text-gray-600">
+              <div
+                className={`flex items-center justify-between px-6 py-4 border-t ${
+                  isDarkMode ? "border-gray-700" : "border-gray-200"
+                }`}
+              >
+                <p
+                  className={`text-sm ${
+                    isDarkMode ? "text-gray-400" : "text-gray-600"
+                  }`}
+                >
                   Page {currentPage} of {totalPages}
                 </p>
                 <div className="flex items-center gap-2">
@@ -1048,7 +1391,11 @@ const UsersSection = ({
                       setCurrentPage((prev) => Math.max(1, prev - 1))
                     }
                     disabled={currentPage === 1}
-                    className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className={`p-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${
+                      isDarkMode
+                        ? "text-gray-300 hover:bg-gray-700"
+                        : "text-gray-600 hover:bg-gray-100"
+                    }`}
                   >
                     <ChevronLeft className="w-5 h-5" />
                   </button>
@@ -1057,7 +1404,11 @@ const UsersSection = ({
                       setCurrentPage((prev) => Math.min(totalPages, prev + 1))
                     }
                     disabled={currentPage === totalPages}
-                    className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className={`p-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${
+                      isDarkMode
+                        ? "text-gray-300 hover:bg-gray-700"
+                        : "text-gray-600 hover:bg-gray-100"
+                    }`}
                   >
                     <ChevronRight className="w-5 h-5" />
                   </button>
@@ -1072,7 +1423,7 @@ const UsersSection = ({
 };
 
 // Analytics Section
-const AnalyticsSection = ({ stats, systemStats }) => {
+const AnalyticsSection = ({ stats, systemStats, isDarkMode }) => {
   // Prepare user growth data
   const userGrowthData = systemStats?.userGrowth || [];
   const sortedUserGrowth = [...userGrowthData].reverse(); // Oldest to newest

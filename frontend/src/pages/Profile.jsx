@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api.service";
 import { API_ENDPOINTS } from "../config/api.config";
@@ -20,6 +21,7 @@ import {
 
 const Profile = () => {
   const { user, updateUser } = useAuth();
+  const { isDarkMode } = useTheme();
   const navigate = useNavigate();
 
   const [profileForm, setProfileForm] = useState({
@@ -169,13 +171,25 @@ const Profile = () => {
       <div className="flex items-center gap-4">
         <button
           onClick={() => navigate(-1)}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          className={`p-2 rounded-lg transition-colors ${
+            isDarkMode
+              ? "hover:bg-gray-700 text-gray-300"
+              : "hover:bg-gray-100 text-gray-600"
+          }`}
         >
-          <ArrowLeft className="w-5 h-5 text-gray-600" />
+          <ArrowLeft className="w-5 h-5" />
         </button>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">My Profile</h1>
-          <p className="text-gray-600 mt-1">
+          <h1
+            className={`text-3xl font-bold ${
+              isDarkMode ? "text-white" : "text-gray-900"
+            }`}
+          >
+            My Profile
+          </h1>
+          <p
+            className={`mt-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}
+          >
             Manage your account and subscription
           </p>
         </div>
@@ -185,8 +199,18 @@ const Profile = () => {
         {/* Profile Information */}
         <div className="lg:col-span-2 space-y-6">
           {/* Profile Card */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-6">
+          <div
+            className={`rounded-xl shadow-sm border p-6 ${
+              isDarkMode
+                ? "bg-gray-800 border-gray-700"
+                : "bg-white border-gray-100"
+            }`}
+          >
+            <h2
+              className={`text-xl font-bold mb-6 ${
+                isDarkMode ? "text-white" : "text-gray-900"
+              }`}
+            >
               Profile Information
             </h2>
 
@@ -216,11 +240,25 @@ const Profile = () => {
                   </label>
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
+                  <h3
+                    className={`text-lg font-semibold ${
+                      isDarkMode ? "text-white" : "text-gray-900"
+                    }`}
+                  >
                     {user?.name}
                   </h3>
-                  <p className="text-sm text-gray-500">{user?.email}</p>
-                  <p className="text-xs text-gray-400 mt-1">
+                  <p
+                    className={`text-sm ${
+                      isDarkMode ? "text-gray-400" : "text-gray-500"
+                    }`}
+                  >
+                    {user?.email}
+                  </p>
+                  <p
+                    className={`text-xs mt-1 ${
+                      isDarkMode ? "text-gray-500" : "text-gray-400"
+                    }`}
+                  >
                     Member since{" "}
                     {new Date(user?.createdAt).toLocaleDateString("en-US", {
                       month: "long",
@@ -233,7 +271,11 @@ const Profile = () => {
               {/* Form Fields */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label
+                    className={`block text-sm font-medium mb-2 ${
+                      isDarkMode ? "text-gray-300" : "text-gray-700"
+                    }`}
+                  >
                     <User className="w-4 h-4 inline mr-2" />
                     Full Name *
                   </label>
@@ -245,13 +287,21 @@ const Profile = () => {
                       setProfileForm({ ...profileForm, name: e.target.value });
                       setIsEditing(true);
                     }}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                      isDarkMode
+                        ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                        : "bg-white border-gray-300 text-gray-900"
+                    }`}
                     placeholder="Enter your name"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label
+                    className={`block text-sm font-medium mb-2 ${
+                      isDarkMode ? "text-gray-300" : "text-gray-700"
+                    }`}
+                  >
                     <Mail className="w-4 h-4 inline mr-2" />
                     Email *
                   </label>
@@ -266,13 +316,21 @@ const Profile = () => {
                       });
                       setIsEditing(true);
                     }}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                      isDarkMode
+                        ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                        : "bg-white border-gray-300 text-gray-900"
+                    }`}
                     placeholder="your@email.com"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label
+                    className={`block text-sm font-medium mb-2 ${
+                      isDarkMode ? "text-gray-300" : "text-gray-700"
+                    }`}
+                  >
                     <Phone className="w-4 h-4 inline mr-2" />
                     Phone
                   </label>
@@ -286,13 +344,21 @@ const Profile = () => {
                       });
                       setIsEditing(true);
                     }}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                      isDarkMode
+                        ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                        : "bg-white border-gray-300 text-gray-900"
+                    }`}
                     placeholder="+91 9876543210"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label
+                    className={`block text-sm font-medium mb-2 ${
+                      isDarkMode ? "text-gray-300" : "text-gray-700"
+                    }`}
+                  >
                     <Building className="w-4 h-4 inline mr-2" />
                     Business Name
                   </label>
@@ -306,7 +372,11 @@ const Profile = () => {
                       });
                       setIsEditing(true);
                     }}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                      isDarkMode
+                        ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                        : "bg-white border-gray-300 text-gray-900"
+                    }`}
                     placeholder="Your Business Name"
                   />
                 </div>
@@ -327,7 +397,11 @@ const Profile = () => {
                       setProfilePhotoPreview(user?.profilePhoto || null);
                       setIsEditing(false);
                     }}
-                    className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                    className={`px-6 py-2 border rounded-lg transition-colors ${
+                      isDarkMode
+                        ? "border-gray-600 text-gray-300 hover:bg-gray-700"
+                        : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                    }`}
                   >
                     Cancel
                   </button>
@@ -410,8 +484,18 @@ const Profile = () => {
           </div>
 
           {/* Plan Features */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+          <div
+            className={`rounded-xl shadow-sm border p-6 ${
+              isDarkMode
+                ? "bg-gray-800 border-gray-700"
+                : "bg-white border-gray-100"
+            }`}
+          >
+            <h3
+              className={`text-lg font-bold mb-4 flex items-center gap-2 ${
+                isDarkMode ? "text-white" : "text-gray-900"
+              }`}
+            >
               <Shield className="w-5 h-5 text-indigo-600" />
               Plan Features
             </h3>
@@ -419,20 +503,40 @@ const Profile = () => {
               {features.map((feature, index) => (
                 <li key={index} className="flex items-start gap-2 text-sm">
                   <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                  <span className="text-gray-700">{feature}</span>
+                  <span
+                    className={isDarkMode ? "text-gray-300" : "text-gray-700"}
+                  >
+                    {feature}
+                  </span>
                 </li>
               ))}
             </ul>
           </div>
 
           {/* Account Stats */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">
+          <div
+            className={`rounded-xl shadow-sm border p-6 ${
+              isDarkMode
+                ? "bg-gray-800 border-gray-700"
+                : "bg-white border-gray-100"
+            }`}
+          >
+            <h3
+              className={`text-lg font-bold mb-4 ${
+                isDarkMode ? "text-white" : "text-gray-900"
+              }`}
+            >
               Account Stats
             </h3>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">WhatsApp</span>
+                <span
+                  className={`text-sm ${
+                    isDarkMode ? "text-gray-400" : "text-gray-600"
+                  }`}
+                >
+                  WhatsApp
+                </span>
                 <span
                   className={`text-xs px-2 py-1 rounded-full ${
                     user?.whatsappConnected
@@ -444,7 +548,13 @@ const Profile = () => {
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Instagram</span>
+                <span
+                  className={`text-sm ${
+                    isDarkMode ? "text-gray-400" : "text-gray-600"
+                  }`}
+                >
+                  Instagram
+                </span>
                 <span
                   className={`text-xs px-2 py-1 rounded-full ${
                     user?.instagramConnected
@@ -456,7 +566,13 @@ const Profile = () => {
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Email Verified</span>
+                <span
+                  className={`text-sm ${
+                    isDarkMode ? "text-gray-400" : "text-gray-600"
+                  }`}
+                >
+                  Email Verified
+                </span>
                 <span
                   className={`text-xs px-2 py-1 rounded-full ${
                     user?.isVerified

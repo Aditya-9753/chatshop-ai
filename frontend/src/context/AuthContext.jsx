@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import authService from "../services/auth.service";
+import navigationManager from "../utils/navigationManager";
 
 const AuthContext = createContext(null);
 
@@ -22,6 +23,8 @@ export const AuthProvider = ({ children }) => {
         const currentUser = authService.getCurrentUser();
         if (currentUser) {
           setUser(currentUser);
+          // Track successful auth restoration
+          console.log("✅ User session restored:", currentUser.email);
         }
       } catch (error) {
         console.error("Error loading user:", error);
@@ -34,11 +37,25 @@ export const AuthProvider = ({ children }) => {
     };
 
     initializeAuth();
+
+    // Session validation on window focus
+    const handleFocus = () => {
+      const currentUser = authService.getCurrentUser();
+      if (!currentUser && user) {
+        // Session expired
+        setUser(null);
+        navigationManager.clearHistory();
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
   }, []);
 
   const login = async (email, password) => {
     const response = await authService.login(email, password);
     setUser(response.data.user);
+    navigationManager.clearHistory(); // Clear old navigation history on new login
     return response;
   };
 
@@ -49,6 +66,7 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     authService.logout();
     setUser(null);
+    navigationManager.clearHistory();
   };
 
   const updateUser = (userData) => {

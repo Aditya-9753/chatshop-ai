@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Shield, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
@@ -11,9 +11,16 @@ const AdminLogin = () => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, isAdmin, isAuthenticated, loading: authLoading } = useAuth();
   const { success, error } = useToast();
   const navigate = useNavigate();
+
+  // Redirect if already authenticated as admin
+  useEffect(() => {
+    if (!authLoading && isAuthenticated && isAdmin) {
+      navigate("/admin/dashboard", { replace: true });
+    }
+  }, [isAuthenticated, isAdmin, authLoading, navigate]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -44,10 +51,10 @@ const AdminLogin = () => {
       console.log("✅ Admin verified, redirecting to dashboard...");
       success("Welcome back, Admin!");
 
-      // Use hard redirect to ensure clean navigation
+      // Use replace navigation for proper history management
       setTimeout(() => {
         console.log("🚀 Redirecting now...");
-        window.location.href = "/admin/dashboard";
+        navigate("/admin/dashboard", { replace: true });
       }, 500);
     } catch (err) {
       console.error("❌ Login error:", err);
