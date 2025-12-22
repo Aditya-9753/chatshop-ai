@@ -166,9 +166,14 @@ const Orders = () => {
           <meta charset="UTF-8">
           <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
-            @page { 
+            @page {
               size: A4;
-              margin: 8mm;
+              margin: 15mm 14mm 18mm 14mm;
+              @bottom-right {
+                content: "Page " counter(page) " of " counter(pages);
+                font-size: 7px;
+                color: #666;
+              }
             }
             body { 
               font-family: Arial, Helvetica, sans-serif; 
@@ -178,10 +183,17 @@ const Orders = () => {
               background: #fff;
               font-size: 9px;
             }
-            .container { 
-              max-width: 100%; 
-              margin: 0;
-              padding: 0;
+            .thermal * {
+              color: #000 !important;
+              background: #fff !important;
+              border-color: #000 !important;
+            }
+
+            .container {
+              width: 100%;
+              padding: 10px 12px;
+              border: 1px solid #e5e7eb;
+              border-radius: 6px;
             }
             
             /* Header */
@@ -189,8 +201,8 @@ const Orders = () => {
               display: flex;
               justify-content: space-between;
               align-items: flex-start;
-              margin-bottom: 4px;
-              padding-bottom: 4px;
+              margin-bottom: 8px;
+              padding-bottom: 10px;
               border-bottom: 2px solid #333;
             }
             .company-name {
@@ -207,21 +219,21 @@ const Orders = () => {
             .company-details {
               font-size: 7px;
               color: #666;
-              line-height: 1.2;
+              line-height: 1.3;
             }
             .invoice-section {
               text-align: right;
             }
             .invoice-title {
-              font-size: 16px;
+              font-size: 18px;
               font-weight: bold;
-              color: #111;
-              margin-bottom: 3px;
+              letter-spacing: 0.5px;
+              text-align: right;
             }
             .invoice-details {
               font-size: 7px;
               color: #555;
-              line-height: 1.3;
+              line-height: 1.4;
             }
             .invoice-details strong {
               color: #333;
@@ -229,11 +241,11 @@ const Orders = () => {
             }
             .status-badge {
               display: inline-block;
-              padding: 2px 5px;
-              border-radius: 5px;
+              padding: 2px 6px;
+              border-radius: 6px;
               font-size: 6px;
               font-weight: bold;
-              margin-top: 2px;
+              margin-top: 4px;
               text-transform: uppercase;
             }
             .status-paid { background: #dcfce7; color: #166534; }
@@ -245,7 +257,10 @@ const Orders = () => {
               display: grid;
               grid-template-columns: 1fr 1fr;
               gap: 10px;
-              margin: 4px 0;
+              margin: 10px 0 12px;
+              padding: 8px;
+              border: 1px solid #e5e7eb;
+              border-radius: 4px;
             }
             .address-block h3 {
               font-size: 7px;
@@ -253,7 +268,7 @@ const Orders = () => {
               color: #666;
               text-transform: uppercase;
               letter-spacing: 0.1px;
-              margin-bottom: 2px;
+              margin-bottom: 3px;
             }
             .address-block .customer-name {
               font-size: 9px;
@@ -272,13 +287,13 @@ const Orders = () => {
             table {
               width: 100%;
               border-collapse: collapse;
-              margin: 4px 0;
+              margin-top: 10px;
             }
             thead {
               background: #f8f9fa;
             }
             th {
-              padding: 3px 2px;
+              padding: 6px 4px;
               text-align: left;
               font-size: 7px;
               font-weight: bold;
@@ -290,7 +305,7 @@ const Orders = () => {
             th.center { text-align: center; }
             th.right { text-align: right; }
             td {
-              padding: 3px 2px;
+              padding: 6px 4px;
               font-size: 8px;
               color: #333;
               border-bottom: 1px solid #e9ecef;
@@ -316,12 +331,15 @@ const Orders = () => {
               margin: 4px 0;
             }
             .totals-table {
-              min-width: 180px;
+              min-width: 220px;
+              padding: 6px 8px;
+              border: 1px solid #e5e7eb;
+              border-radius: 4px;
             }
             .totals-row {
               display: flex;
               justify-content: space-between;
-              padding: 2px 0;
+              padding: 3px 0;
               font-size: 8px;
             }
             .totals-row.border-top {
@@ -354,16 +372,17 @@ const Orders = () => {
             
             /* Payment Info */
             .payment-section {
+              margin-top: 10px;
+              padding: 6px;
               background: #f8f9fa;
-              padding: 4px;
-              border-radius: 3px;
-              margin: 3px 0;
+              border-radius: 4px;
+              page-break-inside: avoid;
             }
             .payment-section h4 {
               font-size: 7px;
               font-weight: bold;
               color: #333;
-              margin-bottom: 2px;
+              margin-bottom: 4px;
             }
             .payment-grid {
               display: grid;
@@ -407,10 +426,13 @@ const Orders = () => {
             
             /* Footer */
             .footer {
-              margin-top: 4px;
-              padding-top: 3px;
-              border-top: 1px solid #dee2e6;
+              margin-top: 14px;
+              padding-top: 8px;
+              border-top: 1px solid #e5e7eb;
               text-align: center;
+              font-size: 6px;
+              color: #777;
+              page-break-inside: avoid;
             }
             .footer .thank-you {
               font-size: 8px;
