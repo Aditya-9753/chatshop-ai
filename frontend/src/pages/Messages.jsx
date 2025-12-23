@@ -240,9 +240,9 @@ const Messages = () => {
   });
 
   return (
-    <div className="h-[calc(100vh-8rem)]">
+    <div className="h-screen -m-4 sm:-m-6 lg:-m-8 overflow-hidden">
       <div
-        className={`rounded-xl shadow-sm border h-full flex ${
+        className={`h-full flex overflow-hidden ${
           isDarkMode
             ? "bg-gray-800 border-gray-700"
             : "bg-white border-gray-100"
@@ -250,7 +250,7 @@ const Messages = () => {
       >
         {/* Conversations List */}
         <div
-          className={`w-1/3 border-r flex flex-col ${
+          className={`w-1/3 border-r flex flex-col overflow-hidden ${
             isDarkMode ? "border-gray-700" : "border-gray-200"
           }`}
         >
@@ -355,63 +355,72 @@ const Messages = () => {
                 <div
                   key={conv._id}
                   onClick={() => selectConversation(conv)}
-                  className={`p-4 border-b cursor-pointer transition-colors ${
+                  className={`p-3 cursor-pointer transition-all duration-200 border-l-4 ${
                     isDarkMode
-                      ? `border-gray-700 hover:bg-gray-700 ${
+                      ? `hover:bg-gray-750 ${
                           selectedConversation?._id === conv._id
-                            ? "bg-indigo-900/50"
-                            : ""
+                            ? "bg-gray-750 border-l-indigo-500"
+                            : "border-l-transparent"
                         }`
-                      : `border-gray-100 hover:bg-gray-50 ${
+                      : `hover:bg-gray-50 ${
                           selectedConversation?._id === conv._id
-                            ? "bg-indigo-50"
-                            : ""
+                            ? "bg-indigo-50/50 border-l-indigo-500"
+                            : "border-l-transparent"
                         }`
                   }`}
                 >
-                  <div className="flex items-start gap-3">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-400 to-purple-400 flex items-center justify-center text-white font-semibold flex-shrink-0">
-                      {conv.customer?.name?.charAt(0)?.toUpperCase() || "U"}
+                  <div className="flex items-center gap-3">
+                    <div className="relative flex-shrink-0">
+                      <div className="w-11 h-11 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-semibold text-base shadow-md">
+                        {conv.customer?.name?.charAt(0)?.toUpperCase() || "U"}
+                      </div>
+                      {/* Platform Badge */}
+                      <div
+                        className={`absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full flex items-center justify-center shadow-lg ${
+                          conv.platform === "whatsapp"
+                            ? "bg-green-500"
+                            : "bg-pink-500"
+                        }`}
+                      >
+                        {conv.platform === "whatsapp" ? (
+                          <MessageCircle className="w-3 h-3 text-white" />
+                        ) : (
+                          <Instagram className="w-3 h-3 text-white" />
+                        )}
+                      </div>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-baseline justify-between mb-0.5">
                         <p
-                          className={`font-semibold truncate ${
+                          className={`font-semibold text-sm truncate ${
                             isDarkMode ? "text-white" : "text-gray-900"
                           }`}
                         >
                           {conv.customer?.name || "Unknown"}
                         </p>
-                        {conv.platform === "whatsapp" ? (
-                          <MessageCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
-                        ) : (
-                          <Instagram className="w-4 h-4 text-pink-500 flex-shrink-0" />
-                        )}
+                        <span
+                          className={`text-xs ml-2 flex-shrink-0 ${
+                            isDarkMode ? "text-gray-500" : "text-gray-400"
+                          }`}
+                        >
+                          {conv.lastMessageTime &&
+                          !isNaN(new Date(conv.lastMessageTime))
+                            ? new Date(conv.lastMessageTime).toLocaleString(
+                                "en-IN",
+                                {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                }
+                              )
+                            : "Now"}
+                        </span>
                       </div>
                       <p
-                        className={`text-sm truncate ${
-                          isDarkMode ? "text-gray-400" : "text-gray-500"
+                        className={`text-xs truncate ${
+                          isDarkMode ? "text-gray-400" : "text-gray-600"
                         }`}
                       >
                         {conv.lastMessage || "No messages yet"}
-                      </p>
-                      <p
-                        className={`text-xs mt-1 ${
-                          isDarkMode ? "text-gray-500" : "text-gray-400"
-                        }`}
-                      >
-                        {conv.lastMessageTime &&
-                        !isNaN(new Date(conv.lastMessageTime))
-                          ? new Date(conv.lastMessageTime).toLocaleString(
-                              "en-IN",
-                              {
-                                day: "2-digit",
-                                month: "short",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              }
-                            )
-                          : "Recently"}
                       </p>
                     </div>
                   </div>
@@ -427,52 +436,53 @@ const Messages = () => {
             <>
               {/* Chat Header */}
               <div
-                className={`p-4 border-b flex items-center gap-3 ${
+                className={`p-4 border-b flex items-center gap-3 shadow-sm ${
                   isDarkMode
                     ? "border-gray-700 bg-gray-800"
                     : "border-gray-200 bg-white"
                 }`}
               >
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-semibold">
-                  {selectedConversation.customer?.name
-                    ?.charAt(0)
-                    ?.toUpperCase() || "U"}
+                <div className="relative">
+                  <div className="w-11 h-11 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-semibold shadow-md">
+                    {selectedConversation.customer?.name
+                      ?.charAt(0)
+                      ?.toUpperCase() || "U"}
+                  </div>
+                  <div
+                    className={`absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full flex items-center justify-center shadow-lg ${
+                      selectedConversation.platform === "whatsapp"
+                        ? "bg-green-500"
+                        : "bg-pink-500"
+                    }`}
+                  >
+                    {selectedConversation.platform === "whatsapp" ? (
+                      <MessageCircle className="w-3 h-3 text-white" />
+                    ) : (
+                      <Instagram className="w-3 h-3 text-white" />
+                    )}
+                  </div>
                 </div>
                 <div className="flex-1">
                   <p
-                    className={`font-semibold ${
+                    className={`font-semibold text-base ${
                       isDarkMode ? "text-white" : "text-gray-900"
                     }`}
                   >
                     {selectedConversation.customer?.name || "Unknown"}
                   </p>
                   <div
-                    className={`flex items-center gap-2 text-sm ${
+                    className={`flex items-center gap-1.5 text-xs ${
                       isDarkMode ? "text-gray-400" : "text-gray-500"
                     }`}
                   >
                     <span>{selectedConversation.customer?.phone}</span>
-                    <span>•</span>
-                    <span className="flex items-center gap-1">
-                      {selectedConversation.platform === "whatsapp" ? (
-                        <>
-                          <MessageCircle className="w-3 h-3" />
-                          WhatsApp
-                        </>
-                      ) : (
-                        <>
-                          <Instagram className="w-3 h-3" />
-                          Instagram
-                        </>
-                      )}
-                    </span>
                   </div>
                 </div>
               </div>
 
               {/* Messages */}
               <div
-                className={`flex-1 overflow-y-auto p-4 space-y-4 ${
+                className={`flex-1 overflow-y-auto p-6 space-y-3 ${
                   isDarkMode ? "bg-gray-900" : "bg-gray-50"
                 }`}
               >
@@ -500,19 +510,23 @@ const Messages = () => {
                       }`}
                     >
                       <div
-                        className={`max-w-md px-4 py-2 rounded-lg shadow-sm ${
+                        className={`max-w-[70%] px-4 py-2.5 rounded-2xl shadow-sm ${
                           message.direction === "outbound"
-                            ? "bg-indigo-600 text-white"
+                            ? "bg-indigo-600 text-white rounded-br-md"
                             : isDarkMode
-                            ? "bg-gray-800 text-white border border-gray-700"
-                            : "bg-white text-gray-900 border border-gray-200"
+                            ? "bg-gray-800 text-white border border-gray-700 rounded-bl-md"
+                            : "bg-white text-gray-900 border border-gray-200 rounded-bl-md"
                         }`}
                       >
-                        <p className="text-sm">{message.content}</p>
+                        <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+                          {message.content}
+                        </p>
                         <p
-                          className={`text-xs mt-1 ${
+                          className={`text-xs mt-1.5 ${
                             message.direction === "outbound"
-                              ? "text-indigo-200"
+                              ? "text-indigo-100"
+                              : isDarkMode
+                              ? "text-gray-400"
                               : "text-gray-500"
                           }`}
                         >
@@ -543,15 +557,29 @@ const Messages = () => {
               >
                 {/* Canned Responses Panel */}
                 {showCannedResponses && (
-                  <div className="p-4 border-b border-gray-200 bg-gray-50">
+                  <div
+                    className={`p-4 border-b ${
+                      isDarkMode
+                        ? "border-gray-700 bg-gray-750"
+                        : "border-gray-200 bg-gray-50"
+                    }`}
+                  >
                     <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                      <h4
+                        className={`text-sm font-semibold flex items-center gap-2 ${
+                          isDarkMode ? "text-gray-200" : "text-gray-700"
+                        }`}
+                      >
                         <FileText className="w-4 h-4" />
                         Quick Replies
                       </h4>
                       <button
                         onClick={() => setShowCannedResponses(false)}
-                        className="text-gray-400 hover:text-gray-600"
+                        className={`${
+                          isDarkMode
+                            ? "text-gray-400 hover:text-gray-300"
+                            : "text-gray-400 hover:text-gray-600"
+                        }`}
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -566,6 +594,8 @@ const Messages = () => {
                           className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
                             selectedCategory === category
                               ? "bg-indigo-600 text-white"
+                              : isDarkMode
+                              ? "bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600"
                               : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-300"
                           }`}
                         >
@@ -580,14 +610,26 @@ const Messages = () => {
                         <button
                           key={response.id}
                           onClick={() => insertCannedResponse(response.text)}
-                          className="w-full text-left p-3 bg-white rounded-lg border border-gray-200 hover:border-indigo-500 hover:bg-indigo-50 transition-colors group"
+                          className={`w-full text-left p-3 rounded-lg border transition-colors group ${
+                            isDarkMode
+                              ? "bg-gray-800 border-gray-700 hover:border-indigo-500 hover:bg-gray-700"
+                              : "bg-white border-gray-200 hover:border-indigo-500 hover:bg-indigo-50"
+                          }`}
                         >
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
-                              <p className="text-sm font-medium text-gray-900 mb-1">
+                              <p
+                                className={`text-sm font-medium mb-1 ${
+                                  isDarkMode ? "text-gray-200" : "text-gray-900"
+                                }`}
+                              >
                                 {response.title}
                               </p>
-                              <p className="text-xs text-gray-600 line-clamp-2">
+                              <p
+                                className={`text-xs line-clamp-2 ${
+                                  isDarkMode ? "text-gray-400" : "text-gray-600"
+                                }`}
+                              >
                                 {response.text}
                               </p>
                             </div>
@@ -600,15 +642,19 @@ const Messages = () => {
                 )}
 
                 {/* Input Area */}
-                <div className="p-4">
-                  <div className="flex items-end gap-2">
+                <div
+                  className={`p-4 ${isDarkMode ? "bg-gray-800" : "bg-white"}`}
+                >
+                  <div className="flex items-end gap-3">
                     <button
                       onClick={() =>
                         setShowCannedResponses(!showCannedResponses)
                       }
-                      className={`p-2 rounded-lg transition-colors ${
+                      className={`p-2.5 rounded-lg transition-all ${
                         showCannedResponses
-                          ? "bg-indigo-100 text-indigo-600"
+                          ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/50"
+                          : isDarkMode
+                          ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
                           : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                       }`}
                       title="Quick Replies"
@@ -627,18 +673,18 @@ const Messages = () => {
                         }}
                         placeholder="Type a message... (Shift+Enter for new line)"
                         rows={1}
-                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-none ${
+                        className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-none ${
                           isDarkMode
                             ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
                             : "bg-white border-gray-300 text-gray-900 placeholder-gray-500"
                         }`}
-                        style={{ minHeight: "42px", maxHeight: "120px" }}
+                        style={{ minHeight: "44px", maxHeight: "120px" }}
                       />
                     </div>
                     <button
                       onClick={handleSendMessage}
                       disabled={!messageInput.trim()}
-                      className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="p-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-500/50 disabled:shadow-none"
                     >
                       <Send className="w-5 h-5" />
                     </button>
