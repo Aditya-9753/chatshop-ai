@@ -166,7 +166,9 @@ const Messages = () => {
       await api.post("/messages/send", {
         customerId: selectedConversation.customer._id,
         platform: selectedConversation.platform,
-        message: messageInput,
+        content: {
+          text: messageInput,
+        },
       });
 
       setMessageInput("");
@@ -207,7 +209,9 @@ const Messages = () => {
         api.post("/messages/send", {
           customerId: conv.customer._id,
           platform: conv.platform,
-          message: broadcastMessage,
+          content: {
+            text: broadcastMessage,
+          },
         })
       );
 
@@ -370,8 +374,8 @@ const Messages = () => {
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="relative flex-shrink-0">
-                      <div className="w-11 h-11 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-semibold text-base shadow-md">
+                    <div className="relative shrink-0">
+                      <div className="w-11 h-11 rounded-full bg-linear-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-semibold text-base shadow-md">
                         {conv.customer?.name?.charAt(0)?.toUpperCase() || "U"}
                       </div>
                       {/* Platform Badge */}
@@ -399,7 +403,7 @@ const Messages = () => {
                           {conv.customer?.name || "Unknown"}
                         </p>
                         <span
-                          className={`text-xs ml-2 flex-shrink-0 ${
+                          className={`text-xs ml-2 shrink-0 ${
                             isDarkMode ? "text-gray-500" : "text-gray-400"
                           }`}
                         >
@@ -420,7 +424,7 @@ const Messages = () => {
                           isDarkMode ? "text-gray-400" : "text-gray-600"
                         }`}
                       >
-                        {conv.lastMessage || "No messages yet"}
+                        {conv.lastMessage?.text || "No messages yet"}
                       </p>
                     </div>
                   </div>
@@ -443,7 +447,7 @@ const Messages = () => {
                 }`}
               >
                 <div className="relative">
-                  <div className="w-11 h-11 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-semibold shadow-md">
+                  <div className="w-11 h-11 rounded-full bg-linear-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-semibold shadow-md">
                     {selectedConversation.customer?.name
                       ?.charAt(0)
                       ?.toUpperCase() || "U"}
@@ -504,26 +508,26 @@ const Messages = () => {
                     <div
                       key={message._id}
                       className={`flex ${
-                        message.direction === "outbound"
+                        message.direction === "outgoing"
                           ? "justify-end"
                           : "justify-start"
                       }`}
                     >
                       <div
                         className={`max-w-[70%] px-4 py-2.5 rounded-2xl shadow-sm ${
-                          message.direction === "outbound"
+                          message.direction === "outgoing"
                             ? "bg-indigo-600 text-white rounded-br-md"
                             : isDarkMode
                             ? "bg-gray-800 text-white border border-gray-700 rounded-bl-md"
                             : "bg-white text-gray-900 border border-gray-200 rounded-bl-md"
                         }`}
                       >
-                        <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
-                          {message.content}
+                        <p className="text-sm leading-relaxed whitespace-pre-wrap wrap-break-word">
+                          {message.content?.text || ""}
                         </p>
                         <p
                           className={`text-xs mt-1.5 ${
-                            message.direction === "outbound"
+                            message.direction === "outgoing"
                               ? "text-indigo-100"
                               : isDarkMode
                               ? "text-gray-400"
@@ -633,7 +637,7 @@ const Messages = () => {
                                 {response.text}
                               </p>
                             </div>
-                            <Zap className="w-4 h-4 text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2" />
+                            <Zap className="w-4 h-4 text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-2" />
                           </div>
                         </button>
                       ))}

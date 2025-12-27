@@ -17,7 +17,8 @@ class MessageService {
       .populate("customerId", "name phone platform")
       .sort({ createdAt: -1 })
       .limit(limit * 1)
-      .skip((page - 1) * limit);
+      .skip((page - 1) * limit)
+      .lean();
 
     const count = await Message.countDocuments(query);
 
@@ -31,16 +32,21 @@ class MessageService {
 
   // Send message
   async sendMessage(userId, messageData) {
-    const { customerId, platform, type, content, isAIGenerated } = messageData;
+    const { customerId, platform, type, content={}, isAIGenerated  = false } = messageData;
 
     // Create message record
+    const normalizedContent = {
+      text: content.text || "",
+      mediaUrl: content.mediaUrl || null,
+      caption: content.caption || null,
+    };
     const message = await Message.create({
       userId,
       customerId,
       platform,
       direction: "outgoing",
       type,
-      content,
+      content: normalizedContent,
       isAIGenerated: isAIGenerated || false,
       status: "sent",
     });

@@ -354,7 +354,7 @@ const seedData = async () => {
       {
         customerId: customers[0]._id,
         userId: premiumUser1._id,
-        content: "Hi, I want to order iPhone 15 Pro",
+        content: { text: "Hi, I want to order iPhone 15 Pro" },
         direction: "incoming",
         platform: "whatsapp",
         createdAt: new Date(now - 2 * 60 * 60 * 1000), // 2 hours ago
@@ -362,7 +362,7 @@ const seedData = async () => {
       {
         customerId: customers[0]._id,
         userId: premiumUser1._id,
-        content: "Sure! We have it in stock. Which color would you like?",
+        content: { text: "Sure! We have it in stock. Which color would you like?" },
         direction: "outgoing",
         platform: "whatsapp",
         createdAt: new Date(now - 2 * 60 * 60 * 1000 + 2 * 60 * 1000), // 1h58m ago
@@ -370,7 +370,7 @@ const seedData = async () => {
       {
         customerId: customers[0]._id,
         userId: premiumUser1._id,
-        content: "I'd like the Natural Titanium color. What's the price?",
+        content: { text: "I'd like the Natural Titanium color. What's the price?" },
         direction: "incoming",
         platform: "whatsapp",
         createdAt: new Date(now - 1.5 * 60 * 60 * 1000),
@@ -378,7 +378,7 @@ const seedData = async () => {
       {
         customerId: customers[0]._id,
         userId: premiumUser1._id,
-        content: "₹1,34,900 for 256GB. Would you like to place the order?",
+        content: { text: "₹1,34,900 for 256GB. Would you like to place the order?" },
         direction: "outgoing",
         platform: "whatsapp",
         createdAt: new Date(now - 1.5 * 60 * 60 * 1000 + 1 * 60 * 1000),
@@ -386,7 +386,7 @@ const seedData = async () => {
       {
         customerId: customers[0]._id,
         userId: premiumUser1._id,
-        content: "Yes, please! Can you deliver today?",
+        content: { text: "Yes, please! Can you deliver today?" },
         direction: "incoming",
         platform: "whatsapp",
         createdAt: new Date(now - 1 * 60 * 60 * 1000),
@@ -394,7 +394,9 @@ const seedData = async () => {
       {
         customerId: customers[0]._id,
         userId: premiumUser1._id,
-        content: "Yes! Order confirmed. We'll deliver within 2 hours. 🚀",
+        content: {
+          text: "Yes! Order confirmed. We'll deliver within 2 hours. 🚀",
+        },
         direction: "outgoing",
         platform: "whatsapp",
         createdAt: new Date(now - 1 * 60 * 60 * 1000 + 30 * 1000),
@@ -404,7 +406,7 @@ const seedData = async () => {
       {
         customerId: customers[1]._id,
         userId: premiumUser1._id,
-        content: "When will my order arrive?",
+        content: { text: "When will my order arrive?" },
         direction: "incoming",
         platform: "whatsapp",
         createdAt: new Date(now - 24 * 60 * 60 * 1000), // 1 day ago
@@ -412,7 +414,9 @@ const seedData = async () => {
       {
         customerId: customers[1]._id,
         userId: premiumUser1._id,
-        content: "Your order has been shipped and will arrive in 2-3 days!",
+        content: {
+          text: "Your order has been shipped and will arrive in 2-3 days!",
+        },
         direction: "outgoing",
         platform: "whatsapp",
         createdAt: new Date(now - 24 * 60 * 60 * 1000 + 5 * 60 * 1000),
@@ -420,7 +424,7 @@ const seedData = async () => {
       {
         customerId: customers[1]._id,
         userId: premiumUser1._id,
-        content: "Great! Can I track my order?",
+        content: { text: "Great! Can I track my order?" },
         direction: "incoming",
         platform: "whatsapp",
         createdAt: new Date(now - 23 * 60 * 60 * 1000),
@@ -428,7 +432,9 @@ const seedData = async () => {
       {
         customerId: customers[1]._id,
         userId: premiumUser1._id,
-        content: "Yes! Tracking ID: TRK123456. You can track on our website.",
+        content: {
+          text: "Yes! Tracking ID: TRK123456. You can track on our website.",
+        },
         direction: "outgoing",
         platform: "whatsapp",
         createdAt: new Date(now - 23 * 60 * 60 * 1000 + 2 * 60 * 1000),
@@ -438,7 +444,7 @@ const seedData = async () => {
       {
         customerId: customers[2]._id,
         userId: premiumUser1._id,
-        content: "Do you have MacBook in stock?",
+        content: { text: "Do you have MacBook in stock?" },
         direction: "incoming",
         platform: "instagram",
         createdAt: new Date(now - 30 * 60 * 1000), // 30 min ago
@@ -446,8 +452,9 @@ const seedData = async () => {
       {
         customerId: customers[2]._id,
         userId: premiumUser1._id,
-        content:
-          "Yes! We have MacBook Pro M3 available. Would you like to place an order?",
+        content: {
+          text: "Yes! We have MacBook Pro M3 available. Would you like to place an order?",
+        },
         direction: "outgoing",
         platform: "instagram",
         createdAt: new Date(now - 28 * 60 * 1000),
@@ -455,7 +462,7 @@ const seedData = async () => {
       {
         customerId: customers[2]._id,
         userId: premiumUser1._id,
-        content: "How much?",
+        content: { text: "How much?" },
         direction: "incoming",
         platform: "instagram",
         createdAt: new Date(now - 25 * 60 * 1000),
@@ -463,8 +470,9 @@ const seedData = async () => {
       {
         customerId: customers[2]._id,
         userId: premiumUser1._id,
-        content:
-          "₹1,89,900 for 16GB RAM, 512GB SSD version. Best price guaranteed! 💻",
+        content: {
+          text: "₹1,89,900 for 16GB RAM, 512GB SSD version. Best price guaranteed! 💻",
+        },
         direction: "outgoing",
         platform: "instagram",
         createdAt: new Date(now - 24 * 60 * 1000),
@@ -472,7 +480,9 @@ const seedData = async () => {
       {
         customerId: customers[2]._id,
         userId: premiumUser1._id,
-        content: "Awesome! I'll take it. Do you have silver color?",
+        content: {
+          text: "Awesome! I'll take it. Do you have silver color?",
+        },
         direction: "incoming",
         platform: "instagram",
         createdAt: new Date(now - 20 * 60 * 1000),
@@ -480,7 +490,7 @@ const seedData = async () => {
       {
         customerId: customers[2]._id,
         userId: premiumUser1._id,
-        content: "Yes, silver is available! Shall I create the order?",
+        content: { text: "Yes, silver is available! Shall I create the order?" },
         direction: "outgoing",
         platform: "instagram",
         createdAt: new Date(now - 18 * 60 * 1000),
@@ -490,7 +500,7 @@ const seedData = async () => {
       {
         customerId: customers[3]._id,
         userId: premiumUser1._id,
-        content: "Hello! I'm interested in Nike Air Jordan",
+        content: { text: "Hello! I'm interested in Nike Air Jordan" },
         direction: "incoming",
         platform: "whatsapp",
         createdAt: new Date(now - 2 * 24 * 60 * 60 * 1000),
@@ -498,7 +508,9 @@ const seedData = async () => {
       {
         customerId: customers[3]._id,
         userId: premiumUser1._id,
-        content: "Great choice! We have all sizes available. What's your size?",
+        content: {
+          text: "Great choice! We have all sizes available. What's your size?",
+        },
         direction: "outgoing",
         platform: "whatsapp",
         createdAt: new Date(now - 2 * 24 * 60 * 60 * 1000 + 3 * 60 * 1000),
@@ -506,7 +518,7 @@ const seedData = async () => {
       {
         customerId: customers[3]._id,
         userId: premiumUser1._id,
-        content: "Size 9. Do you offer COD?",
+        content: { text: "Size 9. Do you offer COD?" },
         direction: "incoming",
         platform: "whatsapp",
         createdAt: new Date(now - 2 * 24 * 60 * 60 * 1000 + 10 * 60 * 1000),
@@ -514,7 +526,9 @@ const seedData = async () => {
       {
         customerId: customers[3]._id,
         userId: premiumUser1._id,
-        content: "Yes, Cash on Delivery available! Price is ₹12,999. 👟",
+        content: {
+          text: "Yes, Cash on Delivery available! Price is ₹12,999. 👟",
+        },
         direction: "outgoing",
         platform: "whatsapp",
         createdAt: new Date(now - 2 * 24 * 60 * 60 * 1000 + 12 * 60 * 1000),
@@ -524,7 +538,9 @@ const seedData = async () => {
       {
         customerId: customers[4]._id,
         userId: premiumUser1._id,
-        content: "Hi! Saw your sunglasses collection on Instagram",
+        content: {
+          text: "Hi! Saw your sunglasses collection on Instagram",
+        },
         direction: "incoming",
         platform: "instagram",
         createdAt: new Date(now - 3 * 24 * 60 * 60 * 1000),
@@ -532,8 +548,9 @@ const seedData = async () => {
       {
         customerId: customers[4]._id,
         userId: premiumUser1._id,
-        content:
-          "Thank you! We have Ray-Ban, Oakley, and more. What style are you looking for?",
+        content: {
+          text: "Thank you! We have Ray-Ban, Oakley, and more. What style are you looking for?",
+        },
         direction: "outgoing",
         platform: "instagram",
         createdAt: new Date(now - 3 * 24 * 60 * 60 * 1000 + 5 * 60 * 1000),
@@ -541,7 +558,7 @@ const seedData = async () => {
       {
         customerId: customers[4]._id,
         userId: premiumUser1._id,
-        content: "Ray-Ban Aviator. Classic style.",
+        content: { text: "Ray-Ban Aviator. Classic style." },
         direction: "incoming",
         platform: "instagram",
         createdAt: new Date(now - 3 * 24 * 60 * 60 * 1000 + 15 * 60 * 1000),
@@ -549,7 +566,9 @@ const seedData = async () => {
       {
         customerId: customers[4]._id,
         userId: premiumUser1._id,
-        content: "Perfect! ₹8,999 with 1 year warranty. Free home delivery! 😎",
+        content: {
+          text: "Perfect! ₹8,999 with 1 year warranty. Free home delivery! 😎",
+        },
         direction: "outgoing",
         platform: "instagram",
         createdAt: new Date(now - 3 * 24 * 60 * 60 * 1000 + 17 * 60 * 1000),
