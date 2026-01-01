@@ -247,7 +247,7 @@ const DashboardLayout = () => {
       <div className="lg:pl-64">
         {/* Top bar */}
         <div
-          className={`sticky top-0 z-10 flex items-center justify-between h-16 px-4 border-b lg:px-8 ${
+          className={`sticky top-0 z-30 flex items-center justify-between h-16 px-4 border-b lg:px-8 ${
             isDarkMode
               ? "bg-gray-800 border-gray-700"
               : "bg-white border-gray-200"

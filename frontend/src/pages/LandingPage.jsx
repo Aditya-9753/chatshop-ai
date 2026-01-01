@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { Moon, Sun } from "lucide-react";
+import Chatbot from "../components/Chatbot";
 
 const Logo = () => (
   <div className="flex items-center gap-3 hover:scale-105 transition-transform duration-300">
@@ -1034,7 +1035,7 @@ function Footer() {
 
         <div className="border-t border-gray-800 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="text-sm text-gray-400">
-            © 2024 ChatShop AI — Built for Indian businesses
+            © 2026 ChatShop AI — Built for Indian businesses
           </div>
           <div className="flex gap-6 text-2xl">
             <a href="#" className="hover:text-indigo-400 transition-colors">
@@ -1105,6 +1106,7 @@ export default function LandingPage() {
         <Contact />
       </main>
       <Footer />
+      <Chatbot />
     </div>
   );
 }

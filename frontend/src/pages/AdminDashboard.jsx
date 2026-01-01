@@ -1447,53 +1447,127 @@ const AnalyticsSection = ({ stats, systemStats, isDarkMode }) => {
     <div className="space-y-6">
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div
+          className={`rounded-xl border p-6 ${
+            isDarkMode
+              ? "bg-gray-800 border-gray-700"
+              : "bg-white border-gray-200"
+          }`}
+        >
           <div className="flex items-center justify-between mb-2">
             <Users className="w-8 h-8 text-blue-600" />
             <TrendingUp className="w-5 h-5 text-green-500" />
           </div>
-          <p className="text-2xl font-bold text-gray-900">
+          <p
+            className={`text-2xl font-bold ${
+              isDarkMode ? "text-gray-100" : "text-gray-900"
+            }`}
+          >
             {systemStats?.totalUsers || 0}
           </p>
-          <p className="text-sm text-gray-600">Total Users</p>
+          <p
+            className={`text-sm ${
+              isDarkMode ? "text-gray-400" : "text-gray-600"
+            }`}
+          >
+            Total Users
+          </p>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div
+          className={`rounded-xl border p-6 ${
+            isDarkMode
+              ? "bg-gray-800 border-gray-700"
+              : "bg-white border-gray-200"
+          }`}
+        >
           <div className="flex items-center justify-between mb-2">
             <Award className="w-8 h-8 text-purple-600" />
             <TrendingUp className="w-5 h-5 text-green-500" />
           </div>
-          <p className="text-2xl font-bold text-gray-900">
+          <p
+            className={`text-2xl font-bold ${
+              isDarkMode ? "text-gray-100" : "text-gray-900"
+            }`}
+          >
             {systemStats?.activeSubscriptions || 0}
           </p>
-          <p className="text-sm text-gray-600">Active Subscriptions</p>
+          <p
+            className={`text-sm ${
+              isDarkMode ? "text-gray-400" : "text-gray-600"
+            }`}
+          >
+            Active Subscriptions
+          </p>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div
+          className={`rounded-xl border p-6 ${
+            isDarkMode
+              ? "bg-gray-800 border-gray-700"
+              : "bg-white border-gray-200"
+          }`}
+        >
           <div className="flex items-center justify-between mb-2">
             <DollarSign className="w-8 h-8 text-green-600" />
             <TrendingUp className="w-5 h-5 text-green-500" />
           </div>
-          <p className="text-2xl font-bold text-gray-900">
+          <p
+            className={`text-2xl font-bold ${
+              isDarkMode ? "text-gray-100" : "text-gray-900"
+            }`}
+          >
             ₹{(systemStats?.totalRevenue || 0).toLocaleString("en-IN")}
           </p>
-          <p className="text-sm text-gray-600">Total Revenue</p>
+          <p
+            className={`text-sm ${
+              isDarkMode ? "text-gray-400" : "text-gray-600"
+            }`}
+          >
+            Total Revenue
+          </p>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div
+          className={`rounded-xl border p-6 ${
+            isDarkMode
+              ? "bg-gray-800 border-gray-700"
+              : "bg-white border-gray-200"
+          }`}
+        >
           <div className="flex items-center justify-between mb-2">
             <ShoppingBag className="w-8 h-8 text-orange-600" />
             <TrendingUp className="w-5 h-5 text-green-500" />
           </div>
-          <p className="text-2xl font-bold text-gray-900">
+          <p
+            className={`text-2xl font-bold ${
+              isDarkMode ? "text-gray-100" : "text-gray-900"
+            }`}
+          >
             {systemStats?.totalOrders || 0}
           </p>
-          <p className="text-sm text-gray-600">Total Orders</p>
+          <p
+            className={`text-sm ${
+              isDarkMode ? "text-gray-400" : "text-gray-600"
+            }`}
+          >
+            Total Orders
+          </p>
         </div>
       </div>
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* User Growth Chart */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+        <div
+          className={`rounded-xl border p-6 ${
+            isDarkMode
+              ? "bg-gray-800 border-gray-700"
+              : "bg-white border-gray-200"
+          }`}
+        >
+          <h3
+            className={`text-lg font-bold mb-4 flex items-center gap-2 ${
+              isDarkMode ? "text-gray-100" : "text-gray-900"
+            }`}
+          >
             <TrendingUp className="w-5 h-5 text-blue-600" />
             User Growth (Last 12 Months)
           </h3>
@@ -1540,8 +1614,18 @@ const AnalyticsSection = ({ stats, systemStats, isDarkMode }) => {
         </div>
 
         {/* Revenue Trends Chart */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+        <div
+          className={`rounded-xl border p-6 ${
+            isDarkMode
+              ? "bg-gray-800 border-gray-700"
+              : "bg-white border-gray-200"
+          }`}
+        >
+          <h3
+            className={`text-lg font-bold mb-4 flex items-center gap-2 ${
+              isDarkMode ? "text-gray-100" : "text-gray-900"
+            }`}
+          >
             <DollarSign className="w-5 h-5 text-green-600" />
             Revenue Trends (Last 12 Months)
           </h3>
@@ -1591,8 +1675,18 @@ const AnalyticsSection = ({ stats, systemStats, isDarkMode }) => {
       </div>
 
       {/* Subscription Distribution */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+      <div
+        className={`rounded-xl border p-6 ${
+          isDarkMode
+            ? "bg-gray-800 border-gray-700"
+            : "bg-white border-gray-200"
+        }`}
+      >
+        <h3
+          className={`text-lg font-bold mb-4 flex items-center gap-2 ${
+            isDarkMode ? "text-gray-100" : "text-gray-900"
+          }`}
+        >
           <PieChart className="w-5 h-5 text-purple-600" />
           Subscription Distribution
         </h3>
@@ -1632,7 +1726,11 @@ const AnalyticsSection = ({ stats, systemStats, isDarkMode }) => {
                 <p className={`text-sm font-semibold ${color.text} mb-1`}>
                   {item._id?.toUpperCase() || "FREE"}
                 </p>
-                <p className="text-3xl font-bold text-gray-900 mb-2">
+                <p
+                  className={`text-3xl font-bold mb-2 ${
+                    isDarkMode ? "text-gray-100" : "text-gray-900"
+                  }`}
+                >
                   {item.count}
                 </p>
                 <div className="w-full bg-white rounded-full h-2 mb-1">
@@ -1641,7 +1739,13 @@ const AnalyticsSection = ({ stats, systemStats, isDarkMode }) => {
                     style={{ width: `${percentage}%` }}
                   ></div>
                 </div>
-                <p className="text-xs text-gray-600">{percentage}% of total</p>
+                <p
+                  className={`text-xs ${
+                    isDarkMode ? "text-gray-500" : "text-gray-600"
+                  }`}
+                >
+                  {percentage}% of total
+                </p>
               </div>
             );
           })}
@@ -1649,36 +1753,88 @@ const AnalyticsSection = ({ stats, systemStats, isDarkMode }) => {
       </div>
 
       {/* Platform Usage */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <h3 className="text-lg font-bold text-gray-900 mb-4">Platform Usage</h3>
+      <div
+        className={`rounded-xl border p-6 ${
+          isDarkMode
+            ? "bg-gray-800 border-gray-700"
+            : "bg-white border-gray-200"
+        }`}
+      >
+        <h3
+          className={`text-lg font-bold mb-4 ${
+            isDarkMode ? "text-gray-100" : "text-gray-900"
+          }`}
+        >
+          Platform Usage
+        </h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg">
             <MessageSquare className="w-8 h-8 text-green-600 mb-2" />
-            <p className="text-2xl font-bold text-gray-900">
+            <p
+              className={`text-2xl font-bold ${
+                isDarkMode ? "text-gray-800" : "text-gray-900"
+              }`}
+            >
               {stats?.platforms?.whatsapp || 0}
             </p>
-            <p className="text-sm text-gray-600">WhatsApp Users</p>
+            <p
+              className={`text-sm ${
+                isDarkMode ? "text-gray-700" : "text-gray-600"
+              }`}
+            >
+              WhatsApp Users
+            </p>
           </div>
           <div className="p-4 bg-gradient-to-br from-pink-50 to-rose-50 rounded-lg">
             <Smartphone className="w-8 h-8 text-pink-600 mb-2" />
-            <p className="text-2xl font-bold text-gray-900">
+            <p
+              className={`text-2xl font-bold ${
+                isDarkMode ? "text-gray-800" : "text-gray-900"
+              }`}
+            >
               {stats?.platforms?.instagram || 0}
             </p>
-            <p className="text-sm text-gray-600">Instagram Users</p>
+            <p
+              className={`text-sm ${
+                isDarkMode ? "text-gray-700" : "text-gray-600"
+              }`}
+            >
+              Instagram Users
+            </p>
           </div>
           <div className="p-4 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-lg">
             <ShoppingBag className="w-8 h-8 text-blue-600 mb-2" />
-            <p className="text-2xl font-bold text-gray-900">
+            <p
+              className={`text-2xl font-bold ${
+                isDarkMode ? "text-gray-800" : "text-gray-900"
+              }`}
+            >
               {stats?.entities?.orders || 0}
             </p>
-            <p className="text-sm text-gray-600">Total Orders</p>
+            <p
+              className={`text-sm ${
+                isDarkMode ? "text-gray-700" : "text-gray-600"
+              }`}
+            >
+              Total Orders
+            </p>
           </div>
           <div className="p-4 bg-gradient-to-br from-purple-50 to-violet-50 rounded-lg">
             <Users className="w-8 h-8 text-purple-600 mb-2" />
-            <p className="text-2xl font-bold text-gray-900">
+            <p
+              className={`text-2xl font-bold ${
+                isDarkMode ? "text-gray-800" : "text-gray-900"
+              }`}
+            >
               {stats?.entities?.customers || 0}
             </p>
-            <p className="text-sm text-gray-600">Total Customers</p>
+            <p
+              className={`text-sm ${
+                isDarkMode ? "text-gray-700" : "text-gray-600"
+              }`}
+            >
+              Total Customers
+            </p>
           </div>
         </div>
       </div>
@@ -1692,44 +1848,79 @@ const SettingsSection = ({
   setIsPasswordModalOpen,
   handle2FASetup,
   handleSecurityAudit,
+  isDarkMode,
 }) => {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+        <div
+          className={`rounded-xl border p-6 ${
+            isDarkMode
+              ? "bg-gray-800 border-gray-700"
+              : "bg-white border-gray-200"
+          }`}
+        >
+          <h3
+            className={`text-lg font-bold mb-4 flex items-center gap-2 ${
+              isDarkMode ? "text-gray-100" : "text-gray-900"
+            }`}
+          >
             <Settings className="w-5 h-5 text-indigo-600" />
             General Settings
           </h3>
           <form onSubmit={handleSaveSettings} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                className={`block text-sm font-medium mb-2 ${
+                  isDarkMode ? "text-gray-300" : "text-gray-700"
+                }`}
+              >
                 Platform Name
               </label>
               <input
                 type="text"
                 defaultValue="ChatShop-AI"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
+                  isDarkMode
+                    ? "bg-gray-700 border-gray-600 text-gray-100"
+                    : "bg-white border-gray-300 text-gray-900"
+                }`}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                className={`block text-sm font-medium mb-2 ${
+                  isDarkMode ? "text-gray-300" : "text-gray-700"
+                }`}
+              >
                 Support Email
               </label>
               <input
                 type="email"
                 defaultValue="support@chatshop-ai.com"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
+                  isDarkMode
+                    ? "bg-gray-700 border-gray-600 text-gray-100"
+                    : "bg-white border-gray-300 text-gray-900"
+                }`}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                className={`block text-sm font-medium mb-2 ${
+                  isDarkMode ? "text-gray-300" : "text-gray-700"
+                }`}
+              >
                 Contact Phone
               </label>
               <input
                 type="tel"
                 defaultValue="+91 9876543210"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
+                  isDarkMode
+                    ? "bg-gray-700 border-gray-600 text-gray-100"
+                    : "bg-white border-gray-300 text-gray-900"
+                }`}
               />
             </div>
             <button
@@ -1742,23 +1933,49 @@ const SettingsSection = ({
           </form>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+        <div
+          className={`rounded-xl border p-6 ${
+            isDarkMode
+              ? "bg-gray-800 border-gray-700"
+              : "bg-white border-gray-200"
+          }`}
+        >
+          <h3
+            className={`text-lg font-bold mb-4 flex items-center gap-2 ${
+              isDarkMode ? "text-gray-100" : "text-gray-900"
+            }`}
+          >
             <Shield className="w-5 h-5 text-red-600" />
             Security Settings
           </h3>
           <div className="space-y-3">
             <button
               onClick={() => setIsPasswordModalOpen(true)}
-              className="w-full flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              className={`w-full flex items-center justify-between p-3 border rounded-lg transition-colors ${
+                isDarkMode
+                  ? "border-gray-700 hover:bg-gray-700"
+                  : "border-gray-200 hover:bg-gray-50"
+              }`}
             >
               <div className="flex items-center gap-3">
-                <Key className="w-5 h-5 text-gray-600" />
+                <Key
+                  className={`w-5 h-5 ${
+                    isDarkMode ? "text-gray-400" : "text-gray-600"
+                  }`}
+                />
                 <div className="text-left">
-                  <p className="text-sm font-medium text-gray-900">
+                  <p
+                    className={`text-sm font-medium ${
+                      isDarkMode ? "text-gray-100" : "text-gray-900"
+                    }`}
+                  >
                     Change Admin Password
                   </p>
-                  <p className="text-xs text-gray-500">
+                  <p
+                    className={`text-xs ${
+                      isDarkMode ? "text-gray-400" : "text-gray-500"
+                    }`}
+                  >
                     Update your account password
                   </p>
                 </div>
@@ -1767,15 +1984,31 @@ const SettingsSection = ({
             </button>
             <button
               onClick={handle2FASetup}
-              className="w-full flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              className={`w-full flex items-center justify-between p-3 border rounded-lg transition-colors ${
+                isDarkMode
+                  ? "border-gray-700 hover:bg-gray-700"
+                  : "border-gray-200 hover:bg-gray-50"
+              }`}
             >
               <div className="flex items-center gap-3">
-                <Lock className="w-5 h-5 text-gray-600" />
+                <Lock
+                  className={`w-5 h-5 ${
+                    isDarkMode ? "text-gray-400" : "text-gray-600"
+                  }`}
+                />
                 <div className="text-left">
-                  <p className="text-sm font-medium text-gray-900">
+                  <p
+                    className={`text-sm font-medium ${
+                      isDarkMode ? "text-gray-100" : "text-gray-900"
+                    }`}
+                  >
                     Two-Factor Authentication
                   </p>
-                  <p className="text-xs text-gray-500">
+                  <p
+                    className={`text-xs ${
+                      isDarkMode ? "text-gray-400" : "text-gray-500"
+                    }`}
+                  >
                     Add extra security layer
                   </p>
                 </div>
@@ -1784,15 +2017,31 @@ const SettingsSection = ({
             </button>
             <button
               onClick={handleSecurityAudit}
-              className="w-full flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              className={`w-full flex items-center justify-between p-3 border rounded-lg transition-colors ${
+                isDarkMode
+                  ? "border-gray-700 hover:bg-gray-700"
+                  : "border-gray-200 hover:bg-gray-50"
+              }`}
             >
               <div className="flex items-center gap-3">
-                <FileText className="w-5 h-5 text-gray-600" />
+                <FileText
+                  className={`w-5 h-5 ${
+                    isDarkMode ? "text-gray-400" : "text-gray-600"
+                  }`}
+                />
                 <div className="text-left">
-                  <p className="text-sm font-medium text-gray-900">
+                  <p
+                    className={`text-sm font-medium ${
+                      isDarkMode ? "text-gray-100" : "text-gray-900"
+                    }`}
+                  >
                     Security Audit Logs
                   </p>
-                  <p className="text-xs text-gray-500">
+                  <p
+                    className={`text-xs ${
+                      isDarkMode ? "text-gray-400" : "text-gray-500"
+                    }`}
+                  >
                     View system access logs
                   </p>
                 </div>
@@ -1805,14 +2054,30 @@ const SettingsSection = ({
 
       {/* Additional Settings */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="text-md font-bold text-gray-900 mb-3 flex items-center gap-2">
+        <div
+          className={`rounded-xl border p-6 ${
+            isDarkMode
+              ? "bg-gray-800 border-gray-700"
+              : "bg-white border-gray-200"
+          }`}
+        >
+          <h3
+            className={`text-md font-bold mb-3 flex items-center gap-2 ${
+              isDarkMode ? "text-gray-100" : "text-gray-900"
+            }`}
+          >
             <Bell className="w-5 h-5 text-yellow-600" />
             Notifications
           </h3>
           <div className="space-y-3">
             <label className="flex items-center justify-between cursor-pointer">
-              <span className="text-sm text-gray-700">Email Notifications</span>
+              <span
+                className={`text-sm ${
+                  isDarkMode ? "text-gray-300" : "text-gray-700"
+                }`}
+              >
+                Email Notifications
+              </span>
               <input
                 type="checkbox"
                 defaultChecked
@@ -1820,7 +2085,13 @@ const SettingsSection = ({
               />
             </label>
             <label className="flex items-center justify-between cursor-pointer">
-              <span className="text-sm text-gray-700">New User Alerts</span>
+              <span
+                className={`text-sm ${
+                  isDarkMode ? "text-gray-300" : "text-gray-700"
+                }`}
+              >
+                New User Alerts
+              </span>
               <input
                 type="checkbox"
                 defaultChecked
@@ -1828,7 +2099,13 @@ const SettingsSection = ({
               />
             </label>
             <label className="flex items-center justify-between cursor-pointer">
-              <span className="text-sm text-gray-700">System Updates</span>
+              <span
+                className={`text-sm ${
+                  isDarkMode ? "text-gray-300" : "text-gray-700"
+                }`}
+              >
+                System Updates
+              </span>
               <input
                 type="checkbox"
                 className="w-4 h-4 text-indigo-600 rounded"
@@ -1837,8 +2114,18 @@ const SettingsSection = ({
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="text-md font-bold text-gray-900 mb-3 flex items-center gap-2">
+        <div
+          className={`rounded-xl border p-6 ${
+            isDarkMode
+              ? "bg-gray-800 border-gray-700"
+              : "bg-white border-gray-200"
+          }`}
+        >
+          <h3
+            className={`text-md font-bold mb-3 flex items-center gap-2 ${
+              isDarkMode ? "text-gray-100" : "text-gray-900"
+            }`}
+          >
             <Database className="w-5 h-5 text-blue-600" />
             Data Management
           </h3>
@@ -1855,22 +2142,50 @@ const SettingsSection = ({
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="text-md font-bold text-gray-900 mb-3 flex items-center gap-2">
+        <div
+          className={`rounded-xl border p-6 ${
+            isDarkMode
+              ? "bg-gray-800 border-gray-700"
+              : "bg-white border-gray-200"
+          }`}
+        >
+          <h3
+            className={`text-md font-bold mb-3 flex items-center gap-2 ${
+              isDarkMode ? "text-gray-100" : "text-gray-900"
+            }`}
+          >
             <Server className="w-5 h-5 text-green-600" />
             System Info
           </h3>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-gray-600">Version:</span>
-              <span className="font-semibold">v2.0.0</span>
+              <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>
+                Version:
+              </span>
+              <span
+                className={`font-semibold ${
+                  isDarkMode ? "text-gray-200" : "text-gray-900"
+                }`}
+              >
+                v2.0.0
+              </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Environment:</span>
-              <span className="font-semibold">Production</span>
+              <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>
+                Environment:
+              </span>
+              <span
+                className={`font-semibold ${
+                  isDarkMode ? "text-gray-200" : "text-gray-900"
+                }`}
+              >
+                Production
+              </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Uptime:</span>
+              <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>
+                Uptime:
+              </span>
               <span className="font-semibold text-green-600">99.9%</span>
             </div>
           </div>
