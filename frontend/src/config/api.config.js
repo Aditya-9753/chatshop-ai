@@ -22,6 +22,7 @@ export const API_ENDPOINTS = {
     UPDATE_PASSWORD: "/users/password",
     WHATSAPP_CONFIG: "/users/whatsapp-config",
     INSTAGRAM_CONFIG: "/users/instagram-config",
+    FACEBOOK_CONFIG: "/users/facebook-config",
     AI_CONFIG: "/users/ai-config",
     BUSINESS_INFO: "/users/business-info",
     DELETE_ACCOUNT: "/users/account",
@@ -50,6 +51,14 @@ export const API_ENDPOINTS = {
     DISCONNECT: "/instagram/disconnect",
     SEND_MESSAGE: "/instagram/send-message",
     WEBHOOK: "/instagram/webhook",
+  },
+
+  // Facebook
+  FACEBOOK: {
+    CONNECT: "/facebook/connect",
+    DISCONNECT: "/facebook/disconnect",
+    SEND_MESSAGE: "/facebook/send-message",
+    WEBHOOK: "/facebook/webhook",
   },
 
   // Customers

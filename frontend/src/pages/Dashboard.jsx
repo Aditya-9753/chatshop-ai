@@ -416,6 +416,22 @@ const Dashboard = () => {
                     />
                   </svg>
                 </div>
+                <span>Facebook Integration</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <div className="w-5 h-5 rounded-full bg-green-400 flex items-center justify-center">
+                  <svg
+                    className="w-3 h-3 text-white"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </div>
                 <span>Analytics Dashboard</span>
               </div>
               {user.subscription.plan === "premium" && (
@@ -713,6 +729,40 @@ const Dashboard = () => {
             </button>
           )}
         </div>
+
+        <div
+          className={`rounded-xl shadow-sm border p-6 ${
+            isDarkMode
+              ? "bg-gray-800 border-gray-700"
+              : "bg-white border-gray-100"
+          }`}
+        >
+          <h3
+            className={`text-lg font-bold mb-4 ${
+              isDarkMode ? "text-white" : "text-gray-900"
+            }`}
+          >
+            Facebook Status
+          </h3>
+          <div className="flex items-center gap-3">
+            <div
+              className={`w-3 h-3 rounded-full ${
+                user?.facebookConnected ? "bg-green-500" : "bg-red-500"
+              }`}
+            ></div>
+            <span className={isDarkMode ? "text-gray-300" : "text-gray-700"}>
+              {user?.facebookConnected ? "Connected" : "Not Connected"}
+            </span>
+          </div>
+          {!user?.facebookConnected && (
+            <button
+              onClick={() => navigate("/settings")}
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Connect Facebook
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Recent Activity */}
@@ -836,6 +886,7 @@ const Dashboard = () => {
             >
               <option value="whatsapp">WhatsApp</option>
               <option value="instagram">Instagram</option>
+              <option value="facebook">Facebook</option>
               <option value="other">Other</option>
             </select>
           </div>

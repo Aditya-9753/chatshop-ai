@@ -65,6 +65,12 @@ const userSchema = new mongoose.Schema(
       businessAccountId: String,
       accessToken: String,
     },
+    facebookConfig: {
+      isConnected: { type: Boolean, default: false },
+      pageName: String,
+      pageId: String,
+      accessToken: String,
+    },
     aiConfig: {
       isEnabled: { type: Boolean, default: true },
       language: {
@@ -90,6 +96,13 @@ const userSchema = new mongoose.Schema(
       totalCustomers: { type: Number, default: 0 },
       totalOrders: { type: Number, default: 0 },
       totalRevenue: { type: Number, default: 0 },
+      messagesSent: { type: Number, default: 0 },
+      messagesReceived: { type: Number, default: 0 },
+      platforms: {
+        whatsapp: { type: Number, default: 0 },
+        instagram: { type: Number, default: 0 },
+        facebook: { type: Number, default: 0 },
+      },
     },
     resetPasswordToken: String,
     resetPasswordExpire: Date,

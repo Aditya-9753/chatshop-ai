@@ -34,7 +34,7 @@ const Chatbot = () => {
       message.includes("hi") ||
       message.includes("hey")
     ) {
-      return "Hello! 👋 I'm here to help you with ChatShop AI. What would you like to know about our WhatsApp and Instagram automation platform?";
+      return "Hello! 👋 I'm here to help you with ChatShop AI. What would you like to know about our WhatsApp, Instagram, and Facebook automation platform?";
     }
 
     // Features
@@ -43,7 +43,7 @@ const Chatbot = () => {
       message.includes("what can") ||
       message.includes("capabilities")
     ) {
-      return "ChatShop AI offers:\n\n✅ WhatsApp Business Integration\n✅ Instagram DM Automation\n✅ AI-Powered Customer Support\n✅ Order Management\n✅ Product Catalog\n✅ Analytics & Insights\n✅ Multi-Channel Management\n\nWhich feature interests you the most?";
+      return "ChatShop AI offers:\n\n✅ WhatsApp Business Integration\n✅ Instagram DM Automation\n✅ Facebook Messenger Integration\n✅ AI-Powered Customer Support\n✅ Order Management\n✅ Product Catalog\n✅ Analytics & Insights\n✅ Multi-Channel Management\n\nWhich feature interests you the most?";
     }
 
     // Pricing
@@ -53,7 +53,7 @@ const Chatbot = () => {
       message.includes("plan") ||
       message.includes("subscription")
     ) {
-      return "We offer flexible pricing plans:\n\n📦 **Starter**: ₹999/month - 1,000 messages\n🚀 **Professional**: ₹2,499/month - 5,000 messages\n⭐ **Enterprise**: ₹4,999/month - Unlimited messages\n\nAll plans include WhatsApp & Instagram integration, AI support, and 24/7 customer service!";
+      return "We offer flexible pricing plans:\n\n📦 **Starter**: ₹999/month - 1,000 messages\n🚀 **Professional**: ₹2,499/month - 5,000 messages\n⭐ **Enterprise**: ₹4,999/month - Unlimited messages\n\nAll plans include WhatsApp, Instagram & Facebook integration, AI support, and 24/7 customer service!";
     }
 
     // Setup/Getting Started
@@ -63,7 +63,7 @@ const Chatbot = () => {
       message.includes("begin") ||
       message.includes("how to use")
     ) {
-      return "Getting started is easy! 🚀\n\n1. Sign up for an account\n2. Connect your WhatsApp Business number\n3. Link your Instagram account (optional)\n4. Upload your product catalog\n5. Configure automated responses\n6. Start chatting with customers!\n\nWould you like me to walk you through any specific step?";
+      return "Getting started is easy! 🚀\n\n1. Sign up for an account\n2. Connect your WhatsApp Business number\n3. Link your Instagram account (optional)\n4. Connect your Facebook Page (optional)\n5. Upload your product catalog\n6. Configure automated responses\n7. Start chatting with customers!\n\nWould you like me to walk you through any specific step?";
     }
 
     // WhatsApp specific
@@ -73,7 +73,12 @@ const Chatbot = () => {
 
     // Instagram specific
     if (message.includes("instagram")) {
-      return "Instagram integration features:\n\n📸 DM automation\n💬 Comment responses\n🛍️ Product tagging in chats\n📈 Engagement analytics\n🤝 Seamless customer handoff\n\nManage both Instagram and WhatsApp from one dashboard!";
+      return "Instagram integration features:\n\n📸 DM automation\n💬 Comment responses\n🛍️ Product tagging in chats\n📈 Engagement analytics\n🤝 Seamless customer handoff\n\nManage Instagram, WhatsApp & Facebook from one dashboard!";
+    }
+
+    // Facebook specific
+    if (message.includes("facebook")) {
+      return "Facebook integration features:\n\n👍 Messenger automation\n💬 Auto-replies to page messages\n🛍️ Product catalog sharing\n📈 Customer insights\n📦 Order tracking via Messenger\n\nConnect your Facebook Page and start selling instantly!";
     }
 
     // AI specific
@@ -97,7 +102,7 @@ const Chatbot = () => {
       message.includes("try") ||
       message.includes("test")
     ) {
-      return "We offer a 14-day free trial! 🎉\n\nNo credit card required. Get full access to:\n\n✨ All features\n📊 Complete analytics\n🤖 AI chatbot\n📱 WhatsApp & Instagram integration\n\nSign up now to start your free trial!";
+      return "We offer a 14-day free trial! 🎉\n\nNo credit card required. Get full access to:\n\n✨ All features\n📊 Complete analytics\n🤖 AI chatbot\n📱 WhatsApp, Instagram & Facebook integration\n\nSign up now to start your free trial!";
     }
 
     // Integration
@@ -124,7 +129,7 @@ const Chatbot = () => {
       message.includes("how does it work") ||
       message.includes("how it work")
     ) {
-      return "Here's how ChatShop AI works:\n\n1️⃣ **Connect**: Link your WhatsApp/Instagram\n2️⃣ **Configure**: Set up automated responses and workflows\n3️⃣ **AI Training**: Our AI learns your business context\n4️⃣ **Go Live**: Start receiving and responding to messages\n5️⃣ **Monitor**: Track performance through analytics\n\nThe AI handles routine queries while you focus on complex issues!";
+      return "Here's how ChatShop AI works:\n\n1️⃣ **Connect**: Link your WhatsApp/Instagram/Facebook\n2️⃣ **Configure**: Set up automated responses and workflows\n3️⃣ **AI Training**: Our AI learns your business context\n4️⃣ **Go Live**: Start receiving and responding to messages\n5️⃣ **Monitor**: Track performance through analytics\n\nThe AI handles routine queries while you focus on complex issues!";
     }
 
     // Benefits
@@ -151,7 +156,7 @@ const Chatbot = () => {
     }
 
     // Default response
-    return "I'm not sure about that specific question, but I'd be happy to help! 🤔\n\nYou can ask me about:\n\n• Features and capabilities\n• Pricing and plans\n• WhatsApp or Instagram integration\n• Getting started\n• AI features\n• Support options\n\nOr, feel free to contact our support team for personalized assistance!";
+    return "I'm not sure about that specific question, but I'd be happy to help! 🤔\n\nYou can ask me about:\n\n• Features and capabilities\n• Pricing and plans\n• WhatsApp, Instagram or Facebook integration\n• Getting started\n• AI features\n• Support options\n\nOr, feel free to contact our support team for personalized assistance!";
   };
 
   const handleSendMessage = () => {

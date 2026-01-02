@@ -6,6 +6,7 @@ import {
   User,
   Instagram,
   MessageCircle,
+  Facebook,
   Radio,
   X,
   FileText,
@@ -111,11 +112,11 @@ const Messages = () => {
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [platformFilter, setPlatformFilter] = useState("all"); // all, whatsapp, instagram
+  const [platformFilter, setPlatformFilter] = useState("all"); // all, whatsapp, instagram, facebook
   const [loading, setLoading] = useState(true);
   const [isBroadcastModalOpen, setIsBroadcastModalOpen] = useState(false);
   const [broadcastMessage, setBroadcastMessage] = useState("");
-  const [broadcastPlatform, setBroadcastPlatform] = useState("all"); // all, whatsapp, instagram
+  const [broadcastPlatform, setBroadcastPlatform] = useState("all"); // all, whatsapp, instagram, facebook
   const [sendingBroadcast, setSendingBroadcast] = useState(false);
   const [messageInput, setMessageInput] = useState("");
   const [showCannedResponses, setShowCannedResponses] = useState(false);
@@ -282,10 +283,10 @@ const Messages = () => {
             </div>
 
             {/* Platform Filter */}
-            <div className="flex gap-2 mb-4">
+            <div className="grid grid-cols-2 gap-2 mb-4">
               <button
                 onClick={() => setPlatformFilter("all")}
-                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
+                className={`py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
                   platformFilter === "all"
                     ? "bg-indigo-600 text-white"
                     : isDarkMode
@@ -297,7 +298,7 @@ const Messages = () => {
               </button>
               <button
                 onClick={() => setPlatformFilter("whatsapp")}
-                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                className={`py-2 px-3 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                   platformFilter === "whatsapp"
                     ? "bg-green-600 text-white"
                     : isDarkMode
@@ -310,7 +311,7 @@ const Messages = () => {
               </button>
               <button
                 onClick={() => setPlatformFilter("instagram")}
-                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                className={`py-2 px-3 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                   platformFilter === "instagram"
                     ? "bg-pink-600 text-white"
                     : isDarkMode
@@ -320,6 +321,19 @@ const Messages = () => {
               >
                 <Instagram className="w-4 h-4" />
                 Instagram
+              </button>
+              <button
+                onClick={() => setPlatformFilter("facebook")}
+                className={`py-2 px-3 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                  platformFilter === "facebook"
+                    ? "bg-blue-600 text-white"
+                    : isDarkMode
+                    ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                <Facebook className="w-4 h-4" />
+                Facebook
               </button>
             </div>
 
@@ -383,13 +397,17 @@ const Messages = () => {
                         className={`absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full flex items-center justify-center shadow-lg ${
                           conv.platform === "whatsapp"
                             ? "bg-green-500"
-                            : "bg-pink-500"
+                            : conv.platform === "instagram"
+                            ? "bg-pink-500"
+                            : "bg-blue-500"
                         }`}
                       >
                         {conv.platform === "whatsapp" ? (
                           <MessageCircle className="w-3 h-3 text-white" />
-                        ) : (
+                        ) : conv.platform === "instagram" ? (
                           <Instagram className="w-3 h-3 text-white" />
+                        ) : (
+                          <Facebook className="w-3 h-3 text-white" />
                         )}
                       </div>
                     </div>

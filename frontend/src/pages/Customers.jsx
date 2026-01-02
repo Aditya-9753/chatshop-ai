@@ -407,12 +407,16 @@ const Customers = () => {
                         className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
                           customer.platform === "whatsapp"
                             ? "bg-green-100 text-green-800"
-                            : "bg-pink-100 text-pink-800"
+                            : customer.platform === "instagram"
+                            ? "bg-pink-100 text-pink-800"
+                            : "bg-blue-100 text-blue-800"
                         }`}
                       >
                         {customer.platform === "whatsapp"
                           ? "💬 WhatsApp"
-                          : "📸 Instagram"}
+                          : customer.platform === "instagram"
+                          ? "📸 Instagram"
+                          : "📘 Facebook"}
                       </span>
                     </td>
                     <td
@@ -528,6 +532,7 @@ const Customers = () => {
             >
               <option value="whatsapp">WhatsApp</option>
               <option value="instagram">Instagram</option>
+              <option value="facebook">Facebook</option>
               <option value="other">Other</option>
             </select>
           </div>

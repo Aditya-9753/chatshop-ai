@@ -9,6 +9,7 @@ const {
   deleteAccount,
   updateWhatsAppConfig,
   updateInstagramConfig,
+  updateFacebookConfig,
   updateAIConfig,
   updateBusinessInfo,
 } = require("../controllers/user.controller");
@@ -42,6 +43,11 @@ router.put("/whatsapp-config", protect, updateWhatsAppConfig);
 // @desc    Update Instagram configuration
 // @access  Private
 router.put("/instagram-config", protect, updateInstagramConfig);
+
+// @route   PUT /api/users/facebook-config
+// @desc    Update Facebook configuration
+// @access  Private
+router.put("/facebook-config", protect, updateFacebookConfig);
 
 // @route   PUT /api/users/ai-config
 // @desc    Update AI configuration

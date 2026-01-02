@@ -49,6 +49,7 @@ app.use("/api/users", require("./routes/user.routes"));
 app.use("/api/subscriptions", require("./routes/subscription.routes"));
 app.use("/api/whatsapp", require("./routes/whatsapp.routes"));
 app.use("/api/instagram", require("./routes/instagram.routes"));
+app.use("/api/facebook", require("./routes/facebook.routes"));
 app.use("/api/customers", require("./routes/customer.routes"));
 app.use("/api/messages", require("./routes/message.routes"));
 app.use("/api/products", require("./routes/product.routes"));
@@ -60,7 +61,7 @@ app.use("/api/admin", require("./routes/admin.routes"));
 app.get("/", (req, res) => {
   res.json({
     success: true,
-    message: "WhatsApp & Instagram Automation API",
+    message: "WhatsApp, Instagram & Facebook Automation API",
     version: "1.0.0",
   });
 });

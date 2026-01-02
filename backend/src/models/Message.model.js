@@ -15,7 +15,7 @@ const messageSchema = new mongoose.Schema(
     },
     platform: {
       type: String,
-      enum: ["whatsapp", "instagram"],
+      enum: ["whatsapp", "instagram", "facebook"],
       required: true,
     },
     direction: {
@@ -38,8 +38,8 @@ const messageSchema = new mongoose.Schema(
       default: false,
     },
     isRead: {
-    type: Boolean,
-    default: false
+      type: Boolean,
+      default: false,
     },
     status: {
       type: String,

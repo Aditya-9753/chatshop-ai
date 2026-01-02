@@ -14,7 +14,9 @@ const Logo = () => (
       <div className="font-bold text-lg bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
         ChatShop AI
       </div>
-      <div className="text-xs text-gray-500">WhatsApp + Instagram</div>
+      <div className="text-xs text-gray-500">
+        WhatsApp + Instagram + Facebook
+      </div>
     </div>
   </div>
 );
@@ -244,12 +246,12 @@ function Hero() {
             } rounded-full hover:shadow-lg transition-all duration-300`}
           >
             <span className="text-sm font-semibold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
-              🚀 WhatsApp + Instagram AI Agents
+              🚀 WhatsApp + Instagram + Facebook AI Agents
             </span>
           </div>
 
           <h1 className="text-5xl md:text-6xl font-extrabold leading-tight bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent">
-            Build a 24/7 AI Shop on WhatsApp & Instagram
+            Build a 24/7 AI Shop on WhatsApp, Instagram & Facebook
           </h1>
 
           <p
@@ -258,8 +260,8 @@ function Hero() {
             } leading-relaxed`}
           >
             Instant AI replies, product catalog, order tracking, payment links
-            and customer follow-ups — all through WhatsApp DMs and Instagram
-            Direct Messages. No apps to teach, no training required.
+            and customer follow-ups — all through WhatsApp, Instagram & Facebook
+            DMs Direct Messages. No apps to teach, no training required.
           </p>
 
           <div className="mt-6 flex flex-wrap gap-3">
@@ -295,7 +297,8 @@ function Hero() {
               <span className="text-2xl">✅</span> Setup in 30 minutes
             </li>
             <li className="flex items-center gap-3">
-              <span className="text-2xl">✅</span> Works on WhatsApp & Instagram
+              <span className="text-2xl">✅</span> Works on WhatsApp, Instagram
+              & Facebook
             </li>
             <li className="flex items-center gap-3">
               <span className="text-2xl">✅</span> Supports Hinglish, Hindi &
@@ -350,14 +353,26 @@ function Hero() {
                   >
                     📸 Instagram
                   </button>
+                  <button
+                    onClick={() => setActiveChat("facebook")}
+                    className={`flex-1 py-3 px-4 font-semibold transition-all ${
+                      activeChat === "facebook"
+                        ? "text-blue-600 border-b-2 border-blue-600 bg-blue-50"
+                        : "text-gray-600"
+                    }`}
+                  >
+                    👍 Facebook
+                  </button>
                 </div>
 
                 {/* Chat Content */}
                 <div className="flex-1 overflow-y-auto p-4 bg-white space-y-3 scrollbar-hide">
                   {activeChat === "whatsapp" ? (
                     <ChatContent platform="whatsapp" />
-                  ) : (
+                  ) : activeChat === "instagram" ? (
                     <ChatContent platform="instagram" />
+                  ) : (
+                    <ChatContent platform="facebook" />
                   )}
                 </div>
 
@@ -416,8 +431,29 @@ function ChatContent({ platform }) {
     { side: "left", text: "🎉 Yes! 10% off this week. DM me for details!" },
   ];
 
+  const facebookMessages = [
+    {
+      side: "left",
+      text: "Hello! 👋 Thanks for messaging us on Facebook!",
+    },
+    { side: "right", text: "Do you ship to Mumbai?" },
+    {
+      side: "left",
+      text: "✅ Yes! Free shipping on orders above ₹500. What would you like to order?",
+    },
+    { side: "right", text: "Samsung Galaxy S23" },
+    {
+      side: "left",
+      text: "🎯 Samsung Galaxy S23 - ₹74,999. In stock! COD available.",
+    },
+  ];
+
   const messages =
-    platform === "whatsapp" ? whatsappMessages : instagramMessages;
+    platform === "whatsapp"
+      ? whatsappMessages
+      : platform === "instagram"
+      ? instagramMessages
+      : facebookMessages;
 
   return (
     <>
@@ -435,7 +471,9 @@ function ChatContent({ platform }) {
                 ? "bg-gray-100 text-gray-900"
                 : platform === "whatsapp"
                 ? "bg-green-500 text-white"
-                : "bg-pink-500 text-white"
+                : platform === "instagram"
+                ? "bg-pink-500 text-white"
+                : "bg-blue-600 text-white"
             } px-4 py-2 rounded-2xl max-w-[85%] shadow-md text-sm font-medium`}
           >
             {m.text}
@@ -498,7 +536,11 @@ function Features() {
     },
     {
       title: "📸 Instagram DM Bot",
-      desc: "Fully automated Instagram Direct Message responses & order handling on Instagram.",
+      desc: "Fully automated Instagram Direct Message responses & order handling.",
+    },
+    {
+      title: "👍 Facebook Messenger Bot",
+      desc: "Connect with customers on Facebook Messenger with AI-powered responses.",
     },
     {
       title: "🛒 Product Catalog",
@@ -514,7 +556,7 @@ function Features() {
     },
     {
       title: "📢 Broadcast & Offers",
-      desc: "Send festival offers and new-arrival messages to customers on WhatsApp & Instagram.",
+      desc: "Send festival offers and new-arrival messages to customers on WhatsApp, Instagram & Facebook.",
     },
     {
       title: "📊 Analytics",
@@ -522,7 +564,7 @@ function Features() {
     },
     {
       title: "🌐 Multi-Channel",
-      desc: "Manage WhatsApp & Instagram shops from a single unified dashboard.",
+      desc: "Manage WhatsApp, Instagram & Facebook shops from a single unified dashboard.",
     },
   ];
 
@@ -557,8 +599,8 @@ function Features() {
               isDarkMode ? "text-gray-300" : "text-gray-600"
             } max-w-3xl mx-auto`}
           >
-            Powerful features for WhatsApp & Instagram automation. Manage both
-            platforms from one dashboard.
+            Powerful features for WhatsApp, Instagram & Facebook automation.
+            Manage all platforms from one dashboard.
           </p>
         </div>
 
@@ -959,7 +1001,8 @@ function Footer() {
           <div>
             <Logo />
             <p className="mt-4 text-gray-400 text-sm">
-              Empowering local businesses with WhatsApp & Instagram automation.
+              Empowering local businesses with WhatsApp, Instagram & Facebook
+              automation.
             </p>
           </div>
           <div>

@@ -3,6 +3,7 @@ import {
   User,
   MessageCircle,
   Instagram,
+  Facebook,
   Building,
   Save,
   Key,
@@ -41,6 +42,13 @@ const Settings = () => {
     username: "",
     accessToken: "",
     businessAccountId: "",
+  });
+
+  // Facebook connection
+  const [facebookForm, setFacebookForm] = useState({
+    pageName: "",
+    pageId: "",
+    accessToken: "",
   });
 
   // Business info
@@ -120,6 +128,18 @@ const Settings = () => {
     }
   };
 
+  const handleFacebookConnect = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await api.post("/facebook/connect", facebookForm);
+      if (response.success) {
+        success("Facebook connected successfully");
+      }
+    } catch (err) {
+      error(err.message || "Failed to connect Facebook");
+    }
+  };
+
   const handleBusinessUpdate = async (e) => {
     e.preventDefault();
     try {
@@ -136,6 +156,7 @@ const Settings = () => {
     { id: "profile", label: "Profile", icon: User },
     { id: "whatsapp", label: "WhatsApp", icon: MessageCircle },
     { id: "instagram", label: "Instagram", icon: Instagram },
+    { id: "facebook", label: "Facebook", icon: Facebook },
     { id: "business", label: "Business Info", icon: Building },
     { id: "security", label: "Security", icon: Key },
   ];
@@ -419,6 +440,89 @@ const Settings = () => {
                 <div className="pt-4">
                   <Button type="submit" icon={Instagram}>
                     Connect Instagram
+                  </Button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Facebook Tab */}
+          {activeTab === "facebook" && (
+            <div>
+              <h2
+                className={`text-2xl font-bold mb-2 ${
+                  isDarkMode ? "text-white" : "text-gray-900"
+                }`}
+              >
+                Facebook Messenger Integration
+              </h2>
+              <p
+                className={`mb-6 ${
+                  isDarkMode ? "text-gray-400" : "text-gray-600"
+                }`}
+              >
+                Connect your Facebook Page to manage Messenger conversations
+              </p>
+              <form onSubmit={handleFacebookConnect} className="space-y-4">
+                <Input
+                  label="Facebook Page Name"
+                  name="pageName"
+                  value={facebookForm.pageName}
+                  onChange={(e) =>
+                    setFacebookForm({
+                      ...facebookForm,
+                      pageName: e.target.value,
+                    })
+                  }
+                  placeholder="Your Business Page"
+                  required
+                />
+                <Input
+                  label="Page ID"
+                  name="pageId"
+                  value={facebookForm.pageId}
+                  onChange={(e) =>
+                    setFacebookForm({
+                      ...facebookForm,
+                      pageId: e.target.value,
+                    })
+                  }
+                  placeholder="Your Facebook Page ID"
+                  required
+                />
+                <Input
+                  label="Page Access Token"
+                  name="accessToken"
+                  type="password"
+                  value={facebookForm.accessToken}
+                  onChange={(e) =>
+                    setFacebookForm({
+                      ...facebookForm,
+                      accessToken: e.target.value,
+                    })
+                  }
+                  placeholder="Enter your Facebook Page Access Token"
+                  required
+                />
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-sm text-blue-800">
+                    <strong>Note:</strong> You need a Facebook Page with
+                    Messenger enabled. Visit{" "}
+                    <a
+                      href="https://developers.facebook.com"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline"
+                    >
+                      Facebook Developers
+                    </a>{" "}
+                    to set up the Messenger Platform and get your Page Access
+                    Token.
+                  </p>
+                </div>
+                <div className="pt-4">
+                  <Button type="submit" icon={Facebook}>
+                    Connect Facebook
                   </Button>
                 </div>
               </form>

@@ -14,15 +14,15 @@ const customerSchema = new mongoose.Schema(
     },
     phone: {
       type: String,
-      required: true,
+      required: false, // Optional for Facebook/Instagram users
     },
     email: String,
     platform: {
       type: String,
-      enum: ["whatsapp", "instagram"],
+      enum: ["whatsapp", "instagram", "facebook"],
       required: true,
     },
-    platformId: String, // WhatsApp/Instagram User ID
+    platformId: String, // WhatsApp/Instagram/Facebook User ID
     tags: [String],
     notes: String,
     lastMessageDate: Date,

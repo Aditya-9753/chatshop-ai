@@ -940,6 +940,20 @@ const OverviewSection = ({ stats, handleExportUsers, isDarkMode }) => {
                 {stats?.platforms?.instagram || 0}
               </p>
             </div>
+            <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                  <MessageSquare className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-900">Facebook</p>
+                  <p className="text-sm text-gray-600">Connected Users</p>
+                </div>
+              </div>
+              <p className="text-2xl font-bold text-blue-600">
+                {stats?.platforms?.facebook || 0}
+              </p>
+            </div>
           </div>
         </div>
 
@@ -1802,21 +1816,21 @@ const AnalyticsSection = ({ stats, systemStats, isDarkMode }) => {
               Instagram Users
             </p>
           </div>
-          <div className="p-4 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-lg">
-            <ShoppingBag className="w-8 h-8 text-blue-600 mb-2" />
+          <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg">
+            <MessageSquare className="w-8 h-8 text-blue-600 mb-2" />
             <p
               className={`text-2xl font-bold ${
                 isDarkMode ? "text-gray-800" : "text-gray-900"
               }`}
             >
-              {stats?.entities?.orders || 0}
+              {stats?.platforms?.facebook || 0}
             </p>
             <p
               className={`text-sm ${
                 isDarkMode ? "text-gray-700" : "text-gray-600"
               }`}
             >
-              Total Orders
+              Facebook Users
             </p>
           </div>
           <div className="p-4 bg-gradient-to-br from-purple-50 to-violet-50 rounded-lg">
@@ -1834,6 +1848,26 @@ const AnalyticsSection = ({ stats, systemStats, isDarkMode }) => {
               }`}
             >
               Total Customers
+            </p>
+          </div>
+        </div>
+        {/* Remove Orders card here since we want 4 platform cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+          <div className="p-4 bg-gradient-to-br from-orange-50 to-amber-50 rounded-lg">
+            <ShoppingBag className="w-8 h-8 text-orange-600 mb-2" />
+            <p
+              className={`text-2xl font-bold ${
+                isDarkMode ? "text-gray-800" : "text-gray-900"
+              }`}
+            >
+              {stats?.entities?.orders || 0}
+            </p>
+            <p
+              className={`text-sm ${
+                isDarkMode ? "text-gray-700" : "text-gray-600"
+              }`}
+            >
+              Total Orders
             </p>
           </div>
         </div>

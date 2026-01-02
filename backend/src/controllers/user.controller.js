@@ -143,3 +143,21 @@ exports.updateBusinessInfo = async (req, res) => {
     return ResponseHandler.error(res, error.message);
   }
 };
+
+// @desc    Update Facebook configuration
+exports.updateFacebookConfig = async (req, res) => {
+  try {
+    const config = await userService.updateFacebookConfig(
+      req.user._id,
+      req.body
+    );
+    return ResponseHandler.success(
+      res,
+      config,
+      "Facebook configuration updated successfully"
+    );
+  } catch (error) {
+    console.error("Update Facebook config error:", error);
+    return ResponseHandler.error(res, error.message);
+  }
+};

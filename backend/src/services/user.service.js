@@ -156,6 +156,25 @@ class UserService {
     await user.save();
     return user.businessInfo;
   }
+
+  // Update Facebook configuration
+  async updateFacebookConfig(userId, configData) {
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const { isConnected, pageName, pageId, accessToken } = configData;
+
+    if (isConnected !== undefined)
+      user.facebookConfig.isConnected = isConnected;
+    if (pageName) user.facebookConfig.pageName = pageName;
+    if (pageId) user.facebookConfig.pageId = pageId;
+    if (accessToken) user.facebookConfig.accessToken = accessToken;
+
+    await user.save();
+    return user.facebookConfig;
+  }
 }
 
 module.exports = new UserService();

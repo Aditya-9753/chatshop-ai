@@ -25,6 +25,7 @@ import {
   MessageSquare,
   Instagram,
   MessageCircle,
+  Facebook,
   Package,
   ArrowUpRight,
   ArrowDownRight,
@@ -94,6 +95,11 @@ const Analytics = () => {
       name: "Instagram",
       customers: stats?.instagramCustomers || 0,
       color: "#ec4899",
+    },
+    {
+      name: "Facebook",
+      customers: stats?.facebookCustomers || 0,
+      color: "#3b82f6",
     },
   ];
 
@@ -571,13 +577,17 @@ const Analytics = () => {
                         className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${
                           customer.platform === "whatsapp"
                             ? "bg-green-100 text-green-700"
-                            : "bg-pink-100 text-pink-700"
+                            : customer.platform === "instagram"
+                            ? "bg-pink-100 text-pink-700"
+                            : "bg-blue-100 text-blue-700"
                         }`}
                       >
                         {customer.platform === "whatsapp" ? (
                           <MessageCircle className="w-3 h-3" />
-                        ) : (
+                        ) : customer.platform === "instagram" ? (
                           <Instagram className="w-3 h-3" />
+                        ) : (
+                          <Facebook className="w-3 h-3" />
                         )}
                         {customer.platform}
                       </span>
@@ -676,6 +686,27 @@ const Analytics = () => {
                 }`}
               >
                 {stats?.instagramConnected ? "Connected" : "Disconnected"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Facebook className="w-5 h-5 text-blue-600" />
+                <span
+                  className={`text-sm ${
+                    isDarkMode ? "text-gray-300" : "text-gray-700"
+                  }`}
+                >
+                  Facebook
+                </span>
+              </div>
+              <span
+                className={`px-2 py-1 rounded-full text-xs font-medium ${
+                  stats?.facebookConnected
+                    ? "bg-green-100 text-green-700"
+                    : "bg-gray-100 text-gray-700"
+                }`}
+              >
+                {stats?.facebookConnected ? "Connected" : "Disconnected"}
               </span>
             </div>
           </div>
