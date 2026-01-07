@@ -488,7 +488,7 @@ const FeatureCard = ({ title, desc, icon, isDarkMode }) => (
   <div
     className={`p-8 border-2 ${
       isDarkMode ? "border-gray-700 bg-gray-800" : "border-gray-100 bg-white"
-    } rounded-2xl shadow-md card-hover group overflow-hidden`}
+    } rounded-2xl shadow-md card-hover group overflow-hidden h-full min-h-[200px] flex flex-col`}
   >
     <div
       className={`absolute inset-0 ${
@@ -497,9 +497,9 @@ const FeatureCard = ({ title, desc, icon, isDarkMode }) => (
           : "bg-gradient-to-br from-indigo-50 to-transparent"
       } opacity-0 group-hover:opacity-100 transition-opacity duration-300`}
     ></div>
-    <div className="flex items-start gap-4 relative z-10">
+    <div className="flex items-start gap-4 relative z-10 flex-1">
       <div
-        className={`w-14 h-14 rounded-xl ${
+        className={`w-14 h-14 rounded-xl flex-shrink-0 ${
           isDarkMode
             ? "bg-gradient-to-br from-indigo-900 to-purple-900"
             : "bg-gradient-to-br from-indigo-100 to-purple-100"
@@ -507,7 +507,7 @@ const FeatureCard = ({ title, desc, icon, isDarkMode }) => (
       >
         {icon}
       </div>
-      <div>
+      <div className="flex-1">
         <div
           className={`font-bold text-lg ${
             isDarkMode ? "text-white" : "text-gray-900"

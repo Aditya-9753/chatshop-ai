@@ -255,19 +255,21 @@ const Messages = () => {
       >
         {/* Conversations List */}
         <div
-          className={`w-1/3 border-r flex flex-col overflow-hidden ${
+          className={`${
+            selectedConversation ? "hidden md:flex" : "flex"
+          } w-full md:w-1/3 border-r flex-col overflow-hidden ${
             isDarkMode ? "border-gray-700" : "border-gray-200"
           }`}
         >
           {/* Header */}
           <div
-            className={`p-4 border-b ${
+            className={`p-3 sm:p-4 border-b ${
               isDarkMode ? "border-gray-700" : "border-gray-200"
             }`}
           >
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
               <h2
-                className={`text-xl font-bold ${
+                className={`text-lg sm:text-xl font-bold ${
                   isDarkMode ? "text-white" : "text-gray-900"
                 }`}
               >
@@ -275,18 +277,18 @@ const Messages = () => {
               </h2>
               <button
                 onClick={() => setIsBroadcastModalOpen(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium"
+                className="flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-xs sm:text-sm font-medium"
               >
-                <Radio className="w-4 h-4" />
-                Broadcast
+                <Radio className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="hidden xs:inline">Broadcast</span>
               </button>
             </div>
 
             {/* Platform Filter */}
-            <div className="grid grid-cols-2 gap-2 mb-4">
+            <div className="grid grid-cols-2 gap-1.5 sm:gap-2 mb-3 sm:mb-4">
               <button
                 onClick={() => setPlatformFilter("all")}
-                className={`py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
+                className={`py-1.5 sm:py-2 px-2 sm:px-3 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
                   platformFilter === "all"
                     ? "bg-indigo-600 text-white"
                     : isDarkMode
@@ -298,7 +300,7 @@ const Messages = () => {
               </button>
               <button
                 onClick={() => setPlatformFilter("whatsapp")}
-                className={`py-2 px-3 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                className={`py-1.5 sm:py-2 px-2 sm:px-3 rounded-lg text-xs sm:text-sm font-medium transition-colors flex items-center justify-center gap-1 sm:gap-2 ${
                   platformFilter === "whatsapp"
                     ? "bg-green-600 text-white"
                     : isDarkMode
@@ -306,12 +308,12 @@ const Messages = () => {
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
               >
-                <MessageCircle className="w-4 h-4" />
+                <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4" />
                 WhatsApp
               </button>
               <button
                 onClick={() => setPlatformFilter("instagram")}
-                className={`py-2 px-3 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                className={`py-1.5 sm:py-2 px-2 sm:px-3 rounded-lg text-xs sm:text-sm font-medium transition-colors flex items-center justify-center gap-1 sm:gap-2 ${
                   platformFilter === "instagram"
                     ? "bg-pink-600 text-white"
                     : isDarkMode
@@ -319,12 +321,12 @@ const Messages = () => {
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
               >
-                <Instagram className="w-4 h-4" />
+                <Instagram className="w-3 h-3 sm:w-4 sm:h-4" />
                 Instagram
               </button>
               <button
                 onClick={() => setPlatformFilter("facebook")}
-                className={`py-2 px-3 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                className={`py-1.5 sm:py-2 px-2 sm:px-3 rounded-lg text-xs sm:text-sm font-medium transition-colors flex items-center justify-center gap-1 sm:gap-2 ${
                   platformFilter === "facebook"
                     ? "bg-blue-600 text-white"
                     : isDarkMode
@@ -332,7 +334,7 @@ const Messages = () => {
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
               >
-                <Facebook className="w-4 h-4" />
+                <Facebook className="w-3 h-3 sm:w-4 sm:h-4" />
                 Facebook
               </button>
             </div>
@@ -453,17 +455,42 @@ const Messages = () => {
         </div>
 
         {/* Chat Area */}
-        <div className="flex-1 flex flex-col">
+        <div
+          className={`${
+            selectedConversation ? "flex" : "hidden md:flex"
+          } flex-1 flex-col`}
+        >
           {selectedConversation ? (
             <>
               {/* Chat Header */}
               <div
-                className={`p-4 border-b flex items-center gap-3 shadow-sm ${
+                className={`p-3 sm:p-4 border-b flex items-center gap-2 sm:gap-3 shadow-sm ${
                   isDarkMode
                     ? "border-gray-700 bg-gray-800"
                     : "border-gray-200 bg-white"
                 }`}
               >
+                {/* Back Button for Mobile */}
+                <button
+                  onClick={() => setSelectedConversation(null)}
+                  className={`md:hidden p-2 rounded-lg ${
+                    isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-100"
+                  }`}
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 19l-7-7 7-7"
+                    />
+                  </svg>
+                </button>
                 <div className="relative">
                   <div className="w-11 h-11 rounded-full bg-linear-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-semibold shadow-md">
                     {selectedConversation.customer?.name
@@ -665,14 +692,16 @@ const Messages = () => {
 
                 {/* Input Area */}
                 <div
-                  className={`p-4 ${isDarkMode ? "bg-gray-800" : "bg-white"}`}
+                  className={`p-3 sm:p-4 ${
+                    isDarkMode ? "bg-gray-800" : "bg-white"
+                  }`}
                 >
-                  <div className="flex items-end gap-3">
+                  <div className="flex items-center gap-2 sm:gap-3">
                     <button
                       onClick={() =>
                         setShowCannedResponses(!showCannedResponses)
                       }
-                      className={`p-2.5 rounded-lg transition-all ${
+                      className={`p-2 sm:p-2.5 rounded-lg transition-all flex-shrink-0 ${
                         showCannedResponses
                           ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/50"
                           : isDarkMode
@@ -681,9 +710,9 @@ const Messages = () => {
                       }`}
                       title="Quick Replies"
                     >
-                      <FileText className="w-5 h-5" />
+                      <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
                     </button>
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <textarea
                         value={messageInput}
                         onChange={(e) => setMessageInput(e.target.value)}
@@ -693,9 +722,9 @@ const Messages = () => {
                             handleSendMessage();
                           }
                         }}
-                        placeholder="Type a message... (Shift+Enter for new line)"
+                        placeholder="Type a message..."
                         rows={1}
-                        className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-none ${
+                        className={`w-full px-3 sm:px-4 py-2 sm:py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-none text-sm ${
                           isDarkMode
                             ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
                             : "bg-white border-gray-300 text-gray-900 placeholder-gray-500"
@@ -706,9 +735,9 @@ const Messages = () => {
                     <button
                       onClick={handleSendMessage}
                       disabled={!messageInput.trim()}
-                      className="p-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-500/50 disabled:shadow-none"
+                      className="p-2 sm:p-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-500/50 disabled:shadow-none flex-shrink-0"
                     >
-                      <Send className="w-5 h-5" />
+                      <Send className="w-4 h-4 sm:w-5 sm:h-5" />
                     </button>
                   </div>
                 </div>
@@ -748,44 +777,74 @@ const Messages = () => {
 
       {/* Broadcast Message Modal */}
       {isBroadcastModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div
+            className={`${
+              isDarkMode ? "bg-gray-800" : "bg-white"
+            } rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto`}
+          >
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-                  <Radio className="w-6 h-6 text-indigo-600" />
+            <div
+              className={`flex items-center justify-between p-4 sm:p-6 border-b ${
+                isDarkMode ? "border-gray-700" : "border-gray-200"
+              }`}
+            >
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div
+                  className={`w-8 h-8 sm:w-10 sm:h-10 ${
+                    isDarkMode ? "bg-indigo-900" : "bg-indigo-100"
+                  } rounded-lg flex items-center justify-center`}
+                >
+                  <Radio className="w-4 h-4 sm:w-6 sm:h-6 text-indigo-600" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900">
+                  <h3
+                    className={`text-base sm:text-lg font-bold ${
+                      isDarkMode ? "text-white" : "text-gray-900"
+                    }`}
+                  >
                     Broadcast Message
                   </h3>
-                  <p className="text-sm text-gray-500">
-                    Send a message to all connected users
+                  <p
+                    className={`text-xs sm:text-sm ${
+                      isDarkMode ? "text-gray-400" : "text-gray-500"
+                    }`}
+                  >
+                    Send to all users
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setIsBroadcastModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className={
+                  isDarkMode
+                    ? "text-gray-400 hover:text-gray-300"
+                    : "text-gray-400 hover:text-gray-600"
+                }
               >
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
             </div>
 
             {/* Modal Body */}
-            <div className="p-6 space-y-4">
+            <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
               {/* Platform Selection */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
+                <label
+                  className={`block text-xs sm:text-sm font-semibold mb-2 sm:mb-3 ${
+                    isDarkMode ? "text-gray-200" : "text-gray-700"
+                  }`}
+                >
                   Select Platform
                 </label>
-                <div className="flex gap-3">
+                <div className="grid grid-cols-2 sm:flex gap-2 sm:gap-3">
                   <button
                     onClick={() => setBroadcastPlatform("all")}
-                    className={`flex-1 py-3 px-4 rounded-lg text-sm font-medium transition-colors ${
+                    className={`col-span-2 sm:flex-1 py-2 sm:py-3 px-3 sm:px-4 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
                       broadcastPlatform === "all"
                         ? "bg-indigo-600 text-white"
+                        : isDarkMode
+                        ? "bg-gray-700 text-gray-200 hover:bg-gray-600"
                         : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     }`}
                   >
@@ -793,32 +852,46 @@ const Messages = () => {
                   </button>
                   <button
                     onClick={() => setBroadcastPlatform("whatsapp")}
-                    className={`flex-1 py-3 px-4 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                    className={`sm:flex-1 py-2 sm:py-3 px-2 sm:px-4 rounded-lg text-xs sm:text-sm font-medium transition-colors flex items-center justify-center gap-1 sm:gap-2 ${
                       broadcastPlatform === "whatsapp"
                         ? "bg-green-600 text-white"
+                        : isDarkMode
+                        ? "bg-gray-700 text-gray-200 hover:bg-gray-600"
                         : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     }`}
                   >
-                    <MessageCircle className="w-4 h-4" />
-                    WhatsApp Only
+                    <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+                    WhatsApp
                   </button>
                   <button
                     onClick={() => setBroadcastPlatform("instagram")}
-                    className={`flex-1 py-3 px-4 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                    className={`sm:flex-1 py-2 sm:py-3 px-2 sm:px-4 rounded-lg text-xs sm:text-sm font-medium transition-colors flex items-center justify-center gap-1 sm:gap-2 ${
                       broadcastPlatform === "instagram"
                         ? "bg-pink-600 text-white"
+                        : isDarkMode
+                        ? "bg-gray-700 text-gray-200 hover:bg-gray-600"
                         : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     }`}
                   >
-                    <Instagram className="w-4 h-4" />
-                    Instagram Only
+                    <Instagram className="w-3 h-3 sm:w-4 sm:h-4" />
+                    Instagram
                   </button>
                 </div>
               </div>
 
               {/* Recipients Count */}
-              <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
-                <p className="text-sm text-indigo-900">
+              <div
+                className={`${
+                  isDarkMode
+                    ? "bg-indigo-900/30 border-indigo-700"
+                    : "bg-indigo-50 border-indigo-200"
+                } border rounded-lg p-3 sm:p-4`}
+              >
+                <p
+                  className={`text-xs sm:text-sm ${
+                    isDarkMode ? "text-indigo-300" : "text-indigo-900"
+                  }`}
+                >
                   <span className="font-semibold">
                     {
                       conversations.filter((conv) =>
@@ -835,44 +908,66 @@ const Messages = () => {
 
               {/* Message Input */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label
+                  className={`block text-xs sm:text-sm font-semibold mb-2 ${
+                    isDarkMode ? "text-gray-200" : "text-gray-700"
+                  }`}
+                >
                   Message
                 </label>
                 <textarea
                   value={broadcastMessage}
                   onChange={(e) => setBroadcastMessage(e.target.value)}
                   placeholder="Type your broadcast message here..."
-                  rows={6}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-none"
+                  rows={4}
+                  className={`w-full px-3 sm:px-4 py-2 sm:py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-none text-sm ${
+                    isDarkMode
+                      ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                      : "border-gray-300"
+                  }`}
                 />
-                <p className="text-xs text-gray-500 mt-2">
+                <p
+                  className={`text-xs mt-1 sm:mt-2 ${
+                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                  }`}
+                >
                   {broadcastMessage.length} characters
                 </p>
               </div>
             </div>
 
             {/* Modal Footer */}
-            <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50">
+            <div
+              className={`flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 p-4 sm:p-6 border-t ${
+                isDarkMode
+                  ? "border-gray-700 bg-gray-800"
+                  : "border-gray-200 bg-gray-50"
+              }`}
+            >
               <button
                 onClick={() => setIsBroadcastModalOpen(false)}
-                className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors font-medium"
+                className={`px-4 sm:px-6 py-2 sm:py-2.5 border rounded-lg transition-colors font-medium text-sm ${
+                  isDarkMode
+                    ? "border-gray-600 text-gray-300 hover:bg-gray-700"
+                    : "border-gray-300 text-gray-700 hover:bg-gray-100"
+                }`}
               >
                 Cancel
               </button>
               <button
                 onClick={handleSendBroadcast}
                 disabled={sendingBroadcast || !broadcastMessage.trim()}
-                className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="px-4 sm:px-6 py-2 sm:py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
               >
                 {sendingBroadcast ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    Sending...
+                    <span>Sending...</span>
                   </>
                 ) : (
                   <>
                     <Send className="w-4 h-4" />
-                    Send Broadcast
+                    <span>Send Broadcast</span>
                   </>
                 )}
               </button>
