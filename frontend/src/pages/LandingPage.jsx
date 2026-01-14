@@ -589,15 +589,15 @@ function Features() {
         } rounded-full blur-3xl`}
       ></div>
 
-      <div className="max-w-6xl mx-auto px-6 relative z-10">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 relative z-10">
         <div className="slide-in-up text-center mb-12">
-          <h2 className="text-4xl md:text-5xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent pb-2 px-2">
             Everything you need
           </h2>
           <p
-            className={`mt-4 text-lg ${
+            className={`mt-4 text-base sm:text-lg ${
               isDarkMode ? "text-gray-300" : "text-gray-600"
-            } max-w-3xl mx-auto`}
+            } max-w-3xl mx-auto px-4`}
           >
             Powerful features for WhatsApp, Instagram & Facebook automation.
             Manage all platforms from one dashboard.
@@ -636,27 +636,29 @@ function PricingCard({
 }) {
   return (
     <div
-      className={`p-8 rounded-2xl border-2 transition-all duration-300 ${
+      className={`p-6 sm:p-8 rounded-2xl border-2 transition-all duration-300 transform hover:shadow-2xl ${
         popular
           ? isDarkMode
-            ? "border-indigo-500 bg-gradient-to-br from-indigo-900/30 to-gray-800 shadow-2xl scale-105"
-            : "border-indigo-600 bg-gradient-to-br from-indigo-50 to-white shadow-2xl scale-105"
+            ? "border-indigo-500 bg-gradient-to-br from-indigo-900/30 to-gray-800 shadow-xl hover:shadow-2xl"
+            : "border-indigo-600 bg-gradient-to-br from-indigo-50 to-white shadow-xl hover:shadow-2xl"
           : isDarkMode
-          ? "border-gray-700 bg-gray-800 shadow-lg hover:shadow-xl"
-          : "border-gray-200 bg-white shadow-lg hover:shadow-xl"
-      } card-hover group`}
+          ? "border-gray-700 bg-gray-800 shadow-lg"
+          : "border-gray-200 bg-white shadow-lg"
+      } card-hover group h-full flex flex-col ${
+        popular ? "md:scale-105" : ""
+      }`}
     >
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3">
         <div>
           <div
-            className={`font-bold text-2xl ${
+            className={`font-bold text-xl sm:text-2xl ${
               isDarkMode ? "text-white" : "text-gray-900"
             }`}
           >
             {title}
           </div>
           <div
-            className={`text-sm ${
+            className={`text-xs sm:text-sm ${
               isDarkMode ? "text-gray-400" : "text-gray-600"
             } mt-1 font-medium`}
           >
@@ -664,22 +666,22 @@ function PricingCard({
           </div>
         </div>
         {popular && (
-          <div className="text-xs px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-bold">
+          <div className="text-xs px-3 py-1 sm:px-4 sm:py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-bold whitespace-nowrap">
             🔥 Most Popular
           </div>
         )}
         {!popular && (originalPrice || isOneTime) && (
-          <div className="text-xs px-3 py-1 bg-green-100 text-green-700 rounded-lg font-bold">
+          <div className="text-xs px-3 py-1 bg-green-100 text-green-700 rounded-lg font-bold whitespace-nowrap">
             50% OFF
           </div>
         )}
       </div>
 
       <div className="mb-8">
-        <div className="flex items-baseline gap-2">
+        <div className="flex flex-wrap items-baseline gap-2">
           {originalPrice && (
             <div
-              className={`text-sm ${
+              className={`text-xs sm:text-sm ${
                 isDarkMode ? "text-gray-500" : "text-gray-400"
               } line-through font-semibold`}
             >
@@ -687,7 +689,7 @@ function PricingCard({
             </div>
           )}
           <div
-            className={`text-3xl font-extrabold ${
+            className={`text-2xl sm:text-3xl font-extrabold ${
               isDarkMode ? "text-white" : "text-gray-900"
             }`}
           >
@@ -695,7 +697,7 @@ function PricingCard({
           </div>
         </div>
         <div
-          className={`text-sm ${
+          className={`text-xs sm:text-sm ${
             isDarkMode ? "text-gray-400" : "text-gray-600"
           } mt-2 font-medium`}
         >
@@ -703,27 +705,28 @@ function PricingCard({
         </div>
       </div>
 
-      <ul className="space-y-3 mb-8">
+      <ul className="space-y-3 mb-8 flex-1">
         {bullets.map((b, i) => (
           <li
             key={i}
-            className={`text-sm ${
+            className={`text-xs sm:text-sm ${
               isDarkMode ? "text-gray-300" : "text-gray-700"
-            } font-medium flex items-center gap-3`}
+            } font-medium flex items-start gap-2 sm:gap-3 break-words`}
           >
-            <span className="text-indigo-600 font-bold">✓</span> {b}
+            <span className="text-indigo-600 font-bold flex-shrink-0 mt-0.5">✓</span> 
+            <span className="break-words">{b}</span>
           </li>
         ))}
       </ul>
 
       <Link
         to="/register"
-        className={`block w-full py-3 rounded-xl font-bold transition-all duration-300 text-center ${
+        className={`block w-full py-2.5 sm:py-3 rounded-xl font-bold transition-all duration-300 text-center text-sm sm:text-base ${
           popular
-            ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg hover:shadow-xl hover:scale-105"
+            ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg hover:shadow-2xl hover:-translate-y-1"
             : isDarkMode
-            ? "border-2 border-indigo-500 text-indigo-400 hover:bg-indigo-900/30"
-            : "border-2 border-indigo-600 text-indigo-600 hover:bg-indigo-50"
+            ? "border-2 border-indigo-500 text-indigo-400 hover:bg-indigo-900/30 hover:shadow-lg hover:-translate-y-0.5"
+            : "border-2 border-indigo-600 text-indigo-600 hover:bg-indigo-50 hover:shadow-lg hover:-translate-y-0.5"
         }`}
       >
         Get Started
@@ -785,23 +788,23 @@ function Pricing() {
   return (
     <section
       id="pricing"
-      className={`py-20 ${isDarkMode ? "bg-gray-900" : "bg-white"}`}
+      className={`py-16 sm:py-20 ${isDarkMode ? "bg-gray-900" : "bg-white"}`}
     >
-      <div className="max-w-6xl mx-auto px-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="slide-in-up text-center mb-12">
-          <h2 className="text-4xl md:text-5xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent pb-2 leading-tight px-2">
             Simple, Transparent Pricing
           </h2>
           <p
-            className={`mt-4 text-lg ${
+            className={`mt-4 text-base sm:text-lg ${
               isDarkMode ? "text-gray-300" : "text-gray-600"
-            } max-w-3xl mx-auto`}
+            } max-w-3xl mx-auto px-4`}
           >
             No hidden fees. Scale your plan as your business grows.
           </p>
         </div>
 
-        <div className="mt-12 grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 sm:gap-8 auto-rows-max">
           {plans.map((p, i) => (
             <div
               key={i}
@@ -813,9 +816,9 @@ function Pricing() {
           ))}
         </div>
 
-        <div className="mt-12 text-center">
+        <div className="mt-12 text-center px-2">
           <p
-            className={`${
+            className={`text-sm sm:text-base ${
               isDarkMode ? "text-gray-400" : "text-gray-600"
             } font-medium`}
           >
