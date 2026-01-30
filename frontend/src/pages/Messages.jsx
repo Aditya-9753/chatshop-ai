@@ -139,10 +139,15 @@ const Messages = () => {
     try {
       setLoading(true);
       const response = await messageService.fetchConversations();
+      console.log("Conversations response:", response);
       if (response.success) {
+        console.log("Setting conversations:", response.data);
         setConversations(response.data);
+      } else {
+        console.error("Response success is false:", response);
       }
     } catch (err) {
+      console.error("Error fetching conversations:", err);
       error(err.message || "Failed to fetch conversations");
     } finally {
       setLoading(false);
@@ -151,11 +156,17 @@ const Messages = () => {
 
   const fetchMessages = async (customerId) => {
     try {
+      console.log("Fetching messages for customer:", customerId);
       const response = await messageService.getCustomerMessages(customerId);
+      console.log("Messages response:", response);
       if (response.success) {
+        console.log("Setting messages:", response.data);
         setMessages(response.data);
+      } else {
+        console.error("Messages response success is false:", response);
       }
     } catch (err) {
+      console.error("Error fetching messages:", err);
       error(err.message || "Failed to fetch messages");
     }
   };
@@ -327,6 +338,11 @@ const Messages = () => {
 
     return matchesSearch && matchesPlatform;
   });
+
+  console.log("Total conversations:", conversations.length);
+  console.log("Filtered conversations:", filteredConversations.length);
+  console.log("Platform filter:", platformFilter);
+  console.log("Search term:", searchTerm);
 
   return (
     <div className="h-screen -m-4 sm:-m-6 lg:-m-8 overflow-hidden">
