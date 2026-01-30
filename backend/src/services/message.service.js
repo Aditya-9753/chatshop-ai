@@ -1,7 +1,7 @@
 const Message = require("../models/Message.model");
 const Customer = require("../models/Customer.model");
 const User = require("../models/User.model");
-const Conversation = require("../models/Conversation");
+const Conversation = require("../models/Conversation.model");
 const conversationService = require("./conversation.service");
 
 class MessageService {

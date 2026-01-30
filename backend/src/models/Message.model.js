@@ -7,13 +7,11 @@ const messageSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
-      index: true,
     },
     customerId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Customer",
       required: true,
-      index: true, // Helps fetch chat history fast
     },
     // Optional: Group messages by a Conversation ID (Industry Standard for speed)
     conversationId: {
@@ -147,7 +145,5 @@ messageSchema.index({ userId: 1, customerId: 1, createdAt: -1 });
 // 2. Fetching only NOT deleted messages (for standard UI view)
 messageSchema.index({ userId: 1, isDeleted: 1 });
 
-// 3. Finding a message by external ID (for Webhook updates like 'read' receipts)
-messageSchema.index({ "metadata.platformMessageId": 1 });
 
 module.exports = mongoose.model("Message", messageSchema);
