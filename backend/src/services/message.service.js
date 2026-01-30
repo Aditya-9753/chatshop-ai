@@ -1,13 +1,15 @@
 const Message = require("../models/Message.model");
 const Customer = require("../models/Customer.model");
 const User = require("../models/User.model");
+const Conversation = require("../models/Conversation");
+const conversationService = require("./conversation.service");
 
 class MessageService {
   // Get all messages with filters
   async getMessages(userId, filters = {}) {
     const { customerId, platform, type, page = 1, limit = 50 } = filters;
 
-    const query = { userId };
+    const query = { userId, isDeleted: false }; // Exclude deleted messages
 
     if (customerId) query.customerId = customerId;
     if (platform) query.platform = platform;
@@ -15,6 +17,7 @@ class MessageService {
 
     const messages = await Message.find(query)
       .populate("customerId", "name phone platform")
+      .populate("replyTo", "content type") // Populate reply-to messages
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit)
@@ -32,7 +35,14 @@ class MessageService {
 
   // Send message
   async sendMessage(userId, messageData) {
-    const { customerId, platform, type, content={}, isAIGenerated  = false } = messageData;
+    const {
+      customerId,
+      platform,
+      type,
+      content = {},
+      isAIGenerated = false,
+      replyTo = null,
+    } = messageData;
 
     // Create message record
     const normalizedContent = {
@@ -40,15 +50,32 @@ class MessageService {
       mediaUrl: content.mediaUrl || null,
       caption: content.caption || null,
     };
+
+    // Get or create conversation
+    const conversation = await conversationService.getOrCreateConversation(
+      userId,
+      customerId,
+      platform
+    );
+
     const message = await Message.create({
       userId,
       customerId,
+      conversationId: conversation._id,
       platform,
       direction: "outgoing",
       type,
       content: normalizedContent,
       isAIGenerated: isAIGenerated || false,
+      replyTo: replyTo || null,
       status: "sent",
+    });
+
+    // Update conversation with latest message
+    await conversationService.updateLastMessage(conversation._id, {
+      content: normalizedContent,
+      type,
+      direction: "outgoing",
     });
 
     // Update customer last message date
@@ -64,18 +91,52 @@ class MessageService {
     return message;
   }
 
-  // Delete message
+  // Delete message (Soft Delete)
   async deleteMessage(userId, messageId) {
-    const message = await Message.findOneAndDelete({
+    const message = await Message.findOne({
       _id: messageId,
       userId,
+      isDeleted: false,
     });
 
     if (!message) {
-      throw new Error("Message not found");
+      throw new Error("Message not found or already deleted");
     }
 
-    return true;
+    // Soft delete: Set flags instead of removing from database
+    message.isDeleted = true;
+    message.deletedAt = new Date();
+    message.deletedBy = "user";
+    await message.save();
+
+    return message;
+  }
+
+  // Edit message
+  async editMessage(userId, messageId, newText) {
+    const message = await Message.findOne({
+      _id: messageId,
+      userId,
+      direction: "outgoing", // Only allow editing own messages
+      isDeleted: false,
+    });
+
+    if (!message) {
+      throw new Error("Message not found or cannot be edited");
+    }
+
+    // Save current content to edit history
+    message.editHistory.push({
+      previousContent: message.content.text,
+      editedAt: new Date(),
+    });
+
+    // Update the message content
+    message.content.text = newText;
+    message.isEdited = true;
+    await message.save();
+
+    return message;
   }
 
   // Get message statistics
@@ -190,7 +251,9 @@ class MessageService {
     const messages = await Message.find({
       userId,
       customerId,
+      isDeleted: false, // Exclude deleted messages
     })
+      .populate("replyTo", "content type direction") // Populate reply-to messages
       .sort({ createdAt: 1 })
       .lean();
 

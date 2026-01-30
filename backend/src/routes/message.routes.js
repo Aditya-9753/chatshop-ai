@@ -5,6 +5,7 @@ const {
   getMessages,
   sendMessage,
   deleteMessage,
+  editMessage,
   getMessageStats,
   getConversations,
   getCustomerMessages,
@@ -35,8 +36,13 @@ router.get("/", protect, checkSubscription, getMessages);
 // @access  Private
 router.post("/send", protect, checkSubscription, sendMessage);
 
+// @route   PUT /api/messages/:id/edit
+// @desc    Edit message
+// @access  Private
+router.put("/:id/edit", protect, checkSubscription, editMessage);
+
 // @route   DELETE /api/messages/:id
-// @desc    Delete message
+// @desc    Delete message (soft delete)
 // @access  Private
 router.delete("/:id", protect, checkSubscription, deleteMessage);
 

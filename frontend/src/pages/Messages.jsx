@@ -13,8 +13,12 @@ import {
   Zap,
   Tag,
   StickyNote,
+  Edit2,
+  Trash2,
+  MoreVertical,
 } from "lucide-react";
 import api from "../services/api.service";
+import * as messageService from "../services/message.service";
 import { useToast } from "../components/Toast";
 import { useTheme } from "../context/ThemeContext";
 
@@ -121,6 +125,9 @@ const Messages = () => {
   const [messageInput, setMessageInput] = useState("");
   const [showCannedResponses, setShowCannedResponses] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("greetings");
+  const [editingMessageId, setEditingMessageId] = useState(null);
+  const [editText, setEditText] = useState("");
+  const [messageMenuOpen, setMessageMenuOpen] = useState(null);
   const { error, success } = useToast();
   const { isDarkMode } = useTheme();
 
@@ -131,7 +138,7 @@ const Messages = () => {
   const fetchConversations = async () => {
     try {
       setLoading(true);
-      const response = await api.get("/messages/conversations");
+      const response = await messageService.fetchConversations();
       if (response.success) {
         setConversations(response.data);
       }
@@ -144,7 +151,7 @@ const Messages = () => {
 
   const fetchMessages = async (customerId) => {
     try {
-      const response = await api.get(`/messages/${customerId}`);
+      const response = await messageService.getCustomerMessages(customerId);
       if (response.success) {
         setMessages(response.data);
       }
@@ -153,19 +160,34 @@ const Messages = () => {
     }
   };
 
-  const selectConversation = (conversation) => {
+  const selectConversation = async (conversation) => {
     setSelectedConversation(conversation);
-    fetchMessages(conversation.customer._id);
+    fetchMessages(conversation.customerId._id || conversation.customer._id);
     setMessageInput("");
     setShowCannedResponses(false);
+
+    // Mark conversation as read
+    try {
+      await messageService.markConversationAsRead(conversation._id);
+      // Update local state to reset unread count
+      setConversations((prev) =>
+        prev.map((conv) =>
+          conv._id === conversation._id ? { ...conv, unreadCount: 0 } : conv
+        )
+      );
+    } catch (err) {
+      console.error("Failed to mark conversation as read:", err);
+    }
   };
 
   const handleSendMessage = async () => {
     if (!messageInput.trim()) return;
 
     try {
-      await api.post("/messages/send", {
-        customerId: selectedConversation.customer._id,
+      const customerId = selectedConversation.customerId?._id || selectedConversation.customer?._id;
+      
+      await messageService.sendMessage({
+        customerId: customerId,
         platform: selectedConversation.platform,
         content: {
           text: messageInput,
@@ -173,7 +195,8 @@ const Messages = () => {
       });
 
       setMessageInput("");
-      fetchMessages(selectedConversation.customer._id);
+      fetchMessages(customerId);
+      fetchConversations(); // Refresh conversation list to update lastMessage
       success("Message sent!");
     } catch (err) {
       error(err.message || "Failed to send message");
@@ -183,6 +206,63 @@ const Messages = () => {
   const insertCannedResponse = (text) => {
     setMessageInput(text);
     setShowCannedResponses(false);
+  };
+
+  const handleDeleteMessage = async (messageId) => {
+    try {
+      await messageService.deleteMessage(messageId);
+      // Update local state to mark message as deleted
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg._id === messageId
+            ? { ...msg, isDeleted: true, deletedAt: new Date() }
+            : msg
+        )
+      );
+      success("Message deleted");
+      setMessageMenuOpen(null);
+    } catch (err) {
+      error(err.message || "Failed to delete message");
+    }
+  };
+
+  const handleStartEdit = (message) => {
+    setEditingMessageId(message._id);
+    setEditText(message.content?.text || "");
+    setMessageMenuOpen(null);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMessageId(null);
+    setEditText("");
+  };
+
+  const handleSaveEdit = async (messageId) => {
+    if (!editText.trim()) {
+      error("Message cannot be empty");
+      return;
+    }
+
+    try {
+      await messageService.editMessage(messageId, editText);
+      // Update local state
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg._id === messageId
+            ? {
+                ...msg,
+                content: { ...msg.content, text: editText },
+                isEdited: true,
+              }
+            : msg
+        )
+      );
+      success("Message edited");
+      setEditingMessageId(null);
+      setEditText("");
+    } catch (err) {
+      error(err.message || "Failed to edit message");
+    }
   };
 
   const handleSendBroadcast = async () => {
@@ -206,15 +286,16 @@ const Messages = () => {
       }
 
       // Send message to all filtered conversations
-      const promises = targetConversations.map((conv) =>
-        api.post("/messages/send", {
-          customerId: conv.customer._id,
+      const promises = targetConversations.map((conv) => {
+        const customerId = conv.customerId?._id || conv.customer?._id;
+        return messageService.sendMessage({
+          customerId: customerId,
           platform: conv.platform,
           content: {
             text: broadcastMessage,
           },
-        })
-      );
+        });
+      });
 
       await Promise.all(promises);
 
@@ -233,9 +314,12 @@ const Messages = () => {
 
   const filteredConversations = conversations.filter((conv) => {
     // Filter by search term
+    const customerName = conv.customerId?.name || conv.customer?.name || "";
+    const customerPhone = conv.customerId?.phone || conv.customer?.phone || "";
+    
     const matchesSearch =
-      conv.customer?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      conv.customer?.phone?.includes(searchTerm);
+      customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customerPhone.includes(searchTerm);
 
     // Filter by platform
     const matchesPlatform =
@@ -392,7 +476,7 @@ const Messages = () => {
                   <div className="flex items-center gap-3">
                     <div className="relative shrink-0">
                       <div className="w-11 h-11 rounded-full bg-linear-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-semibold text-base shadow-md">
-                        {conv.customer?.name?.charAt(0)?.toUpperCase() || "U"}
+                        {(conv.customerId?.name || conv.customer?.name)?.charAt(0)?.toUpperCase() || "U"}
                       </div>
                       {/* Platform Badge */}
                       <div
@@ -420,16 +504,16 @@ const Messages = () => {
                             isDarkMode ? "text-white" : "text-gray-900"
                           }`}
                         >
-                          {conv.customer?.name || "Unknown"}
+                          {conv.customerId?.name || conv.customer?.name || "Unknown"}
                         </p>
                         <span
                           className={`text-xs ml-2 shrink-0 ${
                             isDarkMode ? "text-gray-500" : "text-gray-400"
                           }`}
                         >
-                          {conv.lastMessageTime &&
-                          !isNaN(new Date(conv.lastMessageTime))
-                            ? new Date(conv.lastMessageTime).toLocaleString(
+                          {conv.lastMessage?.timestamp &&
+                          !isNaN(new Date(conv.lastMessage.timestamp))
+                            ? new Date(conv.lastMessage.timestamp).toLocaleString(
                                 "en-IN",
                                 {
                                   hour: "2-digit",
@@ -439,13 +523,20 @@ const Messages = () => {
                             : "Now"}
                         </span>
                       </div>
-                      <p
-                        className={`text-xs truncate ${
-                          isDarkMode ? "text-gray-400" : "text-gray-600"
-                        }`}
-                      >
-                        {conv.lastMessage?.text || "No messages yet"}
-                      </p>
+                      <div className="flex items-center justify-between">
+                        <p
+                          className={`text-xs truncate flex-1 ${
+                            isDarkMode ? "text-gray-400" : "text-gray-600"
+                          }`}
+                        >
+                          {conv.lastMessage?.content || "No messages yet"}
+                        </p>
+                        {conv.unreadCount > 0 && (
+                          <span className="ml-2 px-2 py-0.5 bg-indigo-600 text-white text-xs rounded-full font-semibold">
+                            {conv.unreadCount}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -493,7 +584,7 @@ const Messages = () => {
                 </button>
                 <div className="relative">
                   <div className="w-11 h-11 rounded-full bg-linear-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-semibold shadow-md">
-                    {selectedConversation.customer?.name
+                    {(selectedConversation.customerId?.name || selectedConversation.customer?.name)
                       ?.charAt(0)
                       ?.toUpperCase() || "U"}
                   </div>
@@ -501,13 +592,17 @@ const Messages = () => {
                     className={`absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full flex items-center justify-center shadow-lg ${
                       selectedConversation.platform === "whatsapp"
                         ? "bg-green-500"
-                        : "bg-pink-500"
+                        : selectedConversation.platform === "instagram"
+                        ? "bg-pink-500"
+                        : "bg-blue-500"
                     }`}
                   >
                     {selectedConversation.platform === "whatsapp" ? (
                       <MessageCircle className="w-3 h-3 text-white" />
-                    ) : (
+                    ) : selectedConversation.platform === "instagram" ? (
                       <Instagram className="w-3 h-3 text-white" />
+                    ) : (
+                      <Facebook className="w-3 h-3 text-white" />
                     )}
                   </div>
                 </div>
@@ -517,14 +612,14 @@ const Messages = () => {
                       isDarkMode ? "text-white" : "text-gray-900"
                     }`}
                   >
-                    {selectedConversation.customer?.name || "Unknown"}
+                    {selectedConversation.customerId?.name || selectedConversation.customer?.name || "Unknown"}
                   </p>
                   <div
                     className={`flex items-center gap-1.5 text-xs ${
                       isDarkMode ? "text-gray-400" : "text-gray-500"
                     }`}
                   >
-                    <span>{selectedConversation.customer?.phone}</span>
+                    <span>{selectedConversation.customerId?.phone || selectedConversation.customer?.phone}</span>
                   </div>
                 </div>
               </div>
@@ -558,38 +653,147 @@ const Messages = () => {
                           : "justify-start"
                       }`}
                     >
-                      <div
-                        className={`max-w-[70%] px-4 py-2.5 rounded-2xl shadow-sm ${
-                          message.direction === "outgoing"
-                            ? "bg-indigo-600 text-white rounded-br-md"
-                            : isDarkMode
-                            ? "bg-gray-800 text-white border border-gray-700 rounded-bl-md"
-                            : "bg-white text-gray-900 border border-gray-200 rounded-bl-md"
-                        }`}
-                      >
-                        <p className="text-sm leading-relaxed whitespace-pre-wrap wrap-break-word">
-                          {message.content?.text || ""}
-                        </p>
-                        <p
-                          className={`text-xs mt-1.5 ${
+                      <div className="relative group max-w-[70%]">
+                        {/* Message Bubble */}
+                        <div
+                          className={`px-4 py-2.5 rounded-2xl shadow-sm ${
                             message.direction === "outgoing"
-                              ? "text-indigo-100"
+                              ? "bg-indigo-600 text-white rounded-br-md"
                               : isDarkMode
-                              ? "text-gray-400"
-                              : "text-gray-500"
+                              ? "bg-gray-800 text-white border border-gray-700 rounded-bl-md"
+                              : "bg-white text-gray-900 border border-gray-200 rounded-bl-md"
                           }`}
                         >
-                          {message.timestamp &&
-                          !isNaN(new Date(message.timestamp))
-                            ? new Date(message.timestamp).toLocaleString(
-                                "en-IN",
-                                {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
+                          {/* Show deleted message */}
+                          {message.isDeleted ? (
+                            <p className="text-sm italic opacity-60">
+                              This message was deleted
+                            </p>
+                          ) : editingMessageId === message._id ? (
+                            /* Edit Mode */
+                            <div className="space-y-2">
+                              <input
+                                type="text"
+                                value={editText}
+                                onChange={(e) => setEditText(e.target.value)}
+                                className={`w-full px-2 py-1 text-sm rounded border ${
+                                  isDarkMode
+                                    ? "bg-gray-700 border-gray-600 text-white"
+                                    : "bg-white border-gray-300 text-gray-900"
+                                }`}
+                                autoFocus
+                                onKeyPress={(e) => {
+                                  if (e.key === "Enter") {
+                                    handleSaveEdit(message._id);
+                                  }
+                                }}
+                              />
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleSaveEdit(message._id)}
+                                  className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700"
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  onClick={handleCancelEdit}
+                                  className="px-3 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            /* Normal Display */
+                            <>
+                              <p className="text-sm leading-relaxed whitespace-pre-wrap wrap-break-word">
+                                {message.content?.text || ""}
+                              </p>
+                              <div className="flex items-center gap-2 mt-1.5">
+                                <p
+                                  className={`text-xs ${
+                                    message.direction === "outgoing"
+                                      ? "text-indigo-100"
+                                      : isDarkMode
+                                      ? "text-gray-400"
+                                      : "text-gray-500"
+                                  }`}
+                                >
+                                  {message.createdAt &&
+                                  !isNaN(new Date(message.createdAt))
+                                    ? new Date(message.createdAt).toLocaleString(
+                                        "en-IN",
+                                        {
+                                          hour: "2-digit",
+                                          minute: "2-digit",
+                                        }
+                                      )
+                                    : "Just now"}
+                                </p>
+                                {message.isEdited && (
+                                  <span
+                                    className={`text-xs italic ${
+                                      message.direction === "outgoing"
+                                        ? "text-indigo-200"
+                                        : isDarkMode
+                                        ? "text-gray-500"
+                                        : "text-gray-400"
+                                    }`}
+                                  >
+                                    (edited)
+                                  </span>
+                                )}
+                              </div>
+                            </>
+                          )}
+                        </div>
+
+                        {/* Edit/Delete Menu - Only for outgoing messages */}
+                        {message.direction === "outgoing" &&
+                          !message.isDeleted &&
+                          editingMessageId !== message._id && (
+                            <div className="absolute top-0 right-0 -mr-8 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={() =>
+                                  setMessageMenuOpen(
+                                    messageMenuOpen === message._id
+                                      ? null
+                                      : message._id
+                                  )
                                 }
-                              )
-                            : "Just now"}
-                        </p>
+                                className={`p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700`}
+                              >
+                                <MoreVertical className="w-4 h-4" />
+                              </button>
+
+                              {messageMenuOpen === message._id && (
+                                <div
+                                  className={`absolute right-0 mt-1 w-32 rounded-lg shadow-lg z-10 ${
+                                    isDarkMode
+                                      ? "bg-gray-800 border border-gray-700"
+                                      : "bg-white border border-gray-200"
+                                  }`}
+                                >
+                                  <button
+                                    onClick={() => handleStartEdit(message)}
+                                    className={`w-full px-4 py-2 text-sm text-left flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-t-lg ${
+                                      isDarkMode ? "text-gray-200" : "text-gray-700"
+                                    }`}
+                                  >
+                                    <Edit2 className="w-3 h-3" />
+                                    Edit
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteMessage(message._id)}
+                                    className={`w-full px-4 py-2 text-sm text-left flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-b-lg text-red-600`}
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                    Delete
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          )}
                       </div>
                     </div>
                   ))
