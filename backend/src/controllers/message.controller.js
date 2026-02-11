@@ -30,10 +30,33 @@ exports.sendMessage = async (req, res) => {
 // @desc    Delete message
 exports.deleteMessage = async (req, res) => {
   try {
-    await messageService.deleteMessage(req.user._id, req.params.id);
-    return ResponseHandler.success(res, null, "Message deleted successfully");
+    const message = await messageService.deleteMessage(req.user._id, req.params.id);
+    return ResponseHandler.success(res, message, "Message deleted successfully");
   } catch (error) {
     console.error("Delete message error:", error);
+    return ResponseHandler.notFound(res, error.message);
+  }
+};
+
+// @desc    Edit message
+// @route   PUT /api/messages/:id/edit
+// @access  Private
+exports.editMessage = async (req, res) => {
+  try {
+    const { text } = req.body;
+    
+    if (!text || text.trim() === "") {
+      return ResponseHandler.badRequest(res, "Message text is required");
+    }
+
+    const message = await messageService.editMessage(
+      req.user._id,
+      req.params.id,
+      text
+    );
+    return ResponseHandler.success(res, message, "Message edited successfully");
+  } catch (error) {
+    console.error("Edit message error:", error);
     return ResponseHandler.notFound(res, error.message);
   }
 };

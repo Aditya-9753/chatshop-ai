@@ -51,6 +51,7 @@ app.use("/api/whatsapp", require("./routes/whatsapp.routes"));
 app.use("/api/instagram", require("./routes/instagram.routes"));
 app.use("/api/facebook", require("./routes/facebook.routes"));
 app.use("/api/customers", require("./routes/customer.routes"));
+app.use("/api/conversations", require("./routes/conversation.routes"));
 app.use("/api/messages", require("./routes/message.routes"));
 app.use("/api/products", require("./routes/product.routes"));
 app.use("/api/orders", require("./routes/order.routes"));
