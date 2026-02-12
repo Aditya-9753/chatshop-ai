@@ -55,7 +55,7 @@ class MessageService {
     const conversation = await conversationService.getOrCreateConversation(
       userId,
       customerId,
-      platform
+      platform,
     );
 
     const message = await Message.create({
@@ -123,6 +123,14 @@ class MessageService {
 
     if (!message) {
       throw new Error("Message not found or cannot be edited");
+    }
+
+    // Check if message is older than 3 minutes
+    const EDIT_TIME_LIMIT = 3 * 60 * 1000; // 3 minutes in milliseconds
+    const messageAge = Date.now() - new Date(message.createdAt).getTime();
+
+    if (messageAge > EDIT_TIME_LIMIT) {
+      throw new Error("Message can only be edited within 3 minutes of sending");
     }
 
     // Save current content to edit history
@@ -257,7 +265,7 @@ class MessageService {
       .sort({ createdAt: 1 })
       .lean();
 
-    // Mark messages as read
+    // Mark incoming messages as read
     await Message.updateMany(
       {
         userId,
@@ -265,10 +273,49 @@ class MessageService {
         direction: "incoming",
         isRead: false,
       },
-      { $set: { isRead: true } }
+      {
+        $set: {
+          isRead: true,
+          readAt: new Date(),
+          status: "read",
+        },
+      },
     );
 
     return messages;
+  }
+
+  // Mark a specific message as read
+  async markMessageAsRead(userId, messageId) {
+    const message = await Message.findOne({
+      _id: messageId,
+      userId,
+      isDeleted: false,
+    });
+
+    if (!message) {
+      throw new Error("Message not found");
+    }
+
+    // Update read status
+    message.isRead = true;
+    message.readAt = new Date();
+    message.status = "read";
+
+    // Add to seenBy array if not already there
+    const alreadySeen = message.seenBy.some(
+      (seen) => seen.userId.toString() === userId.toString(),
+    );
+
+    if (!alreadySeen) {
+      message.seenBy.push({
+        userId: userId,
+        seenAt: new Date(),
+      });
+    }
+
+    await message.save();
+    return message;
   }
 }
 

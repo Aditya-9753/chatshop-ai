@@ -10,6 +10,17 @@ const storage = multer.diskStorage({
 
     if (req.baseUrl && req.baseUrl.includes("/products")) {
       uploadDir = "uploads/products/";
+    } else if (req.baseUrl && req.baseUrl.includes("/messages")) {
+      // For message attachments (images, audio, documents)
+      if (file.mimetype.startsWith("audio/")) {
+        uploadDir = "uploads/messages/audio/";
+      } else if (file.mimetype.startsWith("image/")) {
+        uploadDir = "uploads/messages/images/";
+      } else if (file.mimetype.startsWith("video/")) {
+        uploadDir = "uploads/messages/videos/";
+      } else {
+        uploadDir = "uploads/messages/documents/";
+      }
     }
 
     // Create directory if it doesn't exist
@@ -23,18 +34,45 @@ const storage = multer.diskStorage({
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
     cb(
       null,
-      file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname)
+      file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname),
     );
   },
 });
 
 // File filter
 const fileFilter = (req, file, cb) => {
-  // Accept images only
-  if (file.mimetype.startsWith("image/")) {
-    cb(null, true);
+  // For message routes, accept images, audio, video, and documents
+  if (req.baseUrl && req.baseUrl.includes("/messages")) {
+    const allowedMimeTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/gif",
+      "image/webp",
+      "audio/mpeg",
+      "audio/ogg",
+      "audio/wav",
+      "audio/webm",
+      "audio/mp4",
+      "video/mp4",
+      "video/webm",
+      "video/ogg",
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ];
+
+    if (allowedMimeTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("File type not allowed!"), false);
+    }
   } else {
-    cb(new Error("Only image files are allowed!"), false);
+    // Accept images only for profiles and products
+    if (file.mimetype.startsWith("image/")) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only image files are allowed!"), false);
+    }
   }
 };
 
@@ -43,7 +81,7 @@ const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB max file size
+    fileSize: 10 * 1024 * 1024, // 10MB max file size for messages (voice notes, images, etc.)
   },
 });
 

@@ -30,8 +30,15 @@ exports.sendMessage = async (req, res) => {
 // @desc    Delete message
 exports.deleteMessage = async (req, res) => {
   try {
-    const message = await messageService.deleteMessage(req.user._id, req.params.id);
-    return ResponseHandler.success(res, message, "Message deleted successfully");
+    const message = await messageService.deleteMessage(
+      req.user._id,
+      req.params.id,
+    );
+    return ResponseHandler.success(
+      res,
+      message,
+      "Message deleted successfully",
+    );
   } catch (error) {
     console.error("Delete message error:", error);
     return ResponseHandler.notFound(res, error.message);
@@ -44,7 +51,7 @@ exports.deleteMessage = async (req, res) => {
 exports.editMessage = async (req, res) => {
   try {
     const { text } = req.body;
-    
+
     if (!text || text.trim() === "") {
       return ResponseHandler.badRequest(res, "Message text is required");
     }
@@ -52,7 +59,7 @@ exports.editMessage = async (req, res) => {
     const message = await messageService.editMessage(
       req.user._id,
       req.params.id,
-      text
+      text,
     );
     return ResponseHandler.success(res, message, "Message edited successfully");
   } catch (error) {
@@ -88,11 +95,50 @@ exports.getCustomerMessages = async (req, res) => {
   try {
     const messages = await messageService.getCustomerMessages(
       req.user._id,
-      req.params.customerId
+      req.params.customerId,
     );
     return ResponseHandler.success(res, messages);
   } catch (error) {
     console.error("Get customer messages error:", error);
+    return ResponseHandler.error(res, error.message);
+  }
+};
+
+// @desc    Mark message as read
+// @route   PUT /api/messages/:id/read
+// @access  Private
+exports.markMessageAsRead = async (req, res) => {
+  try {
+    const message = await messageService.markMessageAsRead(
+      req.user._id,
+      req.params.id,
+    );
+    return ResponseHandler.success(res, message, "Message marked as read");
+  } catch (error) {
+    console.error("Mark message as read error:", error);
+    return ResponseHandler.notFound(res, error.message);
+  }
+};
+
+// @desc    Upload media for message
+// @route   POST /api/messages/upload
+// @access  Private
+exports.uploadMessageMedia = async (req, res) => {
+  try {
+    if (!req.file) {
+      return ResponseHandler.badRequest(res, "No file uploaded");
+    }
+
+    const fileData = {
+      mediaUrl: `/${req.file.path.replace(/\\/g, "/")}`,
+      fileName: req.file.originalname,
+      mimeType: req.file.mimetype,
+      fileSize: req.file.size,
+    };
+
+    return ResponseHandler.success(res, fileData, "File uploaded successfully");
+  } catch (error) {
+    console.error("Upload media error:", error);
     return ResponseHandler.error(res, error.message);
   }
 };

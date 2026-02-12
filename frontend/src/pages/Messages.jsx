@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   MessageSquare,
   Search,
@@ -16,6 +16,15 @@ import {
   Edit2,
   Trash2,
   MoreVertical,
+  Mic,
+  StopCircle,
+  Paperclip,
+  Image as ImageIcon,
+  File,
+  CheckCheck,
+  Check,
+  Play,
+  Pause,
 } from "lucide-react";
 import api from "../services/api.service";
 import * as messageService from "../services/message.service";
@@ -128,12 +137,39 @@ const Messages = () => {
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [editText, setEditText] = useState("");
   const [messageMenuOpen, setMessageMenuOpen] = useState(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [mediaRecorder, setMediaRecorder] = useState(null);
+  const [audioChunks, setAudioChunks] = useState([]);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [playingAudio, setPlayingAudio] = useState(null);
+  const fileInputRef = useRef(null);
+  const audioRef = useRef(null);
+  const recordingIntervalRef = useRef(null);
+  const messagesEndRef = useRef(null);
   const { error, success } = useToast();
   const { isDarkMode } = useTheme();
 
   useEffect(() => {
     fetchConversations();
   }, []);
+
+  useEffect(() => {
+    // Scroll to bottom when new messages arrive
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  useEffect(() => {
+    // Close message menu when clicking outside
+    const handleClickOutside = (event) => {
+      if (messageMenuOpen && !event.target.closest(".message-menu")) {
+        setMessageMenuOpen(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [messageMenuOpen]);
 
   const fetchConversations = async () => {
     try {
@@ -183,8 +219,8 @@ const Messages = () => {
       // Update local state to reset unread count
       setConversations((prev) =>
         prev.map((conv) =>
-          conv._id === conversation._id ? { ...conv, unreadCount: 0 } : conv
-        )
+          conv._id === conversation._id ? { ...conv, unreadCount: 0 } : conv,
+        ),
       );
     } catch (err) {
       console.error("Failed to mark conversation as read:", err);
@@ -195,8 +231,10 @@ const Messages = () => {
     if (!messageInput.trim()) return;
 
     try {
-      const customerId = selectedConversation.customerId?._id || selectedConversation.customer?._id;
-      
+      const customerId =
+        selectedConversation.customerId?._id ||
+        selectedConversation.customer?._id;
+
       await messageService.sendMessage({
         customerId: customerId,
         platform: selectedConversation.platform,
@@ -219,6 +257,24 @@ const Messages = () => {
     setShowCannedResponses(false);
   };
 
+  const canEditMessage = (message, index) => {
+    // Only allow editing outgoing messages
+    if (message.direction !== "outgoing") return false;
+
+    // Only allow editing last 2 messages
+    const messagePosition = messages.length - index;
+    if (messagePosition > 2) return false;
+
+    // Only allow editing within 3 minutes
+    const messageTime = new Date(message.createdAt).getTime();
+    const currentTime = new Date().getTime();
+    const timeDiff = (currentTime - messageTime) / 1000 / 60; // in minutes
+
+    if (timeDiff > 3) return false;
+
+    return true;
+  };
+
   const handleDeleteMessage = async (messageId) => {
     try {
       await messageService.deleteMessage(messageId);
@@ -227,8 +283,8 @@ const Messages = () => {
         prev.map((msg) =>
           msg._id === messageId
             ? { ...msg, isDeleted: true, deletedAt: new Date() }
-            : msg
-        )
+            : msg,
+        ),
       );
       success("Message deleted");
       setMessageMenuOpen(null);
@@ -238,6 +294,12 @@ const Messages = () => {
   };
 
   const handleStartEdit = (message) => {
+    // Check if message can still be edited
+    if (!canEditMessage(message)) {
+      error("Message can only be edited within 3 minutes of sending");
+      setMessageMenuOpen(null);
+      return;
+    }
     setEditingMessageId(message._id);
     setEditText(message.content?.text || "");
     setMessageMenuOpen(null);
@@ -265,8 +327,8 @@ const Messages = () => {
                 content: { ...msg.content, text: editText },
                 isEdited: true,
               }
-            : msg
-        )
+            : msg,
+        ),
       );
       success("Message edited");
       setEditingMessageId(null);
@@ -311,7 +373,7 @@ const Messages = () => {
       await Promise.all(promises);
 
       success(
-        `Broadcast message sent to ${targetConversations.length} user(s)!`
+        `Broadcast message sent to ${targetConversations.length} user(s)!`,
       );
       setIsBroadcastModalOpen(false);
       setBroadcastMessage("");
@@ -323,11 +385,197 @@ const Messages = () => {
     }
   };
 
+  // Voice recording functions
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      const chunks = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          chunks.push(e.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        const audioBlob = new Blob(chunks, { type: "audio/webm" });
+        await handleSendVoiceMessage(audioBlob);
+        stream.getTracks().forEach((track) => track.stop());
+      };
+
+      recorder.start();
+      setMediaRecorder(recorder);
+      setAudioChunks(chunks);
+      setIsRecording(true);
+      setRecordingTime(0);
+
+      // Start timer
+      recordingIntervalRef.current = setInterval(() => {
+        setRecordingTime((prev) => prev + 1);
+      }, 1000);
+    } catch (err) {
+      error("Failed to access microphone");
+      console.error("Recording error:", err);
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorder && mediaRecorder.state !== "inactive") {
+      mediaRecorder.stop();
+      setIsRecording(false);
+      clearInterval(recordingIntervalRef.current);
+    }
+  };
+
+  const cancelRecording = () => {
+    if (mediaRecorder && mediaRecorder.state !== "inactive") {
+      mediaRecorder.stop();
+      setIsRecording(false);
+      setRecordingTime(0);
+      clearInterval(recordingIntervalRef.current);
+      setAudioChunks([]);
+    }
+  };
+
+  const handleSendVoiceMessage = async (audioBlob) => {
+    try {
+      setUploadingFile(true);
+
+      // Create a File object from the blob
+      const audioFile = new File([audioBlob], `voice-${Date.now()}.webm`, {
+        type: "audio/webm",
+      });
+
+      // Upload the audio file
+      const uploadResponse = await messageService.uploadMessageMedia(audioFile);
+
+      if (uploadResponse.success) {
+        const customerId =
+          selectedConversation.customerId?._id ||
+          selectedConversation.customer?._id;
+
+        // Send the message with audio
+        await messageService.sendMessage({
+          customerId: customerId,
+          platform: selectedConversation.platform,
+          type: "audio",
+          content: {
+            mediaUrl: uploadResponse.data.mediaUrl,
+            fileName: uploadResponse.data.fileName,
+            mimeType: uploadResponse.data.mimeType,
+            fileSize: uploadResponse.data.fileSize,
+          },
+        });
+
+        fetchMessages(customerId);
+        fetchConversations();
+        success("Voice message sent!");
+      }
+    } catch (err) {
+      error(err.message || "Failed to send voice message");
+    } finally {
+      setUploadingFile(false);
+    }
+  };
+
+  const handleFileUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+      setUploadingFile(true);
+
+      // Upload the file
+      const uploadResponse = await messageService.uploadMessageMedia(file);
+
+      if (uploadResponse.success) {
+        const customerId =
+          selectedConversation.customerId?._id ||
+          selectedConversation.customer?._id;
+
+        // Determine message type based on file mime type
+        let messageType = "document";
+        if (file.type.startsWith("image/")) {
+          messageType = "image";
+        } else if (file.type.startsWith("video/")) {
+          messageType = "video";
+        } else if (file.type.startsWith("audio/")) {
+          messageType = "audio";
+        }
+
+        // Send the message with file
+        await messageService.sendMessage({
+          customerId: customerId,
+          platform: selectedConversation.platform,
+          type: messageType,
+          content: {
+            mediaUrl: uploadResponse.data.mediaUrl,
+            fileName: uploadResponse.data.fileName,
+            mimeType: uploadResponse.data.mimeType,
+            fileSize: uploadResponse.data.fileSize,
+            text: messageInput.trim() || undefined, // Optional caption
+          },
+        });
+
+        setMessageInput("");
+        fetchMessages(customerId);
+        fetchConversations();
+        success("File sent successfully!");
+      }
+    } catch (err) {
+      error(err.message || "Failed to upload file");
+    } finally {
+      setUploadingFile(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const toggleAudioPlay = (audioUrl, messageId) => {
+    if (playingAudio === messageId) {
+      audioRef.current?.pause();
+      setPlayingAudio(null);
+    } else {
+      if (audioRef.current) {
+        audioRef.current.src = `http://localhost:5000${audioUrl}`;
+        audioRef.current.play();
+        setPlayingAudio(messageId);
+
+        audioRef.current.onended = () => {
+          setPlayingAudio(null);
+        };
+      }
+    }
+  };
+
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  const formatFileSize = (bytes) => {
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+  };
+
+  // Get remaining edit time
+  const getEditTimeRemaining = (message) => {
+    if (!message.createdAt) return 0;
+    const EDIT_TIME_LIMIT = 3 * 60 * 1000; // 3 minutes
+    const messageAge = Date.now() - new Date(message.createdAt).getTime();
+    const remaining = Math.max(0, EDIT_TIME_LIMIT - messageAge);
+    return Math.ceil(remaining / 1000); // Return seconds
+  };
+
   const filteredConversations = conversations.filter((conv) => {
     // Filter by search term
     const customerName = conv.customerId?.name || conv.customer?.name || "";
     const customerPhone = conv.customerId?.phone || conv.customer?.phone || "";
-    
+
     const matchesSearch =
       customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       customerPhone.includes(searchTerm);
@@ -392,8 +640,8 @@ const Messages = () => {
                   platformFilter === "all"
                     ? "bg-indigo-600 text-white"
                     : isDarkMode
-                    ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
               >
                 All
@@ -404,8 +652,8 @@ const Messages = () => {
                   platformFilter === "whatsapp"
                     ? "bg-green-600 text-white"
                     : isDarkMode
-                    ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
               >
                 <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -417,8 +665,8 @@ const Messages = () => {
                   platformFilter === "instagram"
                     ? "bg-pink-600 text-white"
                     : isDarkMode
-                    ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
               >
                 <Instagram className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -430,8 +678,8 @@ const Messages = () => {
                   platformFilter === "facebook"
                     ? "bg-blue-600 text-white"
                     : isDarkMode
-                    ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
               >
                 <Facebook className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -492,7 +740,9 @@ const Messages = () => {
                   <div className="flex items-center gap-3">
                     <div className="relative shrink-0">
                       <div className="w-11 h-11 rounded-full bg-linear-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-semibold text-base shadow-md">
-                        {(conv.customerId?.name || conv.customer?.name)?.charAt(0)?.toUpperCase() || "U"}
+                        {(conv.customerId?.name || conv.customer?.name)
+                          ?.charAt(0)
+                          ?.toUpperCase() || "U"}
                       </div>
                       {/* Platform Badge */}
                       <div
@@ -500,8 +750,8 @@ const Messages = () => {
                           conv.platform === "whatsapp"
                             ? "bg-green-500"
                             : conv.platform === "instagram"
-                            ? "bg-pink-500"
-                            : "bg-blue-500"
+                              ? "bg-pink-500"
+                              : "bg-blue-500"
                         }`}
                       >
                         {conv.platform === "whatsapp" ? (
@@ -520,7 +770,9 @@ const Messages = () => {
                             isDarkMode ? "text-white" : "text-gray-900"
                           }`}
                         >
-                          {conv.customerId?.name || conv.customer?.name || "Unknown"}
+                          {conv.customerId?.name ||
+                            conv.customer?.name ||
+                            "Unknown"}
                         </p>
                         <span
                           className={`text-xs ml-2 shrink-0 ${
@@ -529,13 +781,12 @@ const Messages = () => {
                         >
                           {conv.lastMessage?.timestamp &&
                           !isNaN(new Date(conv.lastMessage.timestamp))
-                            ? new Date(conv.lastMessage.timestamp).toLocaleString(
-                                "en-IN",
-                                {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                }
-                              )
+                            ? new Date(
+                                conv.lastMessage.timestamp,
+                              ).toLocaleString("en-IN", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })
                             : "Now"}
                         </span>
                       </div>
@@ -565,7 +816,7 @@ const Messages = () => {
         <div
           className={`${
             selectedConversation ? "flex" : "hidden md:flex"
-          } flex-1 flex-col`}
+          } flex-1 flex-col overflow-hidden`}
         >
           {selectedConversation ? (
             <>
@@ -600,7 +851,10 @@ const Messages = () => {
                 </button>
                 <div className="relative">
                   <div className="w-11 h-11 rounded-full bg-linear-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-semibold shadow-md">
-                    {(selectedConversation.customerId?.name || selectedConversation.customer?.name)
+                    {(
+                      selectedConversation.customerId?.name ||
+                      selectedConversation.customer?.name
+                    )
                       ?.charAt(0)
                       ?.toUpperCase() || "U"}
                   </div>
@@ -609,8 +863,8 @@ const Messages = () => {
                       selectedConversation.platform === "whatsapp"
                         ? "bg-green-500"
                         : selectedConversation.platform === "instagram"
-                        ? "bg-pink-500"
-                        : "bg-blue-500"
+                          ? "bg-pink-500"
+                          : "bg-blue-500"
                     }`}
                   >
                     {selectedConversation.platform === "whatsapp" ? (
@@ -628,23 +882,34 @@ const Messages = () => {
                       isDarkMode ? "text-white" : "text-gray-900"
                     }`}
                   >
-                    {selectedConversation.customerId?.name || selectedConversation.customer?.name || "Unknown"}
+                    {selectedConversation.customerId?.name ||
+                      selectedConversation.customer?.name ||
+                      "Unknown"}
                   </p>
                   <div
                     className={`flex items-center gap-1.5 text-xs ${
                       isDarkMode ? "text-gray-400" : "text-gray-500"
                     }`}
                   >
-                    <span>{selectedConversation.customerId?.phone || selectedConversation.customer?.phone}</span>
+                    <span>
+                      {selectedConversation.customerId?.phone ||
+                        selectedConversation.customer?.phone}
+                    </span>
                   </div>
                 </div>
               </div>
 
-              {/* Messages */}
+              {/* Messages Container with custom scrollbar */}
               <div
-                className={`flex-1 overflow-y-auto p-6 space-y-3 ${
+                className={`flex-1 overflow-y-auto p-4 sm:p-6 space-y-3 ${
                   isDarkMode ? "bg-gray-900" : "bg-gray-50"
-                }`}
+                } scrollbar-thin scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent hover:scrollbar-thumb-gray-500 dark:hover:scrollbar-thumb-gray-500`}
+                style={{
+                  scrollbarWidth: "thin",
+                  scrollbarColor: isDarkMode
+                    ? "#4B5563 transparent"
+                    : "#9CA3AF transparent",
+                }}
               >
                 {messages.length === 0 ? (
                   <div className="text-center py-12">
@@ -660,159 +925,326 @@ const Messages = () => {
                     </p>
                   </div>
                 ) : (
-                  messages.map((message) => (
-                    <div
-                      key={message._id}
-                      className={`flex ${
-                        message.direction === "outgoing"
-                          ? "justify-end"
-                          : "justify-start"
-                      }`}
-                    >
-                      <div className="relative group max-w-[70%]">
-                        {/* Message Bubble */}
-                        <div
-                          className={`px-4 py-2.5 rounded-2xl shadow-sm ${
-                            message.direction === "outgoing"
-                              ? "bg-indigo-600 text-white rounded-br-md"
-                              : isDarkMode
-                              ? "bg-gray-800 text-white border border-gray-700 rounded-bl-md"
-                              : "bg-white text-gray-900 border border-gray-200 rounded-bl-md"
-                          }`}
-                        >
-                          {/* Show deleted message */}
-                          {message.isDeleted ? (
-                            <p className="text-sm italic opacity-60">
-                              This message was deleted
-                            </p>
-                          ) : editingMessageId === message._id ? (
-                            /* Edit Mode */
-                            <div className="space-y-2">
-                              <input
-                                type="text"
-                                value={editText}
-                                onChange={(e) => setEditText(e.target.value)}
-                                className={`w-full px-2 py-1 text-sm rounded border ${
-                                  isDarkMode
-                                    ? "bg-gray-700 border-gray-600 text-white"
-                                    : "bg-white border-gray-300 text-gray-900"
-                                }`}
-                                autoFocus
-                                onKeyPress={(e) => {
-                                  if (e.key === "Enter") {
-                                    handleSaveEdit(message._id);
-                                  }
-                                }}
-                              />
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => handleSaveEdit(message._id)}
-                                  className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700"
-                                >
-                                  Save
-                                </button>
-                                <button
-                                  onClick={handleCancelEdit}
-                                  className="px-3 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600"
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            /* Normal Display */
-                            <>
-                              <p className="text-sm leading-relaxed whitespace-pre-wrap wrap-break-word">
-                                {message.content?.text || ""}
+                  <>
+                    {messages.map((message, index) => (
+                      <div
+                        key={message._id}
+                        className={`flex ${
+                          message.direction === "outgoing"
+                            ? "justify-end"
+                            : "justify-start"
+                        }`}
+                      >
+                        <div className="relative group max-w-[70%]">
+                          {/* Message Bubble */}
+                          <div
+                            className={`px-4 py-2.5 rounded-2xl shadow-sm ${
+                              message.direction === "outgoing"
+                                ? "bg-indigo-600 text-white rounded-br-md"
+                                : isDarkMode
+                                  ? "bg-gray-800 text-white border border-gray-700 rounded-bl-md"
+                                  : "bg-white text-gray-900 border border-gray-200 rounded-bl-md"
+                            }`}
+                          >
+                            {/* Show deleted message */}
+                            {message.isDeleted ? (
+                              <p className="text-sm italic opacity-60">
+                                This message was deleted
                               </p>
-                              <div className="flex items-center gap-2 mt-1.5">
-                                <p
-                                  className={`text-xs ${
-                                    message.direction === "outgoing"
-                                      ? "text-indigo-100"
-                                      : isDarkMode
-                                      ? "text-gray-400"
-                                      : "text-gray-500"
-                                  }`}
-                                >
-                                  {message.createdAt &&
-                                  !isNaN(new Date(message.createdAt))
-                                    ? new Date(message.createdAt).toLocaleString(
-                                        "en-IN",
-                                        {
-                                          hour: "2-digit",
-                                          minute: "2-digit",
-                                        }
-                                      )
-                                    : "Just now"}
-                                </p>
-                                {message.isEdited && (
-                                  <span
-                                    className={`text-xs italic ${
-                                      message.direction === "outgoing"
-                                        ? "text-indigo-200"
-                                        : isDarkMode
-                                        ? "text-gray-500"
-                                        : "text-gray-400"
-                                    }`}
-                                  >
-                                    (edited)
-                                  </span>
-                                )}
-                              </div>
-                            </>
-                          )}
-                        </div>
-
-                        {/* Edit/Delete Menu - Only for outgoing messages */}
-                        {message.direction === "outgoing" &&
-                          !message.isDeleted &&
-                          editingMessageId !== message._id && (
-                            <div className="absolute top-0 right-0 -mr-8 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button
-                                onClick={() =>
-                                  setMessageMenuOpen(
-                                    messageMenuOpen === message._id
-                                      ? null
-                                      : message._id
-                                  )
-                                }
-                                className={`p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700`}
-                              >
-                                <MoreVertical className="w-4 h-4" />
-                              </button>
-
-                              {messageMenuOpen === message._id && (
-                                <div
-                                  className={`absolute right-0 mt-1 w-32 rounded-lg shadow-lg z-10 ${
+                            ) : editingMessageId === message._id ? (
+                              /* Edit Mode */
+                              <div className="space-y-3">
+                                <textarea
+                                  value={editText}
+                                  onChange={(e) => setEditText(e.target.value)}
+                                  className={`w-full px-3 py-2 text-sm rounded-lg border-2 focus:ring-2 focus:ring-indigo-500 outline-none resize-none ${
                                     isDarkMode
-                                      ? "bg-gray-800 border border-gray-700"
-                                      : "bg-white border border-gray-200"
+                                      ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                                      : "bg-white border-indigo-300 text-gray-900 placeholder-gray-500"
                                   }`}
-                                >
+                                  rows={3}
+                                  autoFocus
+                                  placeholder="Edit your message..."
+                                  onKeyPress={(e) => {
+                                    if (e.key === "Enter" && !e.shiftKey) {
+                                      e.preventDefault();
+                                      handleSaveEdit(message._id);
+                                    }
+                                  }}
+                                />
+                                <div className="flex gap-2 justify-end">
                                   <button
-                                    onClick={() => handleStartEdit(message)}
-                                    className={`w-full px-4 py-2 text-sm text-left flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-t-lg ${
-                                      isDarkMode ? "text-gray-200" : "text-gray-700"
+                                    onClick={handleCancelEdit}
+                                    className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+                                      isDarkMode
+                                        ? "bg-gray-600 text-gray-200 hover:bg-gray-500"
+                                        : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                                     }`}
                                   >
-                                    <Edit2 className="w-3 h-3" />
-                                    Edit
+                                    Cancel
                                   </button>
                                   <button
-                                    onClick={() => handleDeleteMessage(message._id)}
-                                    className={`w-full px-4 py-2 text-sm text-left flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-b-lg text-red-600`}
+                                    onClick={() => handleSaveEdit(message._id)}
+                                    className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-all shadow-md hover:shadow-lg"
                                   >
-                                    <Trash2 className="w-3 h-3" />
-                                    Delete
+                                    Save
                                   </button>
                                 </div>
-                              )}
-                            </div>
-                          )}
+                              </div>
+                            ) : (
+                              /* Normal Display */
+                              <>
+                                {/* Image Message */}
+                                {message.type === "image" &&
+                                  message.content?.mediaUrl && (
+                                    <div className="mb-2">
+                                      <img
+                                        src={`http://localhost:5000${message.content.mediaUrl}`}
+                                        alt="Shared image"
+                                        className="max-w-full rounded-lg max-h-64 object-cover"
+                                      />
+                                    </div>
+                                  )}
+
+                                {/* Voice/Audio Message */}
+                                {message.type === "audio" &&
+                                  message.content?.mediaUrl && (
+                                    <div className="flex items-center gap-2 min-w-[200px]">
+                                      <button
+                                        onClick={() =>
+                                          toggleAudioPlay(
+                                            message.content.mediaUrl,
+                                            message._id,
+                                          )
+                                        }
+                                        className={`p-2 rounded-full ${
+                                          message.direction === "outgoing"
+                                            ? "bg-indigo-700 hover:bg-indigo-800"
+                                            : isDarkMode
+                                              ? "bg-gray-700 hover:bg-gray-600"
+                                              : "bg-gray-200 hover:bg-gray-300"
+                                        }`}
+                                      >
+                                        {playingAudio === message._id ? (
+                                          <Pause className="w-4 h-4" />
+                                        ) : (
+                                          <Play className="w-4 h-4" />
+                                        )}
+                                      </button>
+                                      <div className="flex-1">
+                                        <div className="h-1 bg-gray-300 dark:bg-gray-600 rounded-full">
+                                          <div className="h-full w-0 bg-indigo-600 rounded-full"></div>
+                                        </div>
+                                      </div>
+                                      <span className="text-xs opacity-75">
+                                        {message.content?.duration
+                                          ? formatTime(message.content.duration)
+                                          : "0:00"}
+                                      </span>
+                                    </div>
+                                  )}
+
+                                {/* Document/File Message */}
+                                {message.type === "document" &&
+                                  message.content?.mediaUrl && (
+                                    <a
+                                      href={`http://localhost:5000${message.content.mediaUrl}`}
+                                      download
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex items-center gap-3 p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+                                    >
+                                      <File className="w-8 h-8" />
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium truncate">
+                                          {message.content?.fileName ||
+                                            "Document"}
+                                        </p>
+                                        {message.content?.fileSize && (
+                                          <p className="text-xs opacity-75">
+                                            {formatFileSize(
+                                              message.content.fileSize,
+                                            )}
+                                          </p>
+                                        )}
+                                      </div>
+                                    </a>
+                                  )}
+
+                                {/* Text Content */}
+                                {message.content?.text && (
+                                  <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+                                    {message.content.text}
+                                  </p>
+                                )}
+
+                                {/* Timestamp and Status */}
+                                <div className="flex items-center gap-2 mt-1.5">
+                                  <p
+                                    className={`text-xs ${
+                                      message.direction === "outgoing"
+                                        ? "text-indigo-100"
+                                        : isDarkMode
+                                          ? "text-gray-400"
+                                          : "text-gray-500"
+                                    }`}
+                                  >
+                                    {message.createdAt &&
+                                    !isNaN(new Date(message.createdAt))
+                                      ? new Date(
+                                          message.createdAt,
+                                        ).toLocaleString("en-IN", {
+                                          hour: "2-digit",
+                                          minute: "2-digit",
+                                        })
+                                      : "Just now"}
+                                  </p>
+                                  {message.isEdited && (
+                                    <span
+                                      className={`text-xs italic ${
+                                        message.direction === "outgoing"
+                                          ? "text-indigo-200"
+                                          : isDarkMode
+                                            ? "text-gray-500"
+                                            : "text-gray-400"
+                                      }`}
+                                    >
+                                      (edited)
+                                    </span>
+                                  )}
+                                  {/* Read Receipts - Only for outgoing messages */}
+                                  {message.direction === "outgoing" && (
+                                    <span className="ml-auto">
+                                      {message.status === "read" ||
+                                      message.isRead ? (
+                                        <CheckCheck className="w-4 h-4 text-blue-400" />
+                                      ) : message.status === "delivered" ? (
+                                        <CheckCheck className="w-4 h-4 opacity-60" />
+                                      ) : message.status === "sent" ? (
+                                        <Check className="w-4 h-4 opacity-60" />
+                                      ) : null}
+                                    </span>
+                                  )}
+                                </div>
+                              </>
+                            )}
+                          </div>
+
+                          {/* Edit/Delete Menu - Only for outgoing messages */}
+                          {message.direction === "outgoing" &&
+                            !message.isDeleted &&
+                            editingMessageId !== message._id && (
+                              <div className="absolute -top-2 -right-2 opacity-0 md:group-hover:opacity-100 group-hover:opacity-100 transition-opacity message-menu">
+                                <button
+                                  onClick={() =>
+                                    setMessageMenuOpen(
+                                      messageMenuOpen === message._id
+                                        ? null
+                                        : message._id,
+                                    )
+                                  }
+                                  className={`p-1.5 rounded-full shadow-lg ${
+                                    messageMenuOpen === message._id
+                                      ? "bg-indigo-600 text-white"
+                                      : isDarkMode
+                                        ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                                        : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"
+                                  }`}
+                                  title="Message options"
+                                >
+                                  <MoreVertical className="w-4 h-4" />
+                                </button>
+
+                                {messageMenuOpen === message._id && (
+                                  <>
+                                    {/* Backdrop for mobile */}
+                                    <div
+                                      className="fixed inset-0 z-40 md:hidden"
+                                      onClick={() => setMessageMenuOpen(null)}
+                                    />
+
+                                    <div
+                                      className={`absolute right-0 mt-2 w-48 rounded-xl shadow-2xl z-50 overflow-hidden ${
+                                        isDarkMode
+                                          ? "bg-gray-800 border border-gray-700"
+                                          : "bg-white border border-gray-200"
+                                      }`}
+                                    >
+                                      {/* Edit option - only show if within 3 minutes and last 2 messages */}
+                                      {canEditMessage(message, index) &&
+                                        message.type === "text" && (
+                                          <>
+                                            <button
+                                              onClick={() =>
+                                                handleStartEdit(message)
+                                              }
+                                              className={`w-full px-4 py-3 text-sm text-left flex items-center gap-3 transition-colors ${
+                                                isDarkMode
+                                                  ? "text-gray-200 hover:bg-gray-700"
+                                                  : "text-gray-700 hover:bg-gray-50"
+                                              }`}
+                                            >
+                                              <div className="p-1.5 rounded-lg bg-blue-500/10">
+                                                <Edit2 className="w-4 h-4 text-blue-600" />
+                                              </div>
+                                              <div className="flex-1">
+                                                <div className="font-medium">
+                                                  Edit Message
+                                                </div>
+                                                <div
+                                                  className={`text-xs ${
+                                                    isDarkMode
+                                                      ? "text-gray-400"
+                                                      : "text-gray-500"
+                                                  }`}
+                                                >
+                                                  {getEditTimeRemaining(
+                                                    message,
+                                                  )}
+                                                  s left
+                                                </div>
+                                              </div>
+                                            </button>
+                                            <div
+                                              className={`border-t ${
+                                                isDarkMode
+                                                  ? "border-gray-700"
+                                                  : "border-gray-100"
+                                              }`}
+                                            />
+                                          </>
+                                        )}
+
+                                      {/* Delete option - always available */}
+                                      <button
+                                        onClick={() =>
+                                          handleDeleteMessage(message._id)
+                                        }
+                                        className="w-full px-4 py-3 text-sm text-left flex items-center gap-3 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                      >
+                                        <div className="p-1.5 rounded-lg bg-red-500/10">
+                                          <Trash2 className="w-4 h-4 text-red-600" />
+                                        </div>
+                                        <div>
+                                          <div className="font-medium">
+                                            Delete Message
+                                          </div>
+                                          <div className="text-xs text-red-500">
+                                            Remove permanently
+                                          </div>
+                                        </div>
+                                      </button>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            )}
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    ))}
+                    {/* Scroll anchor */}
+                    <div ref={messagesEndRef} />
+                  </>
                 )}
               </div>
 
@@ -820,8 +1252,8 @@ const Messages = () => {
               <div
                 className={`border-t ${
                   isDarkMode
-                    ? "border-gray-700 bg-gray-800"
-                    : "border-gray-200 bg-white"
+                    ? "border-gray-700 bg-gray-800 shadow-2xl shadow-black/50"
+                    : "border-gray-200 bg-white shadow-2xl shadow-gray-200"
                 }`}
               >
                 {/* Canned Responses Panel */}
@@ -864,8 +1296,8 @@ const Messages = () => {
                             selectedCategory === category
                               ? "bg-indigo-600 text-white"
                               : isDarkMode
-                              ? "bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600"
-                              : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-300"
+                                ? "bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600"
+                                : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-300"
                           }`}
                         >
                           {category.charAt(0).toUpperCase() + category.slice(1)}
@@ -916,22 +1348,86 @@ const Messages = () => {
                     isDarkMode ? "bg-gray-800" : "bg-white"
                   }`}
                 >
-                  <div className="flex items-center gap-2 sm:gap-3">
+                  {/* Recording Indicator */}
+                  {isRecording && (
+                    <div className="mb-3 flex items-center justify-between p-3 bg-red-500/10 border border-red-500 rounded-xl">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                        <span className="text-sm font-medium text-red-600 dark:text-red-400">
+                          Recording... {formatTime(recordingTime)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={cancelRecording}
+                          className="px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors font-medium"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={stopRecording}
+                          className="px-3 py-1.5 text-sm bg-red-600 text-white hover:bg-red-700 rounded-lg transition-colors font-medium"
+                        >
+                          Send
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Upload Progress */}
+                  {uploadingFile && (
+                    <div className="mb-3 p-3 bg-indigo-500/10 border border-indigo-500 rounded-xl">
+                      <div className="flex items-center gap-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-indigo-600 border-t-transparent"></div>
+                        <span className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
+                          Uploading file...
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-end gap-2 sm:gap-3">
+                    {/* Quick Replies Button */}
                     <button
                       onClick={() =>
                         setShowCannedResponses(!showCannedResponses)
                       }
-                      className={`p-2 sm:p-2.5 rounded-lg transition-all flex-shrink-0 ${
+                      className={`p-2.5 rounded-xl transition-all flex-shrink-0 shadow-md hover:shadow-lg ${
                         showCannedResponses
-                          ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/50"
+                          ? "bg-indigo-600 text-white shadow-indigo-500/50"
                           : isDarkMode
-                          ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                            ? "bg-gray-700 text-gray-300 hover:bg-gray-600 shadow-gray-900/50"
+                            : "bg-gray-100 text-gray-600 hover:bg-gray-200 shadow-gray-300/50"
                       }`}
                       title="Quick Replies"
                     >
-                      <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <FileText className="w-5 h-5" />
                     </button>
+
+                    {/* File Attachment Button */}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      onChange={handleFileUpload}
+                      accept="image/*,audio/*,video/*,.pdf,.doc,.docx"
+                      className="hidden"
+                    />
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingFile || isRecording}
+                      className={`p-2.5 rounded-xl transition-all flex-shrink-0 shadow-md hover:shadow-lg ${
+                        uploadingFile || isRecording
+                          ? "opacity-50 cursor-not-allowed"
+                          : isDarkMode
+                            ? "bg-gray-700 text-gray-300 hover:bg-gray-600 shadow-gray-900/50"
+                            : "bg-gray-100 text-gray-600 hover:bg-gray-200 shadow-gray-300/50"
+                      }`}
+                      title="Attach file"
+                    >
+                      <Paperclip className="w-5 h-5" />
+                    </button>
+
+                    {/* Message Input */}
                     <div className="flex-1 min-w-0">
                       <textarea
                         value={messageInput}
@@ -944,21 +1440,48 @@ const Messages = () => {
                         }}
                         placeholder="Type a message..."
                         rows={1}
-                        className={`w-full px-3 sm:px-4 py-2 sm:py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-none text-sm ${
+                        disabled={isRecording || uploadingFile}
+                        className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-none text-sm transition-all ${
                           isDarkMode
-                            ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
-                            : "bg-white border-gray-300 text-gray-900 placeholder-gray-500"
-                        }`}
+                            ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:bg-gray-650"
+                            : "bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500 focus:bg-white"
+                        } ${isRecording || uploadingFile ? "opacity-50" : ""}`}
                         style={{ minHeight: "44px", maxHeight: "120px" }}
                       />
                     </div>
-                    <button
-                      onClick={handleSendMessage}
-                      disabled={!messageInput.trim()}
-                      className="p-2 sm:p-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-500/50 disabled:shadow-none flex-shrink-0"
-                    >
-                      <Send className="w-4 h-4 sm:w-5 sm:h-5" />
-                    </button>
+
+                    {/* Voice Record / Send Button */}
+                    {messageInput.trim() ? (
+                      <button
+                        onClick={handleSendMessage}
+                        disabled={uploadingFile || isRecording}
+                        className="p-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-500/50 disabled:shadow-none flex-shrink-0 hover:scale-105 active:scale-95"
+                        title="Send message"
+                      >
+                        <Send className="w-5 h-5" />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={isRecording ? stopRecording : startRecording}
+                        disabled={uploadingFile}
+                        className={`p-2.5 rounded-xl transition-all flex-shrink-0 shadow-lg hover:scale-105 active:scale-95 ${
+                          isRecording
+                            ? "bg-red-600 text-white animate-pulse shadow-red-500/50"
+                            : "bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-500/50"
+                        } ${uploadingFile ? "opacity-50 cursor-not-allowed" : ""}`}
+                        title={
+                          isRecording
+                            ? "Stop recording"
+                            : "Record voice message"
+                        }
+                      >
+                        {isRecording ? (
+                          <StopCircle className="w-5 h-5" />
+                        ) : (
+                          <Mic className="w-5 h-5" />
+                        )}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1064,8 +1587,8 @@ const Messages = () => {
                       broadcastPlatform === "all"
                         ? "bg-indigo-600 text-white"
                         : isDarkMode
-                        ? "bg-gray-700 text-gray-200 hover:bg-gray-600"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                          ? "bg-gray-700 text-gray-200 hover:bg-gray-600"
+                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     }`}
                   >
                     All Users
@@ -1076,8 +1599,8 @@ const Messages = () => {
                       broadcastPlatform === "whatsapp"
                         ? "bg-green-600 text-white"
                         : isDarkMode
-                        ? "bg-gray-700 text-gray-200 hover:bg-gray-600"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                          ? "bg-gray-700 text-gray-200 hover:bg-gray-600"
+                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     }`}
                   >
                     <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -1089,8 +1612,8 @@ const Messages = () => {
                       broadcastPlatform === "instagram"
                         ? "bg-pink-600 text-white"
                         : isDarkMode
-                        ? "bg-gray-700 text-gray-200 hover:bg-gray-600"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                          ? "bg-gray-700 text-gray-200 hover:bg-gray-600"
+                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     }`}
                   >
                     <Instagram className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -1117,7 +1640,7 @@ const Messages = () => {
                       conversations.filter((conv) =>
                         broadcastPlatform === "all"
                           ? true
-                          : conv.platform === broadcastPlatform
+                          : conv.platform === broadcastPlatform,
                       ).length
                     }{" "}
                     user(s)
@@ -1195,6 +1718,9 @@ const Messages = () => {
           </div>
         </div>
       )}
+
+      {/* Hidden audio element for playing voice messages */}
+      <audio ref={audioRef} className="hidden" />
     </div>
   );
 };

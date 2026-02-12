@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { protect, checkSubscription } = require("../middleware/auth.middleware");
+const upload = require("../middleware/upload.middleware");
 const {
   getMessages,
   sendMessage,
@@ -9,6 +10,8 @@ const {
   getMessageStats,
   getConversations,
   getCustomerMessages,
+  markMessageAsRead,
+  uploadMessageMedia,
 } = require("../controllers/message.controller");
 
 // @route   GET /api/messages/conversations
@@ -35,6 +38,22 @@ router.get("/", protect, checkSubscription, getMessages);
 // @desc    Send message
 // @access  Private
 router.post("/send", protect, checkSubscription, sendMessage);
+
+// @route   POST /api/messages/upload
+// @desc    Upload media for message (voice, image, video, document)
+// @access  Private
+router.post(
+  "/upload",
+  protect,
+  checkSubscription,
+  upload.single("file"),
+  uploadMessageMedia,
+);
+
+// @route   PUT /api/messages/:id/read
+// @desc    Mark message as read
+// @access  Private
+router.put("/:id/read", protect, checkSubscription, markMessageAsRead);
 
 // @route   PUT /api/messages/:id/edit
 // @desc    Edit message

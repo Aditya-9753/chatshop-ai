@@ -99,11 +99,6 @@ const DashboardLayout = () => {
 
           {/* Navigation */}
           <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
-            {/* Subscription Badge */}
-            <div className="mb-4 px-2">
-              <SubscriptionBadge user={user} showDetails={true} />
-            </div>
-
             {navigation.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.href;
@@ -287,9 +282,10 @@ const DashboardLayout = () => {
           </div>
 
           {/* Right side - Subscription, Notifications, Dark Mode, Profile */}
-          <div className="flex items-center gap-3">
-            <div className="hidden md:block">
-              <SubscriptionBadge user={user} />
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Subscription Badge - Now shows days left in top bar only */}
+            <div className="hidden sm:block">
+              <SubscriptionBadge user={user} variant="topBar" />
             </div>
 
             {/* Dark Mode Toggle */}
@@ -317,6 +313,7 @@ const DashboardLayout = () => {
                   ? "text-gray-300 hover:bg-gray-700"
                   : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
               }`}
+              title="Notifications"
             >
               <Bell className="w-5 h-5" />
               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>

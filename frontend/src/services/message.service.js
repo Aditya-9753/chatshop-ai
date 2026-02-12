@@ -108,6 +108,30 @@ export const editMessage = async (messageId, newText) => {
 };
 
 /**
+ * Mark a message as read
+ * @param {String} messageId - The message ID
+ * @returns {Promise} Updated message
+ */
+export const markMessageAsRead = async (messageId) => {
+  return await api.put(`/messages/${messageId}/read`);
+};
+
+/**
+ * Upload media for message (voice, image, video, document)
+ * @param {File} file - The file to upload
+ * @returns {Promise} File data with URL
+ */
+export const uploadMessageMedia = async (file) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  return await api.post("/messages/upload", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+};
+
+/**
  * Get messages for a specific customer
  * @param {String} customerId - The customer ID
  * @returns {Promise} Messages array
@@ -123,7 +147,9 @@ export const getCustomerMessages = async (customerId) => {
  */
 export const getMessageStats = async (filters = {}) => {
   const queryParams = new URLSearchParams(filters).toString();
-  const url = queryParams ? `/messages/stats?${queryParams}` : "/messages/stats";
+  const url = queryParams
+    ? `/messages/stats?${queryParams}`
+    : "/messages/stats";
   return await api.get(url);
 };
 
@@ -150,6 +176,8 @@ export default {
   sendMessage,
   deleteMessage,
   editMessage,
+  markMessageAsRead,
+  uploadMessageMedia,
   getCustomerMessages,
   getMessageStats,
   getConversations, // Legacy
