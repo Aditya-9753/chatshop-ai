@@ -1,233 +1,124 @@
-import React, { useState, useEffect } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { Mail } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { useTheme } from "../context/ThemeContext";
-import { Moon, Sun } from "lucide-react";
+import AuthLayout from "../components/auth/AuthLayout";
+import { PasswordInput } from "../components/auth/PasswordInput";
+import { Alert, Button, Input } from "../components/ui";
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, isAuthenticated, loading: authLoading } = useAuth();
-  const { isDarkMode, toggleTheme } = useTheme();
-  const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-  });
+  const [params] = useSearchParams();
+  const { login, isAuthenticated, isAdmin } = useAuth();
+
+  const [form, setForm] = useState({ email: "", password: "" });
+  const [fieldErrors, setFieldErrors] = useState({});
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Redirect if already authenticated
-  useEffect(() => {
-    if (!authLoading && isAuthenticated) {
-      const from = location.state?.from?.pathname || "/dashboard";
-      navigate(from, { replace: true });
-    }
-  }, [isAuthenticated, authLoading, navigate, location]);
+  const destination = (admin) =>
+    admin ? "/admin/dashboard" : location.state?.from?.pathname || "/dashboard";
 
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+  useEffect(() => {
+    if (isAuthenticated) navigate(destination(isAdmin), { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]);
+
+  const onChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+    setFieldErrors({ ...fieldErrors, [e.target.name]: undefined });
+    setError("");
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
+  const validate = () => {
+    const errors = {};
+    if (!EMAIL_PATTERN.test(form.email.trim())) errors.email = "Enter a valid email address";
+    if (!form.password) errors.password = "Enter your password";
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    if (!validate()) return;
+
+    setLoading(true);
+    setError("");
     try {
-      await login(formData.email, formData.password);
-      // Get redirect path from location state or default to dashboard
-      const from = location.state?.from?.pathname || "/dashboard";
-      navigate(from, { replace: true });
+      const response = await login(form.email.trim(), form.password);
+      navigate(destination(response.data.user?.role === "admin"), { replace: true });
     } catch (err) {
       setError(err.message || "Login failed. Please try again.");
-    } finally {
       setLoading(false);
     }
   };
 
-  // Show loading while checking auth
-  if (authLoading) {
-    return (
-      <div
-        className={`min-h-screen flex items-center justify-center ${
-          isDarkMode
-            ? "bg-gray-900"
-            : "bg-gradient-to-br from-indigo-50 via-white to-purple-50"
-        }`}
-      >
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-      </div>
-    );
-  }
-
   return (
-    <div
-      className={`min-h-screen flex items-center justify-center p-4 relative ${
-        isDarkMode
-          ? "bg-gray-900"
-          : "bg-gradient-to-br from-indigo-50 via-white to-purple-50"
-      }`}
+    <AuthLayout
+      title="Welcome back"
+      description="Log in to your ChatShop workspace."
+      footer={
+        <>
+          New to ChatShop?{" "}
+          <Link to="/register" className="font-medium text-accent hover:underline">
+            Create an account
+          </Link>
+        </>
+      }
     >
-      {/* Dark Mode Toggle - Top Right */}
-      <button
-        onClick={toggleTheme}
-        className={`absolute top-6 right-6 p-2 rounded-lg transition-colors z-10 ${
-          isDarkMode
-            ? "text-yellow-300 hover:bg-gray-800"
-            : "text-gray-600 hover:bg-white/50"
-        }`}
-        title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
-      >
-        {isDarkMode ? (
-          <Sun className="w-5 h-5" />
-        ) : (
-          <Moon className="w-5 h-5" />
-        )}
-      </button>
+      {params.get("expired") && !error && (
+        <Alert tone="info" className="mb-5">
+          Your session ended. Please log in again.
+        </Alert>
+      )}
+      {params.get("reset") && !error && (
+        <Alert tone="success" className="mb-5">
+          Password updated. Log in with your new password.
+        </Alert>
+      )}
 
-      <div className="max-w-md w-full">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-400 via-indigo-600 to-purple-600 flex items-center justify-center text-white font-bold shadow-lg">
-              WA
-            </div>
-            <div className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-              ChatShop AI
-            </div>
-          </div>
-          <h1
-            className={`text-3xl font-bold mb-2 ${
-              isDarkMode ? "text-white" : "text-gray-900"
-            }`}
-          >
-            Welcome Back!
-          </h1>
-          <p className={isDarkMode ? "text-gray-400" : "text-gray-600"}>
-            Login to your dashboard
-          </p>
-        </div>
-
-        {/* Form */}
-        <div
-          className={`rounded-2xl shadow-xl p-8 border ${
-            isDarkMode
-              ? "bg-gray-800 border-gray-700"
-              : "bg-white border-gray-100"
-          }`}
-        >
-          {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label
-                className={`block text-sm font-semibold mb-2 ${
-                  isDarkMode ? "text-gray-300" : "text-gray-700"
-                }`}
-              >
-                Email Address
-              </label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                required
-                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all ${
-                  isDarkMode
-                    ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400 [&:-webkit-autofill]:bg-gray-700 [&:-webkit-autofill]:text-white [&:-webkit-autofill]:[-webkit-text-fill-color:white] [&:-webkit-autofill]:[-webkit-box-shadow:0_0_0_1000px_rgb(55_65_81)_inset]"
-                    : "bg-white border-gray-300 text-gray-900"
-                }`}
-                placeholder="you@example.com"
-              />
-            </div>
-
-            <div>
-              <label
-                className={`block text-sm font-semibold mb-2 ${
-                  isDarkMode ? "text-gray-300" : "text-gray-700"
-                }`}
-              >
-                Password
-              </label>
-              <input
-                type="password"
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                required
-                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all ${
-                  isDarkMode
-                    ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400 [&:-webkit-autofill]:bg-gray-700 [&:-webkit-autofill]:text-white [&:-webkit-autofill]:[-webkit-text-fill-color:white] [&:-webkit-autofill]:[-webkit-box-shadow:0_0_0_1000px_rgb(55_65_81)_inset]"
-                    : "bg-white border-gray-300 text-gray-900"
-                }`}
-                placeholder="••••••••"
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                />
-                <span
-                  className={`ml-2 text-sm ${
-                    isDarkMode ? "text-gray-400" : "text-gray-600"
-                  }`}
-                >
-                  Remember me
-                </span>
-              </label>
-              <Link
-                to="/forgot-password"
-                className="text-sm text-indigo-400 hover:text-indigo-300 font-semibold"
-              >
-                Forgot password?
-              </Link>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transform hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? "Logging in..." : "Login"}
-            </button>
-          </form>
-
-          <div
-            className={`mt-6 text-center text-sm ${
-              isDarkMode ? "text-gray-400" : "text-gray-600"
-            }`}
-          >
-            Don't have an account?{" "}
-            <Link
-              to="/register"
-              className="text-indigo-400 hover:text-indigo-300 font-semibold"
-            >
-              Sign up
+      <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+        <Input
+          label="Email"
+          name="email"
+          type="email"
+          autoComplete="email"
+          icon={Mail}
+          placeholder="you@business.com"
+          value={form.email}
+          onChange={onChange}
+          error={fieldErrors.email}
+          autoFocus
+        />
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center justify-between">
+            <label htmlFor="password" className="text-caption font-medium text-fg">
+              Password
+            </label>
+            <Link to="/forgot-password" className="text-caption font-medium text-accent hover:underline">
+              Forgot password?
             </Link>
           </div>
+          <PasswordInput
+            id="password"
+            name="password"
+            autoComplete="current-password"
+            value={form.password}
+            onChange={onChange}
+            error={fieldErrors.password}
+          />
         </div>
 
-        <div className="mt-6 text-center">
-          <Link
-            to="/"
-            className="text-sm text-gray-600 hover:text-gray-900 font-medium"
-          >
-            ← Back to home
-          </Link>
-        </div>
-      </div>
-    </div>
+        {error && <Alert tone="danger">{error}</Alert>}
+
+        <Button type="submit" size="lg" loading={loading} className="mt-1 w-full">
+          {loading ? "Logging in…" : "Log in"}
+        </Button>
+      </form>
+    </AuthLayout>
   );
 };
 
