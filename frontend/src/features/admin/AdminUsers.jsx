@@ -202,13 +202,13 @@ export default function AdminUsers() {
         </span>
       ),
     },
-    { key: "business", header: "Business", hideBelow: "lg", cell: (u) => <span className="text-fg-muted">{u.businessInfo?.businessName || "—"}</span> },
+    { key: "business", header: "Business", hideBelow: "xl", cell: (u) => <span className="text-fg-muted">{u.businessInfo?.businessName || "—"}</span> },
     { key: "plan", header: "Plan", sortable: true, sortValue: (u) => u.subscription?.plan, cell: (u) => <span className="capitalize">{u.subscription?.plan || "—"}</span> },
     { key: "status", header: "Status", cell: (u) => <StatusPill status={u.subscription?.status || "inactive"} /> },
     {
       key: "channels",
       header: "Channels",
-      hideBelow: "md",
+      hideBelow: "lg",
       cell: (u) => (
         <span className="flex gap-1.5">
           {["whatsapp", "instagram", "facebook"].filter((p) => u[`${p}Config`]?.isConnected).map((p) => <ChannelBadge key={p} platform={p} compact />)}
@@ -216,6 +216,9 @@ export default function AdminUsers() {
         </span>
       ),
     },
+    { key: "customers", header: "Customers", align: "right", sortable: true, hideBelow: "md", sortValue: (u) => u.activity?.customers || 0, cell: (u) => formatNumber(u.activity?.customers || 0) },
+    { key: "orders", header: "Orders", align: "right", sortable: true, hideBelow: "md", sortValue: (u) => u.activity?.orders || 0, cell: (u) => formatNumber(u.activity?.orders || 0) },
+    { key: "revenue", header: "Revenue", align: "right", sortable: true, sortValue: (u) => u.activity?.revenue || 0, cell: (u) => <span className="font-medium">{formatCurrency(u.activity?.revenue || 0)}</span> },
     { key: "createdAt", header: "Joined", sortable: true, hideBelow: "sm", sortValue: (u) => new Date(u.createdAt), cell: (u) => <span className="text-fg-muted">{formatDate(u.createdAt)}</span> },
   ];
 

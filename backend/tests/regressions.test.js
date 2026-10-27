@@ -66,3 +66,29 @@ test("6-character passwords work for sign-up and login", async () => {
   assert.equal(tooShort.status, 400);
   assert.equal(tooShort.body.message, "Password must be at least 6 characters");
 });
+
+test("the admin panel gets real per-shop numbers and a daily platform series", async () => {
+  const User = require("../src/models/User.model");
+  const Customer = require("../src/models/Customer.model");
+  const Order = require("../src/models/Order.model");
+
+  const admin = await registerUser(app);
+  await User.updateOne({ _id: admin.user.id }, { role: "admin" });
+  const shop = await registerUser(app);
+  const customer = await Customer.create({ userId: shop.user.id, name: "C", platform: "whatsapp", phone: "+910000000001" });
+  await Order.create({ userId: shop.user.id, customerId: customer._id, orderNumber: "ORD-ADM-1", platform: "whatsapp", total: 1500, paymentStatus: "paid", status: "delivered" });
+
+  const users = await request(app).get("/api/admin/users?limit=100").set("Authorization", `Bearer ${admin.token}`);
+  assert.equal(users.status, 200);
+  const row = users.body.data.find((u) => u._id === String(shop.user.id));
+  assert.deepEqual(row.activity, { customers: 1, orders: 1, revenue: 1500, messages: 0 });
+
+  const activity = await request(app).get("/api/admin/activity?days=7&tz=UTC").set("Authorization", `Bearer ${admin.token}`);
+  assert.equal(activity.status, 200);
+  assert.ok(activity.body.data.series.length >= 7);
+  assert.equal(activity.body.data.series.reduce((sum, d) => sum + d.revenue, 0), 1500);
+  assert.equal(activity.body.data.topShops[0].revenue, 1500);
+
+  const forbidden = await request(app).get("/api/admin/activity").set("Authorization", `Bearer ${shop.token}`);
+  assert.equal(forbidden.status, 403);
+});

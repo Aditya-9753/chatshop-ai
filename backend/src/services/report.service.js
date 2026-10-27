@@ -266,3 +266,5 @@ class ReportService {
 }
 
 module.exports = new ReportService();
+module.exports.dayKeys = dayKeys;
+module.exports.validTimeZone = validTimeZone;

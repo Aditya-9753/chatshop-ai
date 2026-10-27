@@ -6,7 +6,10 @@ const Product = require("../models/Product.model");
 const Conversation = require("../models/Conversation.model");
 const InternalNote = require("../models/InternalNote.model");
 const subscriptionService = require("./subscription.service");
-const { REVENUE_MATCH } = require("../utils/revenue");
+const { REVENUE_MATCH, ORDER_MATCH } = require("../utils/revenue");
+const { dayKeys, validTimeZone } = require("./report.service");
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 class AdminService {
   // Get dashboard overview stats
@@ -170,12 +173,85 @@ class AdminService {
       .skip((page - 1) * limit);
 
     const count = await User.countDocuments(query);
+    const activity = await this.shopActivity(users.map((u) => u._id));
 
     return {
-      users,
+      users: users.map((u) => ({ ...u.toJSON(), activity: activity[u._id.toString()] })),
       totalPages: Math.ceil(count / limit),
       currentPage: parseInt(page),
       total: count,
+    };
+  }
+
+  // Real per-shop numbers (customers, orders, revenue, messages), counted
+  // from the collections rather than the cached user.stats
+  async shopActivity(userIds) {
+    const byUser = (rows, field = "count") => Object.fromEntries(rows.map((r) => [r._id.toString(), r[field]]));
+    const match = { userId: { $in: userIds } };
+    const [customers, orders, revenue, messages] = await Promise.all([
+      Customer.aggregate([{ $match: match }, { $group: { _id: "$userId", count: { $sum: 1 } } }]),
+      Order.aggregate([{ $match: { ...match, ...ORDER_MATCH } }, { $group: { _id: "$userId", count: { $sum: 1 } } }]),
+      Order.aggregate([{ $match: { ...match, ...REVENUE_MATCH } }, { $group: { _id: "$userId", total: { $sum: "$total" } } }]),
+      Message.aggregate([{ $match: match }, { $group: { _id: "$userId", count: { $sum: 1 } } }]),
+    ]);
+    const maps = { customers: byUser(customers), orders: byUser(orders), revenue: byUser(revenue, "total"), messages: byUser(messages) };
+    return Object.fromEntries(
+      userIds.map((id) => {
+        const key = id.toString();
+        return [key, { customers: maps.customers[key] || 0, orders: maps.orders[key] || 0, revenue: maps.revenue[key] || 0, messages: maps.messages[key] || 0 }];
+      })
+    );
+  }
+
+  // Platform activity per day for the last `days` days, plus the shops
+  // that sold the most in that window
+  async getDailyActivity({ days = 30, tz } = {}) {
+    tz = validTimeZone(tz || "UTC");
+    days = Math.min(Math.max(Number(days) || 30, 7), 365);
+    const end = new Date();
+    const start = new Date(end.getTime() - days * DAY_MS);
+    const range = { createdAt: { $gte: start, $lt: end } };
+    const day = { $dateToString: { format: "%Y-%m-%d", date: "$createdAt", timezone: tz } };
+
+    const [signups, orders, messages, top] = await Promise.all([
+      User.aggregate([{ $match: { role: { $ne: "admin" }, ...range } }, { $group: { _id: day, signups: { $sum: 1 } } }]),
+      Order.aggregate([
+        { $match: { ...range, ...ORDER_MATCH } },
+        {
+          $group: {
+            _id: day,
+            orders: { $sum: 1 },
+            revenue: { $sum: { $cond: [{ $eq: ["$paymentStatus", "paid"] }, "$total", 0] } },
+          },
+        },
+      ]),
+      Message.aggregate([{ $match: range }, { $group: { _id: day, messages: { $sum: 1 } } }]),
+      Order.aggregate([
+        { $match: { ...range, ...REVENUE_MATCH } },
+        { $group: { _id: "$userId", revenue: { $sum: "$total" }, orders: { $sum: 1 } } },
+        { $sort: { revenue: -1 } },
+        { $limit: 5 },
+        { $lookup: { from: "users", localField: "_id", foreignField: "_id", as: "user" } },
+        { $unwind: "$user" },
+        { $project: { revenue: 1, orders: 1, name: "$user.name", email: "$user.email", business: "$user.businessInfo.businessName" } },
+      ]),
+    ]);
+
+    const index = (rows) => Object.fromEntries(rows.map((r) => [r._id, r]));
+    const s = index(signups);
+    const o = index(orders);
+    const m = index(messages);
+
+    return {
+      days,
+      series: dayKeys(start, new Date(end.getTime() - 1), tz).map((date) => ({
+        date,
+        signups: s[date]?.signups || 0,
+        orders: o[date]?.orders || 0,
+        revenue: o[date]?.revenue || 0,
+        messages: m[date]?.messages || 0,
+      })),
+      topShops: top,
     };
   }
 

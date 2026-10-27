@@ -134,7 +134,7 @@ function PlanCard({ collapsed }) {
           </p>
         </>
       ) : (
-        <p className="mt-1 text-xs text-fg-muted">Choose a plan to keep using the inbox</p>
+        <p className="mt-1 text-xs text-fg-muted">{active ? "Your plan is active" : "Choose a plan to keep using the inbox"}</p>
       )}
     </Link>
   );

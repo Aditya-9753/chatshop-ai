@@ -9,7 +9,13 @@ const {
   updateUser,
   deleteUser,
   getSystemStats,
+  getDailyActivity,
 } = require("../controllers/admin.controller");
+
+// @route   GET /api/admin/activity
+// @desc    Platform activity per day and top shops
+// @access  Private/Admin
+router.get("/activity", protect, isAdmin, getDailyActivity);
 
 // @route   GET /api/admin/dashboard
 // @desc    Get admin dashboard stats
