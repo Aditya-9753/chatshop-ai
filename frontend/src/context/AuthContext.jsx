@@ -70,6 +70,8 @@ export const AuthProvider = ({ children }) => {
     updateUser,
     isAuthenticated: !!user,
     isAdmin: user?.role === "admin",
+    // Signed in with the Super Admin password (not the limited Admin panel one)
+    isSuperAdmin: user?.role === "admin" && user?.adminLevel !== "admin",
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

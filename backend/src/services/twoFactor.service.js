@@ -53,8 +53,10 @@ class TwoFactorService {
 
   // Short-lived token proving the password step passed; it can't be used
   // as a session (the auth middleware rejects purpose: "2fa")
-  challengeFor(user) {
-    return jwt.sign({ id: user._id, purpose: "2fa" }, process.env.JWT_SECRET, { expiresIn: CHALLENGE_TTL });
+  challengeFor(user, adminLevel) {
+    const payload = { id: user._id, purpose: "2fa" };
+    if (adminLevel) payload.adminLevel = adminLevel;
+    return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: CHALLENGE_TTL });
   }
 
   // Second login step: the challenge token plus a code from the app
@@ -70,7 +72,7 @@ class TwoFactorService {
     const user = await User.findById(decoded.id).select("+twoFactor.secret");
     if (!user?.twoFactor?.enabled) throw new Error("Invalid sign-in step");
     if (!this.check(user, code)) throw new Error("That code isn't right");
-    return user;
+    return { user, adminLevel: decoded.adminLevel };
   }
 }
 

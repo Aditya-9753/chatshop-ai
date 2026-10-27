@@ -1,6 +1,9 @@
 const express = require("express");
 const router = express.Router();
 const { protect } = require("../middleware/auth.middleware");
+// The limited Admin panel shares the Super Admin's account, so it can't
+// change that account's profile, password or two-factor login
+const { superAdminOnly } = require("../middleware/admin.middleware");
 const upload = require("../middleware/upload.middleware");
 const {
   getProfile,
@@ -22,17 +25,17 @@ router.get("/profile", protect, getProfile);
 // @route   PUT /api/users/profile
 // @desc    Update user profile
 // @access  Private
-router.put("/profile", protect, upload.single("profilePhoto"), updateProfile);
+router.put("/profile", protect, superAdminOnly, upload.single("profilePhoto"), updateProfile);
 
 // @route   PUT /api/users/password
 // @desc    Update user password
 // @access  Private
-router.put("/password", protect, updatePassword);
+router.put("/password", protect, superAdminOnly, updatePassword);
 
 // @route   DELETE /api/users/account
 // @desc    Delete user account
 // @access  Private
-router.delete("/account", protect, deleteAccount);
+router.delete("/account", protect, superAdminOnly, deleteAccount);
 
 // @route   PUT /api/users/whatsapp-config
 // @desc    Update WhatsApp configuration
@@ -69,8 +72,8 @@ router.get("/announcements", protect, tools.myAnnouncements);
 // @route   POST /api/users/2fa/{setup,enable,disable}
 // @desc    Two-factor login with an authenticator app
 // @access  Private
-router.post("/2fa/setup", protect, tools.twoFactorSetup);
-router.post("/2fa/enable", protect, tools.twoFactorEnable);
-router.post("/2fa/disable", protect, tools.twoFactorDisable);
+router.post("/2fa/setup", protect, superAdminOnly, tools.twoFactorSetup);
+router.post("/2fa/enable", protect, superAdminOnly, tools.twoFactorEnable);
+router.post("/2fa/disable", protect, superAdminOnly, tools.twoFactorDisable);
 
 module.exports = router;

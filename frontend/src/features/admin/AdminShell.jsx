@@ -26,21 +26,25 @@ export const ADMIN_SECTIONS = [
   { value: "products", label: "Products", icon: Package },
   { value: "messages", label: "Messages", icon: MessageSquare },
   { value: "analytics", label: "Analytics", icon: BarChart3 },
-  { value: "settings", label: "Settings", icon: Settings },
-  { value: "security", label: "Security", icon: Lock },
+  { value: "settings", label: "Settings", icon: Settings, superOnly: true },
+  { value: "security", label: "Security", icon: Lock, superOnly: true },
 ];
 
+// The limited Admin panel (admin-panel password) has no Settings or Security
+export const sectionsFor = (isSuperAdmin) => ADMIN_SECTIONS.filter((s) => isSuperAdmin || !s.superOnly);
+
 function AdminNav({ section, onSection }) {
+  const { isSuperAdmin } = useAuth();
   return (
     <div className="flex h-full flex-col gap-2 p-3">
       <div className="flex items-center gap-2.5 p-1.5">
         <LogoMark />
         <span className="text-sm font-semibold text-fg">ChatShop</span>
-        <Badge tone="accent">Super Admin</Badge>
+        <Badge tone="accent">{isSuperAdmin ? "Super Admin" : "Admin"}</Badge>
       </div>
       <nav aria-label="Admin" className="mt-2 flex-1">
         <ul className="flex flex-col gap-0.5">
-          {ADMIN_SECTIONS.map((item) => {
+          {sectionsFor(isSuperAdmin).map((item) => {
             const active = item.value === section;
             return (
               <li key={item.value}>
@@ -64,9 +68,9 @@ function AdminNav({ section, onSection }) {
   );
 }
 
-// Same structure as the app shell, with a "Super Admin" badge and admin nav
+// Same structure as the app shell, with a "Super Admin" or "Admin" badge and admin nav
 export default function AdminShell({ section, onSection, onRefresh, children }) {
-  const { user, logout } = useAuth();
+  const { user, logout, isSuperAdmin } = useAuth();
   const { isDarkMode, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -98,7 +102,8 @@ export default function AdminShell({ section, onSection, onRefresh, children }) 
           <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-line bg-canvas/85 px-4 backdrop-blur lg:px-8">
             <Button variant="ghost" size="icon" icon={Menu} onClick={() => setMenuOpen(true)} className="lg:hidden" aria-label="Open menu" />
             <span className="min-w-0 truncate text-sm text-fg-muted">
-              Super Admin panel<span className="hidden sm:inline"> · Platform administration</span>
+              {isSuperAdmin ? "Super Admin panel" : "Admin panel"}
+              <span className="hidden sm:inline"> · Platform administration</span>
             </span>
             <div className="ml-auto flex items-center gap-2">
               <Button variant="secondary" size="sm" icon={RefreshCw} onClick={onRefresh} aria-label="Refresh data">

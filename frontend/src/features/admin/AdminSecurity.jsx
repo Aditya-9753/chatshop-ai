@@ -24,7 +24,68 @@ const ACTION_LABELS = {
   "data.export": "Exported data",
   "data.backup": "Downloaded a backup",
   "cache.clear": "Cleared the cache",
+  "admin_panel.password": "Changed the Admin panel password",
 };
+
+// Second password on this account that opens the limited Admin panel
+function AdminPanelPasswordCard() {
+  const toast = useToast();
+  const [status, setStatus] = useState(null);
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    adminService
+      .getAdminPanel()
+      .then((res) => setStatus(res.data))
+      .catch(() => setStatus({ set: false }));
+  }, []);
+
+  const save = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      const response = await adminService.setAdminPanelPassword(password);
+      setStatus(response.data);
+      setPassword("");
+      toast.success("Admin panel password saved");
+    } catch (err) {
+      setError(err.message || "Couldn't save the password");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader
+        title="Admin panel password"
+        description="Same email, second password. It opens the Admin panel: every shop and its data, but no settings, security, backup or deleting shops."
+        action={status?.set ? <Badge tone="success" dot>Set</Badge> : <Badge>Not set</Badge>}
+      />
+      <CardBody>
+        <form onSubmit={save} className="flex flex-col gap-3">
+          <Input
+            label="New Admin panel password"
+            type="password"
+            autoComplete="new-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            hint="At least 6 characters and different from your Super Admin password. Saving logs out open Admin panel sessions."
+          />
+          {error && <Alert tone="danger">{error}</Alert>}
+          <div>
+            <Button type="submit" loading={busy} disabled={password.length < 6}>
+              Save password
+            </Button>
+          </div>
+        </form>
+      </CardBody>
+    </Card>
+  );
+}
 
 // Two-factor login with an authenticator app (was "Coming soon")
 function TwoFactorCard({ enabled, onChange }) {
@@ -201,14 +262,15 @@ export default function AdminSecurity() {
 
   return (
     <div>
-      <PageHeader title="Security" description="Your admin password, two-factor login and the audit log." />
+      <PageHeader title="Security" description="Your Super Admin password, two-factor login, the Admin panel password and the audit log." />
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <SecuritySettings profile={profile || user || {}} allowDelete={false} />
-        <div>
+        <div className="flex flex-col gap-6">
           <TwoFactorCard
             enabled={!!profile?.twoFactor?.enabled}
             onChange={(enabled) => setProfile((p) => ({ ...p, twoFactor: { ...(p?.twoFactor || {}), enabled } }))}
           />
+          <AdminPanelPasswordCard />
         </div>
       </div>
       <div className="mt-8">

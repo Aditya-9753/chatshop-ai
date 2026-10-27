@@ -19,15 +19,15 @@ const createDefaultAdmin = async () => {
     const User = require("../models/User.model");
     const bcrypt = require("bcryptjs");
 
-    const adminExists = await User.findOne({ role: "admin" });
+    let admin = await User.findOne({ role: "admin" }).select("+adminPanel.password");
 
-    if (!adminExists) {
+    if (!admin) {
       const hashedPassword = await bcrypt.hash(
         process.env.ADMIN_PASSWORD || "Admin@12345",
         10
       );
 
-      await User.create({
+      admin = await User.create({
         name: "Super Admin",
         email: process.env.ADMIN_EMAIL || "admin@chatshopai.com",
         password: hashedPassword,
@@ -37,6 +37,16 @@ const createDefaultAdmin = async () => {
       });
 
       console.log("✅ Default admin user created");
+    }
+
+    // Second password on the same account for the limited Admin panel.
+    // Set once; change it later in the Super Admin panel → Security.
+    if (!admin.adminPanel?.password) {
+      admin.adminPanel = {
+        password: await bcrypt.hash(process.env.ADMIN_PANEL_PASSWORD || "Admin@123456", 10),
+      };
+      await admin.save();
+      console.log("✅ Admin panel password set");
     }
   } catch (error) {
     console.log("ℹ️  Admin creation skipped:", error.message);

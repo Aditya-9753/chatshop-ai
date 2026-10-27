@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import AdminShell, { ADMIN_SECTIONS } from "../features/admin/AdminShell";
+import { useAuth } from "../context/AuthContext";
+import AdminShell, { sectionsFor } from "../features/admin/AdminShell";
 import AdminUsers from "../features/admin/AdminUsers";
 import { AdminOverview } from "../features/admin/AdminOverview";
 import AdminAnalytics from "../features/admin/AdminAnalytics";
@@ -23,7 +24,8 @@ const SECTIONS = {
 
 const AdminDashboard = () => {
   const [params, setParams] = useSearchParams();
-  const section = ADMIN_SECTIONS.some((s) => s.value === params.get("section")) ? params.get("section") : "overview";
+  const { isSuperAdmin } = useAuth();
+  const section = sectionsFor(isSuperAdmin).some((s) => s.value === params.get("section")) ? params.get("section") : "overview";
   const Section = SECTIONS[section];
   // "Refresh data" remounts the section, which reloads everything it shows
   const [refreshKey, setRefreshKey] = useState(0);

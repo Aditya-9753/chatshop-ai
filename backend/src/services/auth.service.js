@@ -11,9 +11,11 @@ const hashToken = (token) =>
   crypto.createHash("sha256").update(token).digest("hex");
 
 class AuthService {
-  // Generate JWT Token
-  generateToken(userId) {
-    return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
+  // Generate JWT Token. Sessions opened with the admin-panel password carry
+  // adminLevel: "admin"; every other session is full access.
+  generateToken(userId, adminLevel) {
+    const payload = adminLevel === "admin" ? { id: userId, adminLevel } : { id: userId };
+    return jwt.sign(payload, process.env.JWT_SECRET, {
       expiresIn: process.env.JWT_EXPIRE || "7d",
     });
   }
@@ -29,13 +31,15 @@ class AuthService {
   }
 
   // The user fields the frontend keeps in localStorage
-  toSessionUser(user) {
+  toSessionUser(user, adminLevel) {
     return {
       id: user._id,
       name: user.name,
       email: user.email,
       phone: user.phone,
       role: user.role,
+      // "super" (Super Admin) or "admin" (limited admin panel)
+      adminLevel: user.role === "admin" ? (adminLevel === "admin" ? "admin" : "super") : undefined,
       isVerified: user.isVerified,
       profilePhoto: user.profilePhoto,
       businessInfo: user.businessInfo,
@@ -103,36 +107,42 @@ class AuthService {
   // Login user
   async login(email, password) {
     // Find user and explicitly select password field
-    const user = await User.findOne({ email: email.toLowerCase() }).select("+password");
+    const user = await User.findOne({ email: email.toLowerCase() }).select("+password +adminPanel.password");
     if (!user) {
       throw new Error("Invalid email or password");
     }
 
-    // Check password
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      throw new Error("Invalid email or password");
+    // Check password. An admin account also accepts its admin-panel
+    // password, which opens the limited Admin panel.
+    let adminLevel;
+    if (!(await bcrypt.compare(password, user.password))) {
+      const panelMatch =
+        user.role === "admin" && user.adminPanel?.password && (await bcrypt.compare(password, user.adminPanel.password));
+      if (!panelMatch) {
+        throw new Error("Invalid email or password");
+      }
+      adminLevel = "admin";
     }
 
     // With two-factor login on, the password only earns a short challenge
     if (user.twoFactor?.enabled) {
-      return { twoFactorRequired: true, challengeToken: twoFactorService.challengeFor(user) };
+      return { twoFactorRequired: true, challengeToken: twoFactorService.challengeFor(user, adminLevel) };
     }
 
-    return this.session(user);
+    return this.session(user, adminLevel);
   }
 
-  session(user) {
+  session(user, adminLevel) {
     return {
-      token: this.generateToken(user._id),
-      user: this.toSessionUser(user),
+      token: this.generateToken(user._id, adminLevel),
+      user: this.toSessionUser(user, adminLevel),
     };
   }
 
   // Second login step for accounts with two-factor login
   async loginWithCode(challengeToken, code) {
-    const user = await twoFactorService.verifyChallenge(challengeToken, code);
-    return this.session(user);
+    const { user, adminLevel } = await twoFactorService.verifyChallenge(challengeToken, code);
+    return this.session(user, adminLevel);
   }
 
   // Verify email

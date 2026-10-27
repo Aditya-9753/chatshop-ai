@@ -120,6 +120,13 @@ const userSchema = new mongoose.Schema(
       secret: { type: String, select: false },
       pendingSecret: { type: String, select: false },
     },
+    // Admins only: a second password for the same account that opens the
+    // limited "Admin" panel (no platform settings, security, backup or deletes)
+    adminPanel: {
+      password: { type: String, select: false },
+      // Admin-panel sessions issued before this moment are rejected
+      changedAt: Date,
+    },
     emailVerificationToken: { type: String, select: false },
     emailVerificationExpires: { type: Date, select: false },
   },
@@ -137,6 +144,7 @@ const userSchema = new mongoose.Schema(
           delete ret.twoFactor.secret;
           delete ret.twoFactor.pendingSecret;
         }
+        if (ret.adminPanel) delete ret.adminPanel.password;
         for (const key of ["whatsappConfig", "instagramConfig", "facebookConfig"]) {
           if (ret[key]) {
             ret[key].hasAccessToken = Boolean(ret[key].accessToken);
@@ -154,6 +162,12 @@ const userSchema = new mongoose.Schema(
 userSchema.methods.changedPasswordAfter = function (iat) {
   if (!this.passwordChangedAt) return false;
   return iat * 1000 < this.passwordChangedAt.getTime();
+};
+
+// Same check for sessions opened with the admin-panel password
+userSchema.methods.changedAdminPanelPasswordAfter = function (iat) {
+  if (!this.adminPanel?.changedAt) return false;
+  return iat * 1000 < this.adminPanel.changedAt.getTime();
 };
 
 // Indexes for faster queries
