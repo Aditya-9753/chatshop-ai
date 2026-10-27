@@ -274,43 +274,22 @@ npm run dev
 - `POST /api/instagram/send` - Send Instagram message
 - `GET /api/instagram/status` - Get connection status
 
-## 🎨 UI Components
+## 🎨 Design System
 
-### Reusable Components
+All colours, type and motion are tokens defined once in `frontend/src/index.css` (light and dark) and used through Tailwind classes such as `bg-surface`, `text-fg`, `text-fg-muted`, `border-line` and `bg-accent`. Dark mode comes from the `.dark` class that `ThemeContext` sets, so components never branch on the theme. Fonts are Inter and JetBrains Mono, self-hosted.
 
-**Button Component**
-
-```jsx
-<Button variant="primary" size="md" icon={Plus}>
-  Add Customer
-</Button>
-```
-
-Variants: primary, secondary, success, danger, warning, ghost
-
-**Input Component**
+The component kit lives in `frontend/src/components/ui/` and is imported from one place:
 
 ```jsx
-<Input label="Email" type="email" icon={Mail} error={errors.email} required />
+import { Button, Input, DataTable, Drawer, StatusPill, PageHeader } from "../components/ui";
+
+<PageHeader title="Orders" description="…" actions={<Button icon={Plus}>New order</Button>} />
+<DataTable columns={columns} rows={orders} searchable loading={loading} error={error} empty={{ title: "No orders yet" }} />
 ```
 
-**Modal Component**
+Kit: Button, Input, Textarea, Select, Switch, Checkbox, Card, StatCard, DataTable, Badge, StatusPill, ChannelBadge, Modal, Drawer, ConfirmDialog, DropdownMenu, Tooltip, Tabs, Avatar, Skeleton, EmptyState, ErrorState, Alert. Toasts use `useToast()` (sonner). Ctrl+K opens the command palette.
 
-```jsx
-<Modal isOpen={true} onClose={handleClose} title="Add Customer" size="lg">
-  <form>...</form>
-</Modal>
-```
-
-Sizes: sm, md, lg, xl
-
-**Toast Notifications**
-
-```jsx
-const { success, error, info } = useToast();
-success("Customer created successfully");
-error("Failed to save");
-```
+Rules for new UI: use tokens and kit components only (no hex values, no `isDarkMode ? …` colour ternaries, no one-off gradients), design loading, empty and error states, and keep files under 500 lines.
 
 ## 🔐 Authentication Flow
 
@@ -318,7 +297,8 @@ error("Failed to save");
 2. User logs in → JWT token stored in localStorage
 3. Token attached to all API requests via Axios interceptor
 4. Protected routes check authentication via AuthContext
-5. Auto-logout on 401 Unauthorized response
+5. A 401 on a normal request ends the session and returns to login; a wrong password on the login form shows inline instead
+6. Changing or resetting a password logs out every other session
 
 ## 📱 Responsive Design
 
@@ -351,28 +331,26 @@ error("Failed to save");
 
 ### Backend (.env)
 
+See `backend/.env.example` for the full list. The ones the messaging pipeline needs:
+
 ```env
 MONGODB_URI=your-mongodb-connection-string
 JWT_SECRET=your-secret-key
 PORT=5000
-NODE_ENV=production
 FRONTEND_URL=https://yourdomain.com
+TRUST_PROXY=1                     # when behind one proxy / load balancer
 
-# Email (optional for testing)
+# Meta (WhatsApp, Instagram, Facebook)
+META_APP_SECRET=your-meta-app-secret   # verifies X-Hub-Signature-256; webhooks are rejected without it
+META_GRAPH_API_URL=https://graph.facebook.com/v23.0
+WHATSAPP_VERIFY_TOKEN=random-string    # typed into the Meta dashboard when subscribing the webhook
+INSTAGRAM_VERIFY_TOKEN=random-string
+FACEBOOK_VERIFY_TOKEN=random-string
+PUBLIC_BASE_URL=https://api.yourdomain.com   # so WhatsApp can download attachments you send
+
+# Email (password reset). Without it, the reset link is printed in the server log in development.
 EMAIL_USER=your-email@gmail.com
 EMAIL_PASSWORD=your-app-password
-
-# Razorpay (required for payments)
-RAZORPAY_KEY_ID=your-razorpay-key
-RAZORPAY_KEY_SECRET=your-razorpay-secret
-
-# WhatsApp Business API
-WHATSAPP_TOKEN=your-token
-WHATSAPP_PHONE_ID=your-phone-id
-
-# Instagram Graph API
-INSTAGRAM_TOKEN=your-token
-INSTAGRAM_BUSINESS_ID=your-business-id
 ```
 
 ### Frontend (.env)
@@ -381,19 +359,22 @@ INSTAGRAM_BUSINESS_ID=your-business-id
 VITE_API_URL=https://api.yourdomain.com/api
 ```
 
+## 📲 Connecting a real WhatsApp number
+
+1. In the Meta App Dashboard, add the WhatsApp product and note the **phone number ID** (not the phone number) and a permanent **System User access token**.
+2. Set `META_APP_SECRET` (App settings → Basic) and `WHATSAPP_VERIFY_TOKEN` on the server, and make the server reachable over HTTPS (for local testing, an ngrok URL).
+3. In WhatsApp → Configuration, set the callback URL to `https://<server>/api/whatsapp/webhook`, the verify token to `WHATSAPP_VERIFY_TOKEN`, and subscribe to the **messages** field.
+4. In ChatShop, open **Settings → Channels → WhatsApp**, paste the phone number ID and token, and connect. The credentials are checked against Meta before they're saved.
+5. Send a message from a phone: it appears in the inbox within a second, without refreshing. Replies show sent → delivered → read ticks; failures show Meta's reason with a Retry button.
+
+WhatsApp only accepts free-form replies within 24 hours of the customer's last message; outside that window Meta rejects the send and the inbox shows the error.
+
 ## 📈 Future Enhancements
 
-- [ ] Real-time chat with WebSocket
-- [ ] AI chatbot integration (OpenAI/Gemini)
-- [ ] Bulk message sending
-- [ ] Message templates
-- [ ] Automated responses
-- [ ] Product image upload
-- [ ] Invoice generation
-- [ ] Export reports (PDF/Excel)
-- [ ] Advanced analytics with filters
-- [ ] Multi-language support
-- [ ] Dark mode
+- [ ] AI auto-replies (preferences already saved in Settings → AI replies)
+- [ ] Online checkout and payment links (Razorpay)
+- [ ] WhatsApp message templates for replies outside the 24-hour window
+- [ ] Team members and inbox assignment
 - [ ] Mobile app (React Native)
 
 ## 🐛 Known Issues
@@ -406,9 +387,14 @@ VITE_API_URL=https://api.yourdomain.com/api
 
 ### Run Tests
 
+The backend suite (Node's test runner + supertest) needs a local MongoDB; each test file uses its own throwaway database.
+
 ```bash
+cd backend
 npm test
 ```
+
+It covers the messaging pipeline (inbound save, de-duplication, signature check, send/deliver/read statuses, retry, socket.io push), all three password flows, and the dashboard/analytics report.
 
 ### Lint Code
 
