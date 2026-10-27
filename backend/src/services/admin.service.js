@@ -3,6 +3,9 @@ const Customer = require("../models/Customer.model");
 const Message = require("../models/Message.model");
 const Order = require("../models/Order.model");
 const Product = require("../models/Product.model");
+const Conversation = require("../models/Conversation.model");
+const InternalNote = require("../models/InternalNote.model");
+const subscriptionService = require("./subscription.service");
 const { REVENUE_MATCH } = require("../utils/revenue");
 
 class AdminService {
@@ -104,27 +107,19 @@ class AdminService {
     };
   }
 
-  // Calculate total revenue
+  // Monthly recurring revenue from active subscriptions, priced from the
+  // same plan list the billing page shows (one-time plans excluded)
   async calculateTotalRevenue() {
-    const planPrices = {
-      starter: 499,
-      business: 999,
-      premium: 1999,
-    };
-
+    const plans = subscriptionService.getPlans();
     const activeSubscriptions = await User.find({
       role: "user",
       "subscription.status": "active",
     }).select("subscription.plan");
 
-    let total = 0;
-    activeSubscriptions.forEach((user) => {
-      if (user.subscription && user.subscription.plan) {
-        total += planPrices[user.subscription.plan] || 0;
-      }
-    });
-
-    return total;
+    return activeSubscriptions.reduce((total, user) => {
+      const plan = user.subscription?.plan;
+      return plan && plan !== "one-time" ? total + (plans[plan]?.price || 0) : total;
+    }, 0);
   }
 
   // Get all users
@@ -228,7 +223,7 @@ class AdminService {
 
     if (role) user.role = role;
     if (subscription) {
-      if (subscription.plan) user.subscription.plan = subscription.plan;
+      if (subscription.plan !== undefined) user.subscription.plan = subscription.plan || null;
       if (subscription.status) user.subscription.status = subscription.status;
       if (subscription.startDate)
         user.subscription.startDate = subscription.startDate;
@@ -248,9 +243,14 @@ class AdminService {
     }
 
     // Delete all user data
-    await Customer.deleteMany({ userId: user._id });
-    await Message.deleteMany({ userId: user._id });
-    await Order.deleteMany({ userId: user._id });
+    await Promise.all([
+      Customer.deleteMany({ userId: user._id }),
+      Message.deleteMany({ userId: user._id }),
+      Order.deleteMany({ userId: user._id }),
+      Product.deleteMany({ userId: user._id }),
+      Conversation.deleteMany({ userId: user._id }),
+      InternalNote.deleteMany({ userId: user._id }),
+    ]);
     await user.deleteOne();
 
     return true;

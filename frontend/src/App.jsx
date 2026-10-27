@@ -7,10 +7,9 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { PageLoader } from "./components/ui";
 
-// Layouts
-import DashboardLayout from "./layouts/DashboardLayout";
 
 // Pages are split per route so the landing and login pages load fast
+const DashboardLayout = lazy(() => import("./layouts/DashboardLayout"));
 const LandingPage = lazy(() => import("./pages/LandingPage"));
 const Login = lazy(() => import("./pages/Login"));
 const Register = lazy(() => import("./pages/Register"));

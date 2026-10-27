@@ -46,7 +46,7 @@ export default function ProductPreview({ className }) {
       </div>
       <div className="grid grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)] min-h-[260px]">
         <div className="border-r border-line">
-          <div className="m-2 flex items-center gap-1.5 rounded-md border border-line px-2 py-1 text-[10px] text-fg-subtle">
+          <div className="m-2 flex items-center gap-1.5 rounded-md border border-line px-2 py-1 text-[10px] text-fg-muted">
             <Search className="h-3 w-3" /> Search chats
           </div>
           {CONVERSATIONS.map((c) => (
@@ -60,7 +60,7 @@ export default function ProductPreview({ className }) {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-1">
                   <span className="truncate text-[11px] font-medium text-fg">{c.name}</span>
-                  <span className="text-[9px] text-fg-subtle">{c.time}</span>
+                  <span className="text-[9px] text-fg-muted">{c.time}</span>
                 </div>
                 <div className="flex items-center justify-between gap-1">
                   <span className="truncate text-[10px] text-fg-muted">{c.text}</span>
@@ -96,7 +96,7 @@ export default function ProductPreview({ className }) {
             </div>
             <Bubble>Perfect, I'll take it</Bubble>
           </div>
-          <div className="m-2 rounded-lg border border-line px-2.5 py-1.5 text-[10px] text-fg-subtle">Type a reply…</div>
+          <div className="m-2 rounded-lg border border-line px-2.5 py-1.5 text-[10px] text-fg-muted">Type a reply…</div>
         </div>
       </div>
     </div>

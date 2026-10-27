@@ -6,13 +6,16 @@ import { formatCompact } from "../../utils/format";
 
 const shortDate = (key) =>
   new Date(`${key}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+const shortMonth = (key) =>
+  new Date(`${key}T00:00:00`).toLocaleDateString("en-IN", { month: "short", year: "2-digit" });
+const labelFor = (granularity) => (granularity === "month" ? shortMonth : shortDate);
 
 // One tooltip for every series at the hovered date; values lead, labels follow
-function SeriesTooltip({ active, payload, label, series, format }) {
+function SeriesTooltip({ active, payload, label, series, format, granularity }) {
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-lg border border-line bg-surface px-3 py-2 shadow-popover">
-      <p className="mb-1 text-xs text-fg-muted">{shortDate(label)}</p>
+      <p className="mb-1 text-xs text-fg-muted">{labelFor(granularity)(label)}</p>
       {series.map((s) => {
         const row = payload.find((p) => p.dataKey === s.key);
         return (
@@ -31,7 +34,7 @@ function SeriesTooltip({ active, payload, label, series, format }) {
  * Line/area chart over days. series: [{ key, label, color }] (max 2-3).
  * A legend is shown for 2+ series; a single series is named by the card title.
  */
-export function TimeSeriesChart({ data, series, format = (v) => v, height = 260, dimmed }) {
+export function TimeSeriesChart({ data, series, format = (v) => v, height = 260, dimmed, granularity }) {
   return (
     <div className={cn("transition-opacity duration-200", dimmed && "opacity-50")}>
       {series.length > 1 && (
@@ -58,7 +61,7 @@ export function TimeSeriesChart({ data, series, format = (v) => v, height = 260,
             <CartesianGrid vertical={false} stroke="var(--line)" />
             <XAxis
               dataKey="date"
-              tickFormatter={shortDate}
+              tickFormatter={labelFor(granularity)}
               tick={{ fill: "var(--fg-muted)", fontSize: 12 }}
               axisLine={{ stroke: "var(--line)" }}
               tickLine={false}
@@ -74,7 +77,7 @@ export function TimeSeriesChart({ data, series, format = (v) => v, height = 260,
             />
             <Tooltip
               cursor={{ stroke: "var(--line-strong)", strokeWidth: 1 }}
-              content={<SeriesTooltip series={series} format={format} />}
+              content={<SeriesTooltip series={series} format={format} granularity={granularity} />}
             />
             {series.map((s) => (
               <Area
@@ -98,7 +101,7 @@ export function TimeSeriesChart({ data, series, format = (v) => v, height = 260,
 }
 
 // Daily values as a table: the accessible alternative to the chart
-export function SeriesTable({ data, series, format = (v) => v }) {
+export function SeriesTable({ data, series, format = (v) => v, granularity }) {
   return (
     <div className="max-h-[280px] overflow-auto scrollbar-thin rounded-lg border border-line">
       <table className="w-full text-sm">
@@ -115,7 +118,7 @@ export function SeriesTable({ data, series, format = (v) => v }) {
         <tbody>
           {data.map((row) => (
             <tr key={row.date} className="border-t border-line">
-              <td className="px-3 py-1.5 text-fg">{shortDate(row.date)}</td>
+              <td className="px-3 py-1.5 text-fg">{labelFor(granularity)(row.date)}</td>
               {series.map((s) => (
                 <td key={s.key} className="px-3 py-1.5 text-right tabular-nums text-fg">
                   {format(row[s.key])}
@@ -130,7 +133,7 @@ export function SeriesTable({ data, series, format = (v) => v }) {
 }
 
 // Card with a title and a chart/table toggle in the header
-export function ChartCard({ title, description, data, series, format, height, dimmed, className }) {
+export function ChartCard({ title, description, data, series, format, height, dimmed, granularity, className }) {
   const [view, setView] = useState("chart");
   return (
     <Card className={className}>
@@ -149,7 +152,7 @@ export function ChartCard({ title, description, data, series, format, height, di
                 aria-pressed={view === option.value}
                 aria-label={`Show as ${option.label.toLowerCase()}`}
                 className={cn(
-                  "rounded-md p-1 transition-colors",
+                  "rounded-md p-1.5 transition-colors",
                   view === option.value ? "bg-surface-2 text-fg" : "text-fg-muted hover:text-fg"
                 )}
               >
@@ -161,9 +164,9 @@ export function ChartCard({ title, description, data, series, format, height, di
       />
       <CardBody>
         {view === "chart" ? (
-          <TimeSeriesChart data={data} series={series} format={format} height={height} dimmed={dimmed} />
+          <TimeSeriesChart data={data} series={series} format={format} height={height} dimmed={dimmed} granularity={granularity} />
         ) : (
-          <SeriesTable data={data} series={series} format={format} />
+          <SeriesTable data={data} series={series} format={format} granularity={granularity} />
         )}
       </CardBody>
     </Card>

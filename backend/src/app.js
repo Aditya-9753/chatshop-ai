@@ -10,6 +10,13 @@ const allowedOrigins = require("./utils/origins");
 
 const app = express();
 
+// Behind a load balancer or proxy (Render, Nginx...), trust it so rate
+// limits apply per visitor instead of to the proxy's single IP
+if (process.env.TRUST_PROXY) {
+  const hops = Number(process.env.TRUST_PROXY);
+  app.set("trust proxy", Number.isNaN(hops) ? process.env.TRUST_PROXY : hops);
+}
+
 // Database Connection
 const connectDB = require("./db/connection");
 connectDB();
