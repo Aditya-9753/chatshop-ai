@@ -123,7 +123,18 @@ export default function OrderDrawer({ order, open, onOpenChange, onUpdate, onDel
             </ul>
             <dl className="mt-3 divide-y divide-line/60">
               <DetailRow label="Subtotal">{formatCurrency(order.subtotal ?? order.total)}</DetailRow>
-              {order.tax > 0 && <DetailRow label="Tax">{formatCurrency(order.tax)}</DetailRow>}
+              {order.discount > 0 && <DetailRow label="Discount">− {formatCurrency(order.discount)}</DetailRow>}
+              {order.tax > 0 &&
+                (order.taxType === "cgst_sgst" ? (
+                  <>
+                    <DetailRow label={`CGST (${(order.taxRate || 0) / 2}%)`}>{formatCurrency(order.tax / 2, { precise: true })}</DetailRow>
+                    <DetailRow label={`SGST (${(order.taxRate || 0) / 2}%)`}>{formatCurrency(order.tax / 2, { precise: true })}</DetailRow>
+                  </>
+                ) : (
+                  <DetailRow label={`${order.taxType === "gst" ? "GST" : "Tax"}${order.taxRate ? ` (${order.taxRate}%)` : ""}`}>
+                    {formatCurrency(order.tax, { precise: true })}
+                  </DetailRow>
+                ))}
               {order.shipping > 0 && <DetailRow label="Shipping">{formatCurrency(order.shipping)}</DetailRow>}
               <DetailRow label={<span className="font-medium text-fg">Total</span>}>
                 <span className="font-semibold tabular-nums">{formatCurrency(order.total)}</span>

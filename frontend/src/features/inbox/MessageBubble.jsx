@@ -96,7 +96,7 @@ function MediaContent({ message, outgoing }) {
   return null;
 }
 
-export default function MessageBubble({ message, grouped, onRetry, onEdit, onDelete }) {
+export default function MessageBubble({ message, grouped, fresh, onRetry, onEdit, onDelete }) {
   const outgoing = message.direction === "outgoing";
   const failed = message.status === "failed";
   const [editing, setEditing] = useState(false);
@@ -123,7 +123,7 @@ export default function MessageBubble({ message, grouped, onRetry, onEdit, onDel
   };
 
   return (
-    <div className={cn("group flex flex-col", outgoing ? "items-end" : "items-start", grouped ? "mt-0.5" : "mt-3")}>
+    <div className={cn("group flex flex-col", outgoing ? "items-end" : "items-start", grouped ? "mt-0.5" : "mt-3", fresh && "animate-bubble-in")}>
       <div className={cn("flex max-w-[85%] items-center gap-1 sm:max-w-[70%]", outgoing && "flex-row-reverse")}>
         <div
           className={cn(

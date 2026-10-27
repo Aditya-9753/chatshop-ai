@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Camera } from "lucide-react";
+import { BadgeCheck, Camera } from "lucide-react";
 import api from "../../services/api.service";
 import { API_ENDPOINTS, assetUrl } from "../../config/api.config";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../components/Toast";
-import { Avatar, Button, Card, CardBody, CardHeader, Input, Select, Textarea } from "../../components/ui";
+import { Avatar, Badge, Button, Card, CardBody, CardHeader, Input, Select, Skeleton, Textarea } from "../../components/ui";
+import { formatCurrency, formatNumber } from "../../utils/format";
 
 const BUSINESS_TYPES = ["", "Fashion & apparel", "Electronics", "Beauty & personal care", "Food & grocery", "Home & living", "Services", "Other"].map(
   (value) => ({ value, label: value || "Choose a type…" })
@@ -27,12 +28,12 @@ export default function ProfileSettings({ profile, onProfileChange }) {
 
   const [me, setMe] = useState({ name: "", email: "", phone: "" });
   const [photo, setPhoto] = useState(null);
-  const [business, setBusiness] = useState({ businessName: "", businessType: "", website: "", address: "", gstNumber: "" });
+  const [business, setBusiness] = useState({ businessName: "", businessType: "", website: "", address: "", gstNumber: "", businessEmail: "", businessPhone: "", description: "" });
   const [saving, setSaving] = useState(null);
 
   useEffect(() => {
     setMe({ name: profile.name || "", email: profile.email || "", phone: profile.phone || "" });
-    setBusiness({ businessName: "", businessType: "", website: "", address: "", gstNumber: "", ...profile.businessInfo });
+    setBusiness({ ...{ businessName: "", businessType: "", website: "", address: "", gstNumber: "", businessEmail: "", businessPhone: "", description: "" }, ...profile.businessInfo });
   }, [profile]);
 
   const meDirty = photo || me.name !== profile.name || me.email !== profile.email || me.phone !== (profile.phone || "");
@@ -85,6 +86,7 @@ export default function ProfileSettings({ profile, onProfileChange }) {
 
   return (
     <div className="flex flex-col gap-6">
+      <AccountStats />
       <Card as="form" onSubmit={saveProfile}>
         <CardHeader title="Your profile" description="How you appear to your team." />
         <CardBody className="flex flex-col gap-5">
@@ -103,6 +105,13 @@ export default function ProfileSettings({ profile, onProfileChange }) {
             <Input label="Phone" type="tel" value={me.phone} onChange={setMeField("phone")} autoComplete="tel" />
           </div>
           <Input label="Email" type="email" value={me.email} onChange={setMeField("email")} autoComplete="email" hint="Used to log in and for password resets." />
+          {profile.isVerified ? (
+            <Badge tone="success" className="self-start">
+              <BadgeCheck className="h-3.5 w-3.5" /> Email verified
+            </Badge>
+          ) : (
+            <Badge tone="warning" className="self-start">Email not verified</Badge>
+          )}
         </CardBody>
         <SaveRow saving={saving === "me"} dirty={meDirty} />
       </Card>
@@ -118,10 +127,55 @@ export default function ProfileSettings({ profile, onProfileChange }) {
             <Input label="Website" type="url" value={business.website} onChange={setBizField("website")} placeholder="https://" />
             <Input label="GSTIN" value={business.gstNumber} onChange={setBizField("gstNumber")} inputClassName="font-mono uppercase" hint="Printed on invoices" />
           </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Input label="Business email" type="email" value={business.businessEmail} onChange={setBizField("businessEmail")} placeholder="orders@yourshop.com" />
+            <Input label="Business phone" type="tel" value={business.businessPhone} onChange={setBizField("businessPhone")} placeholder="+91 …" />
+          </div>
           <Textarea label="Address" rows={2} value={business.address} onChange={setBizField("address")} />
+          <Textarea label="About the business" rows={3} value={business.description} onChange={setBizField("description")} placeholder="What you sell and who you sell to" />
         </CardBody>
         <SaveRow saving={saving === "business"} dirty={businessDirty} />
       </Card>
     </div>
+  );
+}
+
+// Totals for this shop (the old Profile page's "Account Stats")
+function AccountStats() {
+  const [stats, setStats] = useState(null);
+  useEffect(() => {
+    api
+      .get(API_ENDPOINTS.ANALYTICS.DASHBOARD)
+      .then((res) => setStats(res.data))
+      .catch(() => setStats(false));
+  }, []);
+  if (stats === false) return null;
+
+  const items = stats && [
+    ["Customers", formatNumber(stats.totalCustomers)],
+    ["Orders", formatNumber(stats.totalOrders)],
+    ["Products", formatNumber(stats.totalProducts)],
+    ["Messages", formatNumber(stats.totalMessages)],
+    ["Revenue", formatCurrency(stats.totalRevenue)],
+  ];
+
+  return (
+    <Card>
+      <CardHeader title="Account stats" description="Everything in your workspace so far." />
+      <CardBody>
+        {!stats ? (
+          <Skeleton className="h-16 w-full" />
+        ) : (
+          <dl className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+            {items.map(([label, value]) => (
+              <div key={label} className="rounded-lg border border-line p-2.5">
+                <dt className="text-xs text-fg-muted">{label}</dt>
+                <dd className="text-sm font-semibold tabular-nums text-fg">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+      </CardBody>
+    </Card>
   );
 }

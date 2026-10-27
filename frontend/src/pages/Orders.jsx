@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { CheckCircle2, Download, Eye, IndianRupee, Plus, Printer, ShoppingCart, Trash2, Truck } from "lucide-react";
+import { CheckCircle2, Clock, Download, Eye, IndianRupee, PackageCheck, Plus, Printer, RefreshCw, ShoppingCart, Trash2, Truck } from "lucide-react";
 import orderService from "../services/order.service";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../components/Toast";
-import { Avatar, Button, ChannelBadge, ConfirmDialog, DataTable, PageHeader, StatusPill, Tabs } from "../components/ui";
+import { Avatar, Button, ChannelBadge, ConfirmDialog, DataTable, PageHeader, StatCard, StatusPill, Tabs } from "../components/ui";
 import OrderDrawer from "../features/orders/OrderDrawer";
 import OrderForm from "../features/orders/OrderForm";
 import { exportOrdersCsv, printInvoice } from "../features/orders/invoice";
@@ -57,7 +57,21 @@ const Orders = () => {
     load();
   }, [load]);
 
-  const visible = useMemo(() => orders.filter(TABS.find((t) => t.value === tab).match), [orders, tab]);
+  const [payment, setPayment] = useState("all");
+  const visible = useMemo(
+    () => orders.filter(TABS.find((t) => t.value === tab).match).filter((o) => payment === "all" || o.paymentStatus === payment),
+    [orders, tab, payment]
+  );
+  const summary = useMemo(
+    () => ({
+      total: orders.length,
+      pending: orders.filter((o) => o.status === "pending").length,
+      shipped: orders.filter((o) => o.status === "shipped").length,
+      delivered: orders.filter((o) => o.status === "delivered").length,
+      revenue: orders.filter((o) => o.paymentStatus === "paid" && o.status !== "cancelled").reduce((sum, o) => sum + o.total, 0),
+    }),
+    [orders]
+  );
   const tabs = TABS.map((t) => ({ value: t.value, label: t.label, count: orders.filter(t.match).length }));
 
   const replace = (order) => setOrders((list) => list.map((o) => (o._id === order._id ? order : o)));
@@ -159,6 +173,14 @@ const Orders = () => {
         }
       />
 
+      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-5">
+        <StatCard label="Total orders" icon={ShoppingCart} loading={state.loading} value={summary.total} />
+        <StatCard label="Pending" icon={Clock} loading={state.loading} value={summary.pending} />
+        <StatCard label="Shipped" icon={Truck} loading={state.loading} value={summary.shipped} />
+        <StatCard label="Delivered" icon={PackageCheck} loading={state.loading} value={summary.delivered} />
+        <StatCard label="Revenue (paid)" icon={IndianRupee} loading={state.loading} value={formatCurrency(summary.revenue)} className="col-span-2 lg:col-span-1" />
+      </div>
+
       <Tabs tabs={tabs} value={tab} onChange={(value) => setParam("status", value === "all" ? null : value)} label="Order status" className="mb-4" />
 
       <DataTable
@@ -169,6 +191,25 @@ const Orders = () => {
         onRetry={load}
         searchable
         searchPlaceholder="Search order #, customer or phone"
+        toolbar={
+          <>
+            <select
+              value={payment}
+              onChange={(e) => setPayment(e.target.value)}
+              aria-label="Filter by payment"
+              className="h-8 rounded-lg border border-line bg-surface px-2 text-caption text-fg outline-none focus:border-accent"
+            >
+              <option value="all">All payments</option>
+              <option value="paid">Paid</option>
+              <option value="pending">Unpaid</option>
+              <option value="failed">Failed</option>
+              <option value="refunded">Refunded</option>
+            </select>
+            <Button variant="ghost" size="sm" icon={RefreshCw} onClick={load} aria-label="Refresh orders">
+              Refresh
+            </Button>
+          </>
+        }
         searchText={(o) => `${o.orderNumber} ${o.customerId?.name || ""} ${o.customerId?.phone || ""}`}
         defaultSort={{ key: "createdAt", dir: "desc" }}
         onRowClick={(o) => setParam("id", o._id)}

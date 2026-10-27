@@ -11,6 +11,7 @@ export const QUICK_REPLIES = [
   {
     category: "Pricing",
     replies: [
+      { title: "Price inquiry", text: "The price for this product is ₹___. Would you like to place an order?" },
       { title: "Bulk discount", text: "For bulk orders (10+ items), we offer special discounts. Please share the quantity you need." },
       { title: "Payment methods", text: "We accept UPI, credit/debit cards, net banking and cash on delivery." },
     ],
@@ -20,6 +21,7 @@ export const QUICK_REPLIES = [
     replies: [
       { title: "Delivery time", text: "Standard delivery takes 3–5 business days. Express delivery is available for metro cities (1–2 days)." },
       { title: "Shipping charges", text: "Free shipping on orders above ₹500. For orders below ₹500, shipping is ₹50." },
+      { title: "Track order", text: "Your order is on the way! You can track it here: ___" },
     ],
   },
   {

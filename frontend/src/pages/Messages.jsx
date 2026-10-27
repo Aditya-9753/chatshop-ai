@@ -40,7 +40,9 @@ const Messages = () => {
   const [threadState, setThreadState] = useState({ loading: false, error: null });
   const [panelOpen, setPanelOpen] = useState(() => localStorage.getItem(PANEL_KEY) !== "0");
   const [panelDrawerOpen, setPanelDrawerOpen] = useState(false);
-  const [broadcastOpen, setBroadcastOpen] = useState(false);
+  // The chat that just received a message, so its row can glow
+  const [freshId, setFreshId] = useState(null);
+  const [broadcastOpen, setBroadcastOpen] = useState(() => new URLSearchParams(window.location.search).get("broadcast") === "1");
   // A customer opened from elsewhere who has no conversation yet
   const [draftConversation, setDraftConversation] = useState(null);
 
@@ -110,6 +112,7 @@ const Messages = () => {
     if (conversation) {
       const next = viewing && message.direction === "incoming" ? { ...conversation, unreadCount: 0 } : conversation;
       setConversations((list) => [next, ...list.filter((c) => c._id !== conversation._id)]);
+      if (message.direction === "incoming") setFreshId({ id: conversation._id, at: Date.now() });
       if (viewing && message.direction === "incoming") {
         messageService.markConversationAsRead(conversation._id).then(notifyInboxChanged).catch(() => {});
       }
@@ -256,6 +259,7 @@ const Messages = () => {
           selectedId={selected?._id}
           onSelect={select}
           onBroadcast={() => setBroadcastOpen(true)}
+          freshId={freshId}
         />
       </aside>
 

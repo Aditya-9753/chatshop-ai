@@ -7,6 +7,20 @@ import { formatCurrency } from "../../utils/format";
 
 const EMPTY_ADDRESS = { name: "", phone: "", address: "", city: "", state: "", pincode: "" };
 
+const TAX_TYPES = [
+  { value: "gst", label: "GST" },
+  { value: "cgst_sgst", label: "CGST + SGST" },
+  { value: "custom", label: "Custom tax" },
+  { value: "none", label: "No tax" },
+];
+
+const PLATFORMS = [
+  { value: "", label: "Customer's channel" },
+  { value: "whatsapp", label: "WhatsApp" },
+  { value: "instagram", label: "Instagram" },
+  { value: "facebook", label: "Facebook" },
+];
+
 const PAYMENT_METHODS = [
   { value: "cod", label: "Cash on delivery" },
   { value: "upi", label: "UPI" },
@@ -24,7 +38,10 @@ export default function OrderForm({ open, onOpenChange, initialCustomerId, onCre
   const [customerId, setCustomerId] = useState("");
   const [items, setItems] = useState([]);
   const [pick, setPick] = useState({ productId: "", quantity: 1 });
+  const [taxType, setTaxType] = useState("gst");
   const [taxPercent, setTaxPercent] = useState(18);
+  const [discount, setDiscount] = useState(0);
+  const [platform, setPlatform] = useState("");
   const [shipping, setShipping] = useState(50);
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [address, setAddress] = useState(EMPTY_ADDRESS);
@@ -66,12 +83,15 @@ export default function OrderForm({ open, onOpenChange, initialCustomerId, onCre
     setPick({ productId: "", quantity: 1 });
   };
 
+  // Same maths as the server: tax applies to the subtotal after discount
+  const rate = taxType === "none" ? 0 : Number(taxPercent) || 0;
   const totals = useMemo(() => {
     const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const tax = Math.round(subtotal * (Number(taxPercent) || 0)) / 100;
+    const off = Math.min(subtotal, Math.max(0, Number(discount) || 0));
+    const tax = Math.round((subtotal - off) * rate) / 100;
     const ship = Number(shipping) || 0;
-    return { subtotal, tax, shipping: ship, total: subtotal + tax + ship };
-  }, [items, taxPercent, shipping]);
+    return { subtotal, discount: off, tax, shipping: ship, total: subtotal - off + tax + ship };
+  }, [items, rate, discount, shipping]);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -83,8 +103,11 @@ export default function OrderForm({ open, onOpenChange, initialCustomerId, onCre
       await onCreate({
         customerId,
         items: items.map(({ productId, name, price, quantity }) => ({ productId, name, price, quantity })),
-        tax: totals.tax,
+        taxType,
+        taxRate: rate,
+        discount: totals.discount,
         shipping: totals.shipping,
+        platform: platform || undefined,
         paymentMethod,
         shippingAddress: address,
         notes: notes.trim() || undefined,
@@ -182,15 +205,26 @@ export default function OrderForm({ open, onOpenChange, initialCustomerId, onCre
           )}
         </section>
 
-        <div className="grid grid-cols-3 gap-3">
-          <Input label="Tax %" type="number" min={0} step="0.01" value={taxPercent} onChange={(e) => setTaxPercent(e.target.value)} />
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <Select label="Tax type" value={taxType} onChange={(e) => setTaxType(e.target.value)} options={TAX_TYPES} />
+          <Input label="Tax %" type="number" min={0} step="0.01" value={taxType === "none" ? 0 : taxPercent} disabled={taxType === "none"} onChange={(e) => setTaxPercent(e.target.value)} />
+          <Input label="Discount ₹" type="number" min={0} value={discount} onChange={(e) => setDiscount(e.target.value)} />
           <Input label="Shipping ₹" type="number" min={0} value={shipping} onChange={(e) => setShipping(e.target.value)} />
           <Select label="Payment" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} options={PAYMENT_METHODS} />
+          <Select label="Channel" value={platform} onChange={(e) => setPlatform(e.target.value)} options={PLATFORMS} />
         </div>
 
         <dl className="rounded-lg bg-surface-2 px-3 py-1">
           <DetailRow label="Subtotal">{formatCurrency(totals.subtotal)}</DetailRow>
-          <DetailRow label={`Tax (${Number(taxPercent) || 0}%)`}>{formatCurrency(totals.tax, { precise: true })}</DetailRow>
+          {totals.discount > 0 && <DetailRow label="Discount">− {formatCurrency(totals.discount)}</DetailRow>}
+          {taxType === "cgst_sgst" ? (
+            <>
+              <DetailRow label={`CGST (${rate / 2}%)`}>{formatCurrency(totals.tax / 2, { precise: true })}</DetailRow>
+              <DetailRow label={`SGST (${rate / 2}%)`}>{formatCurrency(totals.tax / 2, { precise: true })}</DetailRow>
+            </>
+          ) : (
+            <DetailRow label={taxType === "none" ? "Tax" : `${taxType === "gst" ? "GST" : "Tax"} (${rate}%)`}>{formatCurrency(totals.tax, { precise: true })}</DetailRow>
+          )}
           <DetailRow label="Shipping">{formatCurrency(totals.shipping)}</DetailRow>
           <DetailRow label={<span className="font-medium text-fg">Total</span>}>
             <span className="font-semibold tabular-nums">{formatCurrency(totals.total, { precise: true })}</span>

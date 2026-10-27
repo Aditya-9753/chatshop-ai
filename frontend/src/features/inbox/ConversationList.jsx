@@ -11,7 +11,7 @@ const CHANNEL_FILTERS = [
   { value: "facebook", label: "Facebook" },
 ];
 
-function ConversationRow({ conversation, active, onSelect }) {
+function ConversationRow({ conversation, active, fresh, onSelect }) {
   const customer = conversation.customerId || {};
   const last = conversation.lastMessage || {};
   const unread = conversation.unreadCount > 0;
@@ -24,7 +24,8 @@ function ConversationRow({ conversation, active, onSelect }) {
         aria-current={active ? "true" : undefined}
         className={cn(
           "flex w-full items-start gap-3 px-3 py-2.5 text-left transition-colors duration-150",
-          active ? "bg-accent-soft/70" : "hover:bg-surface-2"
+          active ? "bg-accent-soft/70" : "hover:bg-surface-2",
+          fresh && !active && "animate-row-glow"
         )}
       >
         <Avatar name={customer.name} src={customer.profilePicture} platform={conversation.platform} />
@@ -55,7 +56,7 @@ function ConversationRow({ conversation, active, onSelect }) {
   );
 }
 
-export default function ConversationList({ conversations, loading, error, onRetry, selectedId, onSelect, onBroadcast }) {
+export default function ConversationList({ conversations, loading, error, onRetry, selectedId, onSelect, onBroadcast, freshId }) {
   const [query, setQuery] = useState("");
   const [view, setView] = useState("all");
   const [channel, setChannel] = useState("all");
@@ -158,9 +159,10 @@ export default function ConversationList({ conversations, loading, error, onRetr
           <ul className="divide-y divide-line/60">
             {visible.map((conversation) => (
               <ConversationRow
-                key={conversation._id}
+                key={conversation._id === freshId?.id ? `${conversation._id}-${freshId.at}` : conversation._id}
                 conversation={conversation}
                 active={conversation._id === selectedId}
+                fresh={conversation._id === freshId?.id}
                 onSelect={onSelect}
               />
             ))}
