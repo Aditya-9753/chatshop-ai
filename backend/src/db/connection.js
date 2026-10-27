@@ -23,7 +23,7 @@ const createDefaultAdmin = async () => {
 
     if (!adminExists) {
       const hashedPassword = await bcrypt.hash(
-        process.env.ADMIN_PASSWORD || "Admin@12345",
+        process.env.ADMIN_PASSWORD || "Admin@123456",
         10
       );
 

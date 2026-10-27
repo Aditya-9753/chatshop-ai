@@ -747,7 +747,7 @@ const seedData = async () => {
 
     console.log("\n5️⃣  Admin:");
     console.log("   Email: admin@chatshopai.com");
-    console.log("   Password: Admin@12345");
+    console.log("   Password: Admin@123456");
     console.log("   Role: Admin");
 
     console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
