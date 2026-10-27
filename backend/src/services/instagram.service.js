@@ -1,7 +1,8 @@
 const User = require("../models/User.model");
 const Customer = require("../models/Customer.model");
-const Message = require("../models/Message.model");
-const instagramApi = require("../utils/instagram.api");
+const messageService = require("./message.service");
+
+const ATTACHMENT_TYPES = { image: "image", video: "video", audio: "audio", file: "document" };
 
 class InstagramService {
   // Connect Instagram account
@@ -46,27 +47,13 @@ class InstagramService {
     return true;
   }
 
-  // Send Instagram message
+  // Send an Instagram message through the shared delivery pipeline
   async sendMessage(userId, messageData) {
     const { recipientId, message } = messageData;
-
-    const user = await User.findById(userId);
-    if (!user) {
-      throw new Error("User not found");
+    if (!recipientId) {
+      throw new Error("Recipient ID is required");
     }
 
-    if (!user.instagramConfig.isConnected) {
-      throw new Error("Instagram not connected");
-    }
-
-    // Send via Instagram API
-    const response = await instagramApi.sendMessage({
-      accessToken: user.instagramConfig.accessToken,
-      recipientId,
-      message,
-    });
-
-    // Find or create customer
     let customer = await Customer.findOne({
       userId,
       platformId: recipientId,
@@ -76,44 +63,34 @@ class InstagramService {
     if (!customer) {
       customer = await Customer.create({
         userId,
+        name: "Instagram user",
         platformId: recipientId,
         platform: "instagram",
       });
     }
 
-    // Save message to database
-    await Message.create({
-      userId,
+    return messageService.sendMessage(userId, {
       customerId: customer._id,
       platform: "instagram",
-      direction: "outgoing",
       type: "text",
       content: { text: message },
-      status: "sent",
     });
-
-    // Update user stats
-    await User.findByIdAndUpdate(userId, {
-      $inc: { "stats.totalMessages": 1 },
-    });
-
-    return response;
   }
 
   // Handle incoming webhook
   async handleWebhook(webhookData) {
-    const { entry } = webhookData;
-
-    if (!entry || entry.length === 0) {
+    if (webhookData?.object !== "instagram") {
       return;
     }
 
-    for (const item of entry) {
-      const messaging = item.messaging || [];
-
-      for (const event of messaging) {
-        if (event.message) {
+    for (const item of webhookData.entry || []) {
+      for (const event of item.messaging || []) {
+        if (event.message && !event.message.is_echo) {
           await this.processIncomingMessage(item.id, event);
+        } else if (event.read?.mid) {
+          await messageService.applyDeliveryStatus(event.read.mid, "read", {
+            timestamp: new Date(event.timestamp || Date.now()),
+          });
         }
       }
     }
@@ -121,54 +98,27 @@ class InstagramService {
 
   // Process incoming message
   async processIncomingMessage(businessAccountId, event) {
-    const senderId = event.sender.id;
-    const messageText = event.message.text;
-
-    // Find user by Instagram business account ID
     const user = await User.findOne({
       "instagramConfig.businessAccountId": businessAccountId,
+      "instagramConfig.isConnected": true,
     });
 
     if (!user) return;
 
-    // Find or create customer
-    let customer = await Customer.findOne({
-      userId: user._id,
-      platformId: senderId,
+    const attachment = event.message.attachments?.[0];
+    const type = (attachment && ATTACHMENT_TYPES[attachment.type]) || "text";
+
+    await messageService.receiveMessage({
+      user,
       platform: "instagram",
-    });
-
-    if (!customer) {
-      customer = await Customer.create({
-        userId: user._id,
-        platformId: senderId,
-        platform: "instagram",
-      });
-
-      await User.findByIdAndUpdate(user._id, {
-        $inc: { "stats.totalCustomers": 1 },
-      });
-    }
-
-    // Save incoming message
-    await Message.create({
-      userId: user._id,
-      customerId: customer._id,
-      platform: "instagram",
-      direction: "incoming",
-      type: "text",
-      content: { text: messageText },
-      status: "received",
-      metadata: { messageId: event.message.mid },
-    });
-
-    // Update customer last message date
-    customer.lastMessageDate = new Date();
-    await customer.save();
-
-    // Update user stats
-    await User.findByIdAndUpdate(user._id, {
-      $inc: { "stats.totalMessages": 1 },
+      sender: { platformId: event.sender.id },
+      platformMessageId: event.message.mid,
+      type,
+      content: {
+        text: event.message.text || "",
+        mediaUrl: attachment?.payload?.url,
+      },
+      timestamp: new Date(event.timestamp || Date.now()),
     });
   }
 }

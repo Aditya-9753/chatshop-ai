@@ -48,22 +48,33 @@ class UserService {
     // Return user without password
     const updatedUser = await User.findById(userId).select("-password");
     return updatedUser;
-  } // Update password
+  }
+
+  // Change password. The password field is select: false, so it has to be
+  // requested explicitly. Older sessions are logged out afterwards.
   async updatePassword(userId, currentPassword, newPassword) {
-    const user = await User.findById(userId);
+    const user = await User.findById(userId).select("+password");
     if (!user) {
       throw new Error("User not found");
     }
 
-    // Verify current password
     const isMatch = await bcrypt.compare(currentPassword, user.password);
     if (!isMatch) {
       throw new Error("Current password is incorrect");
     }
 
-    // Hash new password
+    if (!newPassword || newPassword.length < 8) {
+      throw new Error("New password must be at least 8 characters");
+    }
+
+    if (await bcrypt.compare(newPassword, user.password)) {
+      throw new Error("New password must be different from the current one");
+    }
+
     const salt = await bcrypt.genSalt(10);
     user.password = await bcrypt.hash(newPassword, salt);
+    // 1s back so the token issued below for this session stays valid
+    user.passwordChangedAt = new Date(Date.now() - 1000);
     await user.save();
 
     return true;
@@ -85,18 +96,24 @@ class UserService {
       throw new Error("User not found");
     }
 
-    const { isConnected, phoneNumber, businessAccountId, accessToken } =
-      configData;
+    const {
+      isConnected,
+      phoneNumber,
+      phoneNumberId,
+      businessAccountId,
+      accessToken,
+    } = configData;
 
     if (isConnected !== undefined)
       user.whatsappConfig.isConnected = isConnected;
     if (phoneNumber) user.whatsappConfig.phoneNumber = phoneNumber;
+    if (phoneNumberId) user.whatsappConfig.phoneNumberId = phoneNumberId;
     if (businessAccountId)
       user.whatsappConfig.businessAccountId = businessAccountId;
     if (accessToken) user.whatsappConfig.accessToken = accessToken;
 
     await user.save();
-    return user.whatsappConfig;
+    return user.toJSON().whatsappConfig;
   }
 
   // Update Instagram configuration
@@ -117,7 +134,7 @@ class UserService {
     if (accessToken) user.instagramConfig.accessToken = accessToken;
 
     await user.save();
-    return user.instagramConfig;
+    return user.toJSON().instagramConfig;
   }
 
   // Update AI configuration
@@ -173,7 +190,7 @@ class UserService {
     if (accessToken) user.facebookConfig.accessToken = accessToken;
 
     await user.save();
-    return user.facebookConfig;
+    return user.toJSON().facebookConfig;
   }
 }
 

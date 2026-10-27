@@ -1,7 +1,9 @@
 const User = require("../models/User.model");
-const Message = require("../models/Message.model");
 const Customer = require("../models/Customer.model");
+const messageService = require("./message.service");
 const facebookAPI = require("../utils/facebook.api");
+
+const ATTACHMENT_TYPES = { image: "image", video: "video", audio: "audio", file: "document" };
 
 class FacebookService {
   // Connect Facebook account
@@ -18,8 +20,9 @@ class FacebookService {
     }
 
     // Verify the access token with Facebook
+    let page;
     try {
-      await facebookAPI.verifyAccessToken(accessToken, pageId);
+      page = await facebookAPI.verifyAccessToken(accessToken, pageId);
     } catch (error) {
       throw new Error("Invalid Facebook credentials");
     }
@@ -27,7 +30,7 @@ class FacebookService {
     user.facebookConfig = {
       isConnected: true,
       pageId,
-      pageName: pageName || "Facebook Page",
+      pageName: pageName || page?.name || "Facebook Page",
       accessToken,
     };
 
@@ -58,7 +61,7 @@ class FacebookService {
     return true;
   }
 
-  // Send message via Facebook
+  // Send a Messenger message through the shared delivery pipeline
   async sendMessage(userId, messageData) {
     const { recipientId, text, type = "text", mediaUrl } = messageData;
 
@@ -66,175 +69,116 @@ class FacebookService {
       throw new Error("Recipient ID is required");
     }
 
-    const user = await User.findById(userId);
-    if (!user || !user.facebookConfig?.isConnected) {
-      throw new Error("Facebook account not connected");
-    }
-
-    // Send message via Facebook API
-    let messageSent;
-    try {
-      if (type === "text") {
-        messageSent = await facebookAPI.sendTextMessage(
-          user.facebookConfig.accessToken,
-          recipientId,
-          text
-        );
-      } else {
-        messageSent = await facebookAPI.sendMediaMessage(
-          user.facebookConfig.accessToken,
-          recipientId,
-          type,
-          mediaUrl
-        );
-      }
-    } catch (error) {
-      throw new Error(`Failed to send message: ${error.message}`);
-    }
-
-    // Find or create customer
     let customer = await Customer.findOne({
-      userId: user._id,
+      userId,
       platformId: recipientId,
       platform: "facebook",
     });
 
     if (!customer) {
       customer = await Customer.create({
-        userId: user._id,
+        userId,
         name: messageData.recipientName || "Facebook User",
         platformId: recipientId,
         platform: "facebook",
       });
     }
 
-    // Save message to database
-    const message = await Message.create({
-      userId: user._id,
+    const message = await messageService.sendMessage(userId, {
       customerId: customer._id,
       platform: "facebook",
-      direction: "outgoing",
       type,
-      content: {
-        text: type === "text" ? text : null,
-        mediaUrl: type !== "text" ? mediaUrl : null,
-      },
-      status: "sent",
-      metadata: {
-        messageId: messageSent.message_id,
-        timestamp: new Date(),
-      },
+      content: { text, mediaUrl },
     });
 
-    // Update user stats
-    user.stats.messagesSent += 1;
-    user.stats.platforms.facebook += 1;
-    await user.save();
-
-    return {
-      success: true,
-      message,
-      customer,
-    };
+    return { success: message.status !== "failed", message, customer };
   }
 
-  // Handle incoming webhook events
+  // Handle incoming webhook events: messages, deliveries and reads
   async handleWebhook(webhookData) {
-    if (webhookData.object !== "page") {
+    if (webhookData?.object !== "page") {
       return;
     }
 
-    for (const entry of webhookData.entry) {
-      const messaging = entry.messaging[0];
-      if (!messaging) continue;
+    for (const entry of webhookData.entry || []) {
+      for (const event of entry.messaging || []) {
+        const pageId = event.recipient?.id;
+        const senderId = event.sender?.id;
 
-      const senderId = messaging.sender.id;
-      const recipientId = messaging.recipient.id;
-      const message = messaging.message;
-
-      if (message) {
-        await this.processIncomingMessage(recipientId, senderId, message);
+        if (event.message && !event.message.is_echo) {
+          await this.processIncomingMessage(pageId, senderId, event);
+        } else if (event.delivery) {
+          for (const mid of event.delivery.mids || []) {
+            await messageService.applyDeliveryStatus(mid, "delivered");
+          }
+        } else if (event.read?.watermark) {
+          await this.processRead(pageId, senderId, event.read.watermark);
+        }
       }
     }
   }
 
-  // Process incoming message
-  async processIncomingMessage(pageId, senderId, messageData) {
-    // Find user by page ID
-    const user = await User.findOne({
+  async findPageOwner(pageId) {
+    return User.findOne({
       "facebookConfig.pageId": pageId,
       "facebookConfig.isConnected": true,
     });
+  }
+
+  // Process incoming message
+  async processIncomingMessage(pageId, senderId, event) {
+    const user = await this.findPageOwner(pageId);
 
     if (!user) {
       console.error("User not found for Facebook page:", pageId);
       return;
     }
 
-    // Find or create customer
-    let customer = await Customer.findOne({
-      userId: user._id,
-      platformId: senderId,
+    const message = event.message;
+    const attachment = message.attachments?.[0];
+    const type = (attachment && ATTACHMENT_TYPES[attachment.type]) || "text";
+
+    await messageService.receiveMessage({
+      user,
       platform: "facebook",
-    });
-
-    if (!customer) {
-      // Fetch user info from Facebook
-      let userName = "Facebook User";
-      try {
-        const userInfo = await facebookAPI.getUserInfo(
-          user.facebookConfig.accessToken,
-          senderId
-        );
-        userName = userInfo.name || userName;
-      } catch (error) {
-        console.error("Failed to fetch Facebook user info:", error);
-      }
-
-      customer = await Customer.create({
-        userId: user._id,
-        name: userName,
+      sender: {
         platformId: senderId,
-        platform: "facebook",
-      });
-    }
-
-    // Determine message type and content
-    let messageType = "text";
-    let content = {
-      text: messageData.text || null,
-      mediaUrl: null,
-    };
-
-    if (messageData.attachments && messageData.attachments.length > 0) {
-      const attachment = messageData.attachments[0];
-      messageType = attachment.type; // image, video, audio, file
-      content.mediaUrl = attachment.payload.url;
-    }
-
-    // Save message to database
-    await Message.create({
-      userId: user._id,
-      customerId: customer._id,
-      platform: "facebook",
-      direction: "incoming",
-      type: messageType,
-      content,
-      status: "received",
-      metadata: {
-        messageId: messageData.mid,
-        timestamp: new Date(),
+        // Only looked up when this sender is a new customer
+        resolveName: async () => {
+          try {
+            const info = await facebookAPI.getUserInfo(
+              user.facebookConfig.accessToken,
+              senderId
+            );
+            return info.name;
+          } catch (error) {
+            return "Facebook User";
+          }
+        },
       },
+      platformMessageId: message.mid,
+      type,
+      content: {
+        text: message.text || "",
+        mediaUrl: attachment?.payload?.url,
+      },
+      timestamp: new Date(event.timestamp || Date.now()),
     });
+  }
 
-    // Update user stats
-    user.stats.messagesReceived += 1;
-    user.stats.platforms.facebook += 1;
-    await user.save();
+  // The customer read everything we sent up to `watermark`
+  async processRead(pageId, senderId, watermark) {
+    const user = await this.findPageOwner(pageId);
+    if (!user) return;
 
-    // Update customer last contact
-    customer.lastContacted = new Date();
-    await customer.save();
+    const customer = await Customer.findOne({
+      userId: user._id,
+      platform: "facebook",
+      platformId: senderId,
+    });
+    if (!customer) return;
+
+    await messageService.markReadUpTo(user._id, customer._id, new Date(watermark));
   }
 }
 

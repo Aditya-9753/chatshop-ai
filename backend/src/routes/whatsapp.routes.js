@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const { verifyMetaSignature } = require("../middleware/webhookSignature.middleware");
 const { protect, checkSubscription } = require("../middleware/auth.middleware");
 const {
   connectWhatsApp,
@@ -31,7 +32,7 @@ router.get("/webhook", verifyWebhook);
 
 // @route   POST /api/whatsapp/webhook
 // @desc    Handle WhatsApp webhook events
-// @access  Public
-router.post("/webhook", handleWebhook);
+// @access  Public (signed by Meta: X-Hub-Signature-256)
+router.post("/webhook", verifyMetaSignature, handleWebhook);
 
 module.exports = router;

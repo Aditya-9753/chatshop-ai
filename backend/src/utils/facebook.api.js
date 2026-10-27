@@ -1,6 +1,6 @@
 const axios = require("axios");
 
-const FACEBOOK_API_URL = "https://graph.facebook.com/v18.0";
+const { GRAPH_API_URL: FACEBOOK_API_URL, toMetaError } = require("./meta");
 
 class FacebookAPI {
   // Verify access token
@@ -34,9 +34,7 @@ class FacebookAPI {
       return response.data;
     } catch (error) {
       console.error("Facebook API Error:", error.response?.data || error);
-      throw new Error(
-        error.response?.data?.error?.message || "Failed to send message"
-      );
+      throw toMetaError(error, "Failed to send message");
     }
   }
 
@@ -65,9 +63,7 @@ class FacebookAPI {
       return response.data;
     } catch (error) {
       console.error("Facebook API Error:", error.response?.data || error);
-      throw new Error(
-        error.response?.data?.error?.message || "Failed to send media"
-      );
+      throw toMetaError(error, "Failed to send media");
     }
   }
 
@@ -110,7 +106,7 @@ class FacebookAPI {
       return response.data;
     } catch (error) {
       console.error("Facebook API Error:", error.response?.data || error);
-      throw new Error("Failed to send quick replies");
+      throw toMetaError(error, "Failed to send quick replies");
     }
   }
 
@@ -143,7 +139,7 @@ class FacebookAPI {
       return response.data;
     } catch (error) {
       console.error("Facebook API Error:", error.response?.data || error);
-      throw new Error("Failed to send button template");
+      throw toMetaError(error, "Failed to send button template");
     }
   }
 }

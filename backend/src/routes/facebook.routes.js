@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const { verifyMetaSignature } = require("../middleware/webhookSignature.middleware");
 const facebookController = require("../controllers/facebook.controller");
 const { protect, checkSubscription } = require("../middleware/auth.middleware");
 
@@ -30,7 +31,7 @@ router.get("/webhook", facebookController.verifyWebhook);
 
 // @route   POST /api/facebook/webhook
 // @desc    Handle webhook events
-// @access  Public
-router.post("/webhook", facebookController.handleWebhook);
+// @access  Public (signed by Meta: X-Hub-Signature-256)
+router.post("/webhook", verifyMetaSignature, facebookController.handleWebhook);
 
 module.exports = router;

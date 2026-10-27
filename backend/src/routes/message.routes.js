@@ -12,6 +12,7 @@ const {
   getCustomerMessages,
   markMessageAsRead,
   uploadMessageMedia,
+  retryMessage,
 } = require("../controllers/message.controller");
 
 // @route   GET /api/messages/conversations
@@ -49,6 +50,11 @@ router.post(
   upload.single("file"),
   uploadMessageMedia,
 );
+
+// @route   POST /api/messages/:id/retry
+// @desc    Retry sending a failed message
+// @access  Private
+router.post("/:id/retry", protect, checkSubscription, retryMessage);
 
 // @route   PUT /api/messages/:id/read
 // @desc    Mark message as read

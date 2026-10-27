@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const { verifyMetaSignature } = require("../middleware/webhookSignature.middleware");
 const { protect, checkSubscription } = require("../middleware/auth.middleware");
 const {
   connectInstagram,
@@ -31,7 +32,7 @@ router.get("/webhook", verifyWebhook);
 
 // @route   POST /api/instagram/webhook
 // @desc    Handle Instagram webhook events
-// @access  Public
-router.post("/webhook", handleWebhook);
+// @access  Public (signed by Meta: X-Hub-Signature-256)
+router.post("/webhook", verifyMetaSignature, handleWebhook);
 
 module.exports = router;
