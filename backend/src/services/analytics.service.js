@@ -3,6 +3,7 @@ const Customer = require("../models/Customer.model");
 const Message = require("../models/Message.model");
 const Order = require("../models/Order.model");
 const Product = require("../models/Product.model");
+const { REVENUE_MATCH } = require("../utils/revenue");
 
 class AnalyticsService {
   // Get dashboard statistics
@@ -20,7 +21,7 @@ class AnalyticsService {
 
     // Get revenue
     const revenueData = await Order.aggregate([
-      { $match: { userId, paymentStatus: "paid" } },
+      { $match: { userId, ...REVENUE_MATCH } },
       { $group: { _id: null, totalRevenue: { $sum: "$total" } } },
     ]);
 
@@ -94,7 +95,7 @@ class AnalyticsService {
       {
         $match: {
           userId,
-          paymentStatus: "paid",
+          ...REVENUE_MATCH,
           createdAt: { $gte: dateRange },
         },
       },

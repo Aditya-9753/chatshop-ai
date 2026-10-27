@@ -3,10 +3,11 @@ import { AlertTriangle, Loader2, RotateCw } from "lucide-react";
 import { cn } from "./cn";
 import Button from "./Button";
 
-export function Skeleton({ className }) {
+export function Skeleton({ className, style }) {
   return (
     <div
       aria-hidden="true"
+      style={style}
       className={cn(
         "rounded-md bg-surface-2 bg-[linear-gradient(90deg,transparent,var(--surface-3),transparent)]",
         "bg-[length:200%_100%] animate-shimmer",

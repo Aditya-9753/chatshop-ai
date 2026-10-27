@@ -19,7 +19,7 @@ const orderSchema = new mongoose.Schema(
     },
     platform: {
       type: String,
-      enum: ["whatsapp", "instagram"],
+      enum: ["whatsapp", "instagram", "facebook"],
       required: true,
     },
     items: [

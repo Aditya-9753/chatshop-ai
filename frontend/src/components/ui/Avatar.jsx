@@ -45,8 +45,8 @@ export function Avatar({ name, src, size = "md", platform, className }) {
         )}
       </span>
       {platform && (
-        <span className="absolute -bottom-0.5 -right-0.5 rounded-full bg-surface p-0.5">
-          <ChannelIcon platform={platform} className="w-3 h-3" />
+        <span className={cn("absolute rounded-full bg-surface", size === "xs" ? "-bottom-1 -right-1 p-px" : "-bottom-0.5 -right-0.5 p-0.5")}>
+          <ChannelIcon platform={platform} className={size === "xs" ? "w-2.5 h-2.5" : "w-3 h-3"} />
         </span>
       )}
     </span>

@@ -112,6 +112,8 @@ export const API_ENDPOINTS = {
   // Analytics
   ANALYTICS: {
     DASHBOARD: "/analytics/dashboard",
+    OVERVIEW: "/analytics/overview",
+    REPORT: "/analytics/report",
     REVENUE: "/analytics/revenue",
     CUSTOMERS: "/analytics/customers",
     MESSAGES: "/analytics/messages",

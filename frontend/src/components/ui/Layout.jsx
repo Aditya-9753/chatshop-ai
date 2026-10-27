@@ -21,7 +21,7 @@ export function PageHeader({ title, description, actions, className }) {
  * Accessible tab list. `tabs` is [{ value, label, count? }].
  * variant "underline" for page sections, "pill" for compact filters.
  */
-export function Tabs({ tabs, value, onChange, variant = "underline", className, label = "Tabs" }) {
+export function Tabs({ tabs, value, onChange, variant = "underline", fill, className, label = "Tabs" }) {
   const listRef = useRef(null);
 
   // Arrow keys move between tabs (WAI-ARIA tabs pattern)
@@ -43,7 +43,7 @@ export function Tabs({ tabs, value, onChange, variant = "underline", className, 
       onKeyDown={onKeyDown}
       className={cn(
         "flex items-center overflow-x-auto scrollbar-none",
-        variant === "underline" ? "gap-5 border-b border-line" : "gap-1 rounded-lg bg-surface-2 p-1 w-fit max-w-full",
+        variant === "underline" ? "gap-5 border-b border-line" : cn("gap-1 rounded-lg bg-surface-2 p-1", fill ? "w-full" : "w-fit max-w-full"),
         className
       )}
     >
@@ -60,6 +60,7 @@ export function Tabs({ tabs, value, onChange, variant = "underline", className, 
             onClick={() => onChange(tab.value)}
             className={cn(
               "inline-flex items-center gap-1.5 whitespace-nowrap text-sm font-medium transition-colors duration-150",
+              fill && "flex-1 justify-center",
               variant === "underline"
                 ? cn(
                     "-mb-px border-b-2 py-2.5",
