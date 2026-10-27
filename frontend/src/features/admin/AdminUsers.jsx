@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Download, Eye, Megaphone, Trash2, UserPlus, Users } from "lucide-react";
+import { Download, Eye, LogIn, Megaphone, Trash2, UserPlus, Users } from "lucide-react";
 import adminService from "../../services/admin.service";
+import { startShopView } from "../../services/shopView";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../components/Toast";
 import {
@@ -43,7 +44,7 @@ function exportCsv(users) {
   URL.revokeObjectURL(link.href);
 }
 
-function UserDrawer({ userId, onClose, onChanged, onDelete, onMessage, canDelete }) {
+function UserDrawer({ userId, onClose, onChanged, onDelete, onMessage, onOpenAsShop, canDelete }) {
   const toast = useToast();
   const [, setParams] = useSearchParams();
   const openSection = (section) => setParams({ section, shop: userId });
@@ -98,6 +99,11 @@ function UserDrawer({ userId, onClose, onChanged, onDelete, onMessage, canDelete
               </Button>
             ) : (
               <span className="mr-auto" />
+            )}
+            {onOpenAsShop && user.role !== "admin" && (
+              <Button variant="secondary" icon={LogIn} onClick={() => onOpenAsShop(user)}>
+                Open as shop
+              </Button>
             )}
             <Button variant="secondary" icon={Megaphone} onClick={() => onMessage(user)}>
               Send message
@@ -179,8 +185,19 @@ function UserDrawer({ userId, onClose, onChanged, onDelete, onMessage, canDelete
 
 export default function AdminUsers() {
   const toast = useToast();
-  // Deleting a shop is Super Admin only
+  // Deleting a shop and opening it as its owner are Super Admin only
   const { isSuperAdmin } = useAuth();
+
+  // Opens the shop's own dashboard; "Back to Super Admin" there returns here
+  const openAsShop = async (shop) => {
+    try {
+      const response = await adminService.openAsShop(shop._id);
+      startShopView(response.data);
+      window.location.assign("/dashboard");
+    } catch (err) {
+      toast.error(err.message || "Couldn't open the shop");
+    }
+  };
   const [users, setUsers] = useState([]);
   const [state, setState] = useState({ loading: true, error: null });
   const [plan, setPlan] = useState("all");
@@ -307,6 +324,7 @@ export default function AdminUsers() {
         rowActions={(u) => [
           { label: "View details", icon: Eye, onSelect: () => setOpenId(u._id) },
           { label: "Send message", icon: Megaphone, onSelect: () => setMessageTo([u]) },
+          ...(isSuperAdmin && u.role !== "admin" ? [{ label: "Open as shop", icon: LogIn, onSelect: () => openAsShop(u) }] : []),
           ...(isSuperAdmin ? [{ label: "Delete", icon: Trash2, danger: true, onSelect: () => setDeleting(u) }] : []),
         ]}
         empty={{ icon: Users, title: "No users found", description: "Users appear here as shops sign up." }}
@@ -318,6 +336,7 @@ export default function AdminUsers() {
         onChanged={(user) => setUsers((list) => list.map((u) => (u._id === user._id ? { ...u, ...user } : u)))}
         onDelete={setDeleting}
         canDelete={isSuperAdmin}
+        onOpenAsShop={isSuperAdmin ? openAsShop : undefined}
         onMessage={(u) => setMessageTo([u])}
       />
       <AddShopModal open={adding} onOpenChange={setAdding} onCreated={load} />

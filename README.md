@@ -299,7 +299,7 @@ Log in at `/admin/login` with `admin@chatshopai.com`. The password decides which
 | Password | Panel | Can do |
 |---|---|---|
 | `Admin@12345` (`ADMIN_PASSWORD`) | **Super Admin** | Everything below |
-| `Admin@123456` (`ADMIN_PANEL_PASSWORD`) | **Admin** | Every shop and its data, plans and status, add shops, broadcast, export. No Settings, Security, backup, cache, audit log or deleting shops (the server returns 403) |
+| `Admin@123456` (`ADMIN_PANEL_PASSWORD`) | **Admin** | Every shop and its data, plans and status, add shops, broadcast, export. No Billing, Settings, Security, backup, cache, audit log, deleting shops or "Open as shop" (the server returns 403) |
 
 Change both in Super Admin → Security. Sections:
 
@@ -307,6 +307,7 @@ Change both in Super Admin → Security. Sections:
 - **Shops**: every account with its real customers, orders and revenue; add a shop, send a message, change plan or status, delete
 - **Orders / Customers / Products / Messages**: every shop's records with a shop filter; chats open read-only
 - **Analytics**: daily revenue, orders, sign-ups and messages (7/30/90 days), monthly growth, subscription distribution, platform usage
+- **Billing** (Super Admin): MRR, yearly run rate and revenue by plan; plans ending in the next 7 days and plans that ended, each with +7 / +30 days buttons
 - **Settings**: platform name and support contact (shown on the website and billing page), admin email notifications, export all data (CSV), JSON backup without secrets, clear the report cache, system info, message history
 - **Security**: change password, two-factor login with an authenticator app, audit log of logins and admin actions
 

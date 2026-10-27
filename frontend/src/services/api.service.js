@@ -1,5 +1,6 @@
 import axios from "axios";
 import { API_CONFIG } from "../config/api.config";
+import { endShopView, SHOP_VIEW_EXIT_URL } from "./shopView";
 
 // Create axios instance
 const api = axios.create({
@@ -48,6 +49,11 @@ api.interceptors.response.use(
 
       // Session expired or revoked: clear it and send the user to login
       if (status === 401 && !isCredentialRequest && localStorage.getItem("token")) {
+        // A shop opened by the Super Admin ended: go back to the admin session
+        if (localStorage.getItem("user")?.includes('"actingAdmin"') && endShopView()) {
+          window.location.href = SHOP_VIEW_EXIT_URL;
+          return Promise.reject({ status, message: data?.message || "Session ended" });
+        }
         localStorage.removeItem("token");
         localStorage.removeItem("user");
         const onAuthPage = ["/login", "/admin/login"].includes(window.location.pathname);

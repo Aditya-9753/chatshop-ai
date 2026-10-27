@@ -44,6 +44,19 @@ exports.protect = async (req, res, next) => {
         });
       }
 
+      // A shop opened by the Super Admin ("Open as shop"): the admin must
+      // still be an admin and not have changed password since
+      if (decoded.actingAdmin) {
+        const admin = await User.findById(decoded.actingAdmin).select("role passwordChangedAt");
+        if (!admin || admin.role !== "admin" || admin.changedPasswordAfter(decoded.iat)) {
+          return res.status(401).json({
+            success: false,
+            message: "This shop view has ended. Please open it again from the Super Admin panel.",
+          });
+        }
+        req.actingAdmin = admin._id;
+      }
+
       // Admins: "super" (Super Admin) or "admin" (limited admin panel)
       if (req.user.role === "admin") {
         req.adminLevel = decoded.adminLevel === "admin" ? "admin" : "super";
@@ -81,6 +94,18 @@ exports.authorizeAdmin = (req, res, next) => {
       message: "Access denied. Admin privileges required.",
     });
   }
+};
+
+// The owner's own account settings stay with the owner, even when the
+// Super Admin has their shop open
+exports.ownerOnly = (req, res, next) => {
+  if (req.actingAdmin) {
+    return res.status(403).json({
+      success: false,
+      message: "Only the shop owner can change this.",
+    });
+  }
+  next();
 };
 
 // Check subscription
