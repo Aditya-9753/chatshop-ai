@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
-import { ChevronsLeft, ChevronsUpDown, CreditCard, LogOut, Settings } from "lucide-react";
+import { ChevronsLeft, ChevronsUpDown, CreditCard, LogOut, Settings, ShieldCheck } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { LogoMark } from "../components/Logo";
 import {
@@ -62,6 +62,11 @@ function WorkspaceSwitcher({ collapsed }) {
         <DropdownItem icon={CreditCard} onSelect={() => navigate("/dashboard/settings?tab=billing")}>
           Billing
         </DropdownItem>
+        {user?.role === "admin" && (
+          <DropdownItem icon={ShieldCheck} onSelect={() => navigate("/admin/dashboard")}>
+            Admin panel
+          </DropdownItem>
+        )}
         <DropdownSeparator />
         <DropdownItem
           icon={LogOut}
@@ -83,7 +88,19 @@ function PlanCard({ collapsed }) {
   const usage = planUsage(subscription);
   if (collapsed) return null;
 
-  const planName = PLAN_NAMES[subscription?.plan] || "No plan";
+  // Admins don't need a plan; point them at the admin panel instead
+  if (user?.role === "admin") {
+    return (
+      <Link to="/admin/dashboard" className="block rounded-lg border border-line bg-surface p-3 hover:border-line-strong transition-colors">
+        <span className="flex items-center gap-1.5 text-caption font-medium text-fg">
+          <ShieldCheck className="h-3.5 w-3.5 text-accent" aria-hidden="true" /> Admin account
+        </span>
+        <p className="mt-1 text-xs text-fg-muted">Open the admin panel to manage shops and plans.</p>
+      </Link>
+    );
+  }
+
+  const planName = PLAN_NAMES[subscription?.plan] ? `${PLAN_NAMES[subscription.plan]} plan` : "No plan";
   const active = subscription?.status === "active";
 
   return (
@@ -92,7 +109,7 @@ function PlanCard({ collapsed }) {
       className="block rounded-lg border border-line bg-surface p-3 hover:border-line-strong transition-colors"
     >
       <div className="flex items-center justify-between">
-        <span className="text-caption font-medium text-fg">{planName} plan</span>
+        <span className="text-caption font-medium text-fg">{planName}</span>
         <span className={cn("text-xs font-medium", active ? "text-success-fg" : "text-warning-fg")}>
           {active ? "Active" : "Inactive"}
         </span>

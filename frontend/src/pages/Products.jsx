@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { LayoutGrid, List, MoreHorizontal, Package, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { ImagePlus, LayoutGrid, List, MoreHorizontal, Package, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import productService from "../services/product.service";
 import { assetUrl } from "../config/api.config";
 import { useToast } from "../components/Toast";
@@ -38,14 +38,21 @@ const STOCK_FILTERS = [
 
 const filterClass = "h-9 rounded-lg border border-line bg-surface px-2 text-sm text-fg outline-none focus:border-accent";
 
-function Thumb({ product, className }) {
+// Product photo, or a prompt to add one (large) / a package icon (small)
+function Thumb({ product, className, large }) {
   const src = product.images?.[0];
+  const [broken, setBroken] = useState(false);
   return (
     <span className={cn("flex items-center justify-center overflow-hidden bg-surface-2", className)}>
-      {src ? (
-        <img src={assetUrl(src)} alt="" className="h-full w-full object-cover" loading="lazy" />
+      {src && !broken ? (
+        <img src={assetUrl(src)} alt={product.name} className="h-full w-full object-cover" loading="lazy" onError={() => setBroken(true)} />
+      ) : large ? (
+        <span className="flex flex-col items-center gap-1.5 text-fg-muted">
+          <ImagePlus className="h-6 w-6" aria-hidden="true" />
+          <span className="text-xs font-medium">{broken ? "Image missing · replace" : "Add photo"}</span>
+        </span>
       ) : (
-        <Package className="h-5 w-5 text-fg-subtle" aria-hidden="true" />
+        <Package className="h-5 w-5 text-fg-muted" aria-hidden="true" />
       )}
     </span>
   );
@@ -66,7 +73,7 @@ function ProductCard({ product, onEdit, onDelete }) {
   return (
     <Card className="group relative flex flex-col overflow-hidden transition-colors hover:border-line-strong">
       <button onClick={() => onEdit(product)} className="text-left" aria-label={`Edit ${product.name}`}>
-        <Thumb product={product} className="aspect-square w-full border-b border-line" />
+        <Thumb product={product} large className="aspect-square w-full border-b border-line transition-colors hover:bg-surface-3" />
       </button>
       <div className="flex flex-1 flex-col gap-2 p-3">
         <div className="flex items-start justify-between gap-2">

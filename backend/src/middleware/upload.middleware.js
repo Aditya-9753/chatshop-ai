@@ -2,6 +2,10 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 
+// Files are saved under backend/uploads no matter which folder the server
+// is started from (app.js serves /uploads from the same place)
+const UPLOADS_ROOT = path.join(__dirname, "../../uploads");
+
 // Configure storage
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -23,12 +27,13 @@ const storage = multer.diskStorage({
       }
     }
 
+    const absoluteDir = path.join(UPLOADS_ROOT, uploadDir.replace(/^uploads\//, ""));
     // Create directory if it doesn't exist
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
+    if (!fs.existsSync(absoluteDir)) {
+      fs.mkdirSync(absoluteDir, { recursive: true });
     }
 
-    cb(null, uploadDir);
+    cb(null, absoluteDir);
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);

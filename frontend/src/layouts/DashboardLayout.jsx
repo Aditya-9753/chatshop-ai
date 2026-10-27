@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import * as Dialog from "@radix-ui/react-dialog";
-import { MoreHorizontal } from "lucide-react";
-import { cn, TooltipProvider } from "../components/ui";
+import { AlertTriangle, MoreHorizontal } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
+import { Button, cn, TooltipProvider } from "../components/ui";
 import CommandPalette from "../components/CommandPalette";
 import useInboxSummary from "../hooks/useInboxSummary";
 import Sidebar from "./Sidebar";
@@ -48,8 +49,23 @@ function TabBar({ onOpenMore, unreadCount }) {
   );
 }
 
+// Shop pages need an active plan; say so once, clearly, above the page
+function PlanBanner() {
+  return (
+    <div role="alert" className="flex flex-wrap items-center gap-3 border-b border-warning/30 bg-warning-soft px-4 py-2.5 text-caption text-warning-fg lg:px-8">
+      <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+      <span className="flex-1">Your plan isn't active, so the inbox, orders and analytics are paused. Choose a plan to continue.</span>
+      <Button as={Link} to="/dashboard/settings?tab=billing" size="sm" variant="secondary">
+        View plans
+      </Button>
+    </div>
+  );
+}
+
 const DashboardLayout = () => {
   const location = useLocation();
+  const { user } = useAuth();
+  const planInactive = user?.role !== "admin" && user?.subscription?.status !== "active";
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSED_KEY) === "1");
@@ -98,6 +114,7 @@ const DashboardLayout = () => {
             unreadChats={unreadChats}
             unreadCount={unreadCount}
           />
+          {planInactive && <PlanBanner />}
           <main
             id="main"
             className={cn(

@@ -63,8 +63,8 @@ class UserService {
       throw new Error("Current password is incorrect");
     }
 
-    if (!newPassword || newPassword.length < 8) {
-      throw new Error("New password must be at least 8 characters");
+    if (!newPassword || newPassword.length < 6) {
+      throw new Error("New password must be at least 6 characters");
     }
 
     if (await bcrypt.compare(newPassword, user.password)) {

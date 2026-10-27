@@ -58,7 +58,7 @@ export const formatRelative = (value) => {
 
 // Percent change between two numbers; null when there is no baseline
 export const percentChange = (current, previous) => {
-  if (!previous) return current ? null : 0;
+  if (!previous) return null;
   return ((current - previous) / previous) * 100;
 };
 
@@ -71,3 +71,6 @@ export const formatDuration = (minutes) => {
   if (hours < 24) return `${hours}h ${Math.round(minutes % 60)}m`;
   return `${Math.floor(hours / 24)}d ${hours % 24}h`;
 };
+
+// Short money for chart axes: ₹0, ₹950, ₹12K, ₹1.5L
+export const formatCurrencyCompact = (value) => `₹${formatCompact(value)}`;

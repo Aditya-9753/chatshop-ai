@@ -36,7 +36,7 @@ const ResetPassword = () => {
   const onSubmit = async (e) => {
     e.preventDefault();
     const errors = {};
-    if (form.password.length < 8) errors.password = "Use at least 8 characters";
+    if (form.password.length < 6) errors.password = "Use at least 6 characters";
     if (form.confirmPassword !== form.password) errors.confirmPassword = "Passwords don't match";
     setFieldErrors(errors);
     if (Object.keys(errors).length) return;

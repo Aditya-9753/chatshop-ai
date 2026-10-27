@@ -183,7 +183,7 @@ export function SecuritySettings({ profile, allowDelete = true }) {
     e.preventDefault();
     const next = {};
     if (!form.current) next.current = "Enter your current password";
-    if (form.next.length < 8) next.next = "Use at least 8 characters";
+    if (form.next.length < 6) next.next = "Use at least 6 characters";
     else if (form.next === form.current) next.next = "Choose a password you haven't just used";
     if (form.confirm !== form.next) next.confirm = "Passwords don't match";
     setErrors(next);

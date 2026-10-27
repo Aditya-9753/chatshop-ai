@@ -31,8 +31,8 @@ export const PasswordInput = forwardRef(function PasswordInput(props, ref) {
 export function scorePassword(password = "") {
   if (!password) return 0;
   let score = 0;
-  if (password.length >= 8) score += 1;
-  if (password.length >= 12) score += 1;
+  if (password.length >= 6) score += 1;
+  if (password.length >= 10) score += 1;
   if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score += 1;
   if (/\d/.test(password)) score += 0.5;
   if (/[^A-Za-z0-9]/.test(password)) score += 0.5;
@@ -49,7 +49,7 @@ const LEVELS = [
 
 export function PasswordStrength({ password }) {
   if (!password) return null;
-  const score = password.length < 8 ? 0 : Math.max(1, scorePassword(password));
+  const score = password.length < 6 ? 0 : Math.max(1, scorePassword(password));
   const level = LEVELS[score];
 
   return (
@@ -64,7 +64,7 @@ export function PasswordStrength({ password }) {
       </div>
       <p className="mt-1.5 text-xs text-fg-muted">
         <span className={cn("font-medium", level.text)}>{level.label}</span>
-        {score < 3 && " · Use 12+ characters with upper and lower case, numbers or symbols."}
+        {score < 3 && " · At least 6 characters. Longer, with numbers or symbols, is safer."}
       </p>
     </div>
   );
