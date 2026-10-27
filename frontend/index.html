@@ -3,7 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ChatShop AI - WhatsApp & Instagram Automation</title>
+    <meta
+      name="description"
+      content="ChatShop AI: one inbox for WhatsApp, Instagram and Facebook, with orders, customers and catalog built in."
+    />
+    <meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0b0b0f" media="(prefers-color-scheme: dark)" />
+    <title>ChatShop AI · Sell on WhatsApp, Instagram & Facebook</title>
+    <script>
+      // Apply the saved theme before first paint to avoid a flash
+      try {
+        var saved = localStorage.getItem("theme");
+        var dark = saved ? saved === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+        if (dark) document.documentElement.classList.add("dark");
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>
