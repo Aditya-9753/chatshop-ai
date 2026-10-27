@@ -14,7 +14,7 @@ Redesigned to match **Google Admin Console** and professional CRM admin panels w
 ## 🔐 Admin Login Credentials
 
 **Email:** `admin@chatshopai.com`  
-**Password:** `Admin@123456`
+**Password:** `Admin@12345`
 
 ---
 
