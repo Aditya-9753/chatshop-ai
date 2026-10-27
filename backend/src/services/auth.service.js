@@ -4,11 +4,16 @@ const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const sendEmail = require("../utils/sendEmail");
 
+const RESET_TOKEN_TTL = 60 * 60 * 1000; // 1 hour
+
+const hashToken = (token) =>
+  crypto.createHash("sha256").update(token).digest("hex");
+
 class AuthService {
   // Generate JWT Token
   generateToken(userId) {
     return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
-      expiresIn: "7d",
+      expiresIn: process.env.JWT_EXPIRE || "7d",
     });
   }
 
@@ -17,12 +22,32 @@ class AuthService {
     return crypto.randomBytes(32).toString("hex");
   }
 
+  // Wrapped so tests can capture outgoing email
+  sendEmail(options) {
+    return sendEmail(options);
+  }
+
+  // The user fields the frontend keeps in localStorage
+  toSessionUser(user) {
+    return {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      role: user.role,
+      isVerified: user.isVerified,
+      profilePhoto: user.profilePhoto,
+      businessInfo: user.businessInfo,
+      subscription: user.subscription,
+    };
+  }
+
   // Register new user
   async register(userData) {
-    const { name, email, password, phone } = userData;
+    const { name, email, password, phone, businessName } = userData;
 
     // Check if user already exists
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
       throw new Error("User already exists with this email");
     }
@@ -40,7 +65,8 @@ class AuthService {
       email,
       password: hashedPassword,
       phone,
-      emailVerificationToken: verificationToken,
+      businessInfo: businessName ? { businessName } : undefined,
+      emailVerificationToken: hashToken(verificationToken),
       emailVerificationExpires: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
       isVerified: true, // Auto-verify for now (skip email verification)
       subscription: {
@@ -53,7 +79,7 @@ class AuthService {
 
     // Send verification email
     const verificationUrl = `${process.env.FRONTEND_URL}/verify-email/${verificationToken}`;
-    await sendEmail({
+    await this.sendEmail({
       to: email,
       subject: "Verify Your Email - ChatShop AI",
       html: `
@@ -67,62 +93,36 @@ class AuthService {
       `,
     });
 
-    // Generate token
-    const token = this.generateToken(user._id);
-
     return {
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        role: user.role,
-        isVerified: user.isVerified,
-        profilePhoto: user.profilePhoto,
-        businessInfo: user.businessInfo,
-        subscription: user.subscription,
-      },
+      token: this.generateToken(user._id),
+      user: this.toSessionUser(user),
     };
   }
 
   // Login user
   async login(email, password) {
     // Find user and explicitly select password field
-    const user = await User.findOne({ email }).select("+password");
+    const user = await User.findOne({ email: email.toLowerCase() }).select("+password");
     if (!user) {
-      throw new Error("Invalid credentials");
+      throw new Error("Invalid email or password");
     }
 
     // Check password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      throw new Error("Invalid credentials");
+      throw new Error("Invalid email or password");
     }
 
-    // Generate token
-    const token = this.generateToken(user._id);
-
     return {
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        role: user.role,
-        isVerified: user.isVerified,
-        profilePhoto: user.profilePhoto,
-        businessInfo: user.businessInfo,
-        subscription: user.subscription,
-      },
+      token: this.generateToken(user._id),
+      user: this.toSessionUser(user),
     };
   }
 
   // Verify email
   async verifyEmail(token) {
     const user = await User.findOne({
-      emailVerificationToken: token,
+      emailVerificationToken: hashToken(token),
       emailVerificationExpires: { $gt: Date.now() },
     });
 
@@ -138,55 +138,72 @@ class AuthService {
     return user;
   }
 
-  // Forgot password
+  // Forgot password. Resolves the same way whether or not the email
+  // exists, so the endpoint can't be used to discover accounts.
   async forgotPassword(email) {
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: String(email).toLowerCase() });
     if (!user) {
-      throw new Error("No user found with this email");
+      return true;
     }
 
-    // Generate reset token
+    // Email the raw token; store only its hash
     const resetToken = this.generateVerificationToken();
-    user.passwordResetToken = resetToken;
-    user.passwordResetExpires = Date.now() + 60 * 60 * 1000; // 1 hour
+    user.passwordResetToken = hashToken(resetToken);
+    user.passwordResetExpires = Date.now() + RESET_TOKEN_TTL;
     await user.save();
 
-    // Send reset email
     const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
-    await sendEmail({
-      to: email,
-      subject: "Password Reset - ChatShop AI",
-      html: `
-        <h1>Password Reset Request</h1>
-        <p>Hi ${user.name},</p>
-        <p>You requested to reset your password. Click the link below to reset it:</p>
-        <a href="${resetUrl}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Reset Password</a>
-        <p>Or copy this link: ${resetUrl}</p>
-        <p>This link will expire in 1 hour.</p>
-        <p>If you didn't request this, please ignore this email.</p>
-        <p>Best regards,<br>ChatShop AI Team</p>
-      `,
-    });
+
+    // Without SMTP settings the email is skipped, so log the link locally
+    if (!process.env.EMAIL_USER && process.env.NODE_ENV === "development") {
+      console.log(`🔑 Password reset link for ${user.email}: ${resetUrl}`);
+    }
+
+    try {
+      await this.sendEmail({
+        to: user.email,
+        subject: "Reset your password - ChatShop AI",
+        html: `
+          <h1>Password Reset Request</h1>
+          <p>Hi ${user.name},</p>
+          <p>You requested to reset your password. Click the link below to choose a new one:</p>
+          <a href="${resetUrl}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Reset Password</a>
+          <p>Or copy this link: ${resetUrl}</p>
+          <p>This link will expire in 1 hour and can be used once.</p>
+          <p>If you didn't request this, you can ignore this email.</p>
+          <p>Best regards,<br>ChatShop AI Team</p>
+        `,
+      });
+    } catch (error) {
+      console.error("Password reset email failed:", error.message);
+    }
 
     return true;
   }
 
-  // Reset password
-  async resetPassword(token, newPassword) {
-    const user = await User.findOne({
-      passwordResetToken: token,
+  // Find the user a reset token belongs to, if it is still valid
+  async findUserByResetToken(token) {
+    if (!token) return null;
+    return User.findOne({
+      passwordResetToken: hashToken(token),
       passwordResetExpires: { $gt: Date.now() },
     });
+  }
+
+  // Reset password; the token is cleared so the link works once
+  async resetPassword(token, newPassword) {
+    const user = await this.findUserByResetToken(token);
 
     if (!user) {
-      throw new Error("Invalid or expired reset token");
+      throw new Error("This reset link has expired or was already used");
     }
 
-    // Hash new password
     const salt = await bcrypt.genSalt(10);
     user.password = await bcrypt.hash(newPassword, salt);
     user.passwordResetToken = undefined;
     user.passwordResetExpires = undefined;
+    // 1s back so a token issued right now is not caught by the check
+    user.passwordChangedAt = new Date(Date.now() - 1000);
     await user.save();
 
     return true;

@@ -1,4 +1,5 @@
 const userService = require("../services/user.service");
+const authService = require("../services/auth.service");
 const ResponseHandler = require("../utils/response.handler");
 
 // @desc    Get user profile
@@ -15,23 +16,15 @@ exports.getProfile = async (req, res) => {
 // @desc    Update user profile
 exports.updateProfile = async (req, res) => {
   try {
-    console.log("Profile update request received");
-    console.log("Request body:", req.body);
-    console.log("Uploaded file:", req.file);
-
     const profilePhotoPath = req.file
       ? `/uploads/profiles/${req.file.filename}`
       : null;
-
-    console.log("Profile photo path:", profilePhotoPath);
 
     const user = await userService.updateProfile(
       req.user._id,
       req.body,
       profilePhotoPath
     );
-
-    console.log("Updated user:", user);
 
     return ResponseHandler.success(res, user, "Profile updated successfully");
   } catch (error) {
@@ -57,7 +50,13 @@ exports.updatePassword = async (req, res) => {
       currentPassword,
       newPassword
     );
-    return ResponseHandler.success(res, null, "Password updated successfully");
+
+    // Other sessions are now logged out; this one gets a fresh token
+    return ResponseHandler.success(
+      res,
+      { token: authService.generateToken(req.user._id) },
+      "Password updated. Other sessions have been logged out."
+    );
   } catch (error) {
     console.error("Update password error:", error);
     return ResponseHandler.badRequest(res, error.message);
