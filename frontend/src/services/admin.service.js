@@ -23,6 +23,12 @@ class AdminService {
     return await api.delete(`${API_ENDPOINTS.ADMIN.DELETE_USER(userId)}`);
   }
 
+  // Platform activity per day for the last `days` days, plus top shops
+  async getDailyActivity(days = 30) {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    return await api.get(`/admin/activity?days=${days}&tz=${encodeURIComponent(tz)}`);
+  }
+
   async getSystemStats() {
     return await api.get(`${API_ENDPOINTS.ADMIN.STATS}`);
   }

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import * as Dialog from "@radix-ui/react-dialog";
-import { AlertTriangle, MoreHorizontal } from "lucide-react";
+import { AlertTriangle, MoreHorizontal, ShieldCheck } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { Button, cn, TooltipProvider } from "../components/ui";
 import CommandPalette from "../components/CommandPalette";
@@ -62,6 +62,21 @@ function PlanBanner() {
   );
 }
 
+// Admins have no shop data of their own; send them to the platform view
+function AdminBanner() {
+  return (
+    <div role="status" className="flex flex-wrap items-center gap-3 border-b border-accent/20 bg-accent-soft px-4 py-2.5 text-caption text-accent-soft-fg lg:px-8">
+      <ShieldCheck className="h-4 w-4 shrink-0" aria-hidden="true" />
+      <span className="flex-1">
+        You're signed in as an admin. This shop workspace is your own and has no orders or customers. Data for every shop is in the admin panel.
+      </span>
+      <Button as={Link} to="/admin/dashboard" size="sm">
+        Open admin panel
+      </Button>
+    </div>
+  );
+}
+
 const DashboardLayout = () => {
   const location = useLocation();
   const { user } = useAuth();
@@ -115,6 +130,7 @@ const DashboardLayout = () => {
             unreadCount={unreadCount}
           />
           {planInactive && <PlanBanner />}
+          {user?.role === "admin" && <AdminBanner />}
           <main
             id="main"
             className={cn(

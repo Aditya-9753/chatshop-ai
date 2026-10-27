@@ -74,3 +74,15 @@ exports.getSystemStats = async (req, res) => {
     return ResponseHandler.error(res, error.message);
   }
 };
+
+// @desc    Platform activity per day (signups, orders, revenue, messages)
+// @route   GET /api/admin/activity?days=30&tz=Asia/Kolkata
+exports.getDailyActivity = async (req, res) => {
+  try {
+    const data = await adminService.getDailyActivity(req.query);
+    return ResponseHandler.success(res, data);
+  } catch (error) {
+    console.error("Get daily activity error:", error);
+    return ResponseHandler.error(res, error.message);
+  }
+};

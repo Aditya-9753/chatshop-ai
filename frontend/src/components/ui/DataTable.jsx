@@ -6,7 +6,7 @@ import { Checkbox } from "./Switch";
 import { EmptyState, ErrorState, Skeleton } from "./Feedback";
 import { DropdownMenu, DropdownTrigger, DropdownContent, DropdownItem } from "./Overlay";
 
-const HIDE_BELOW = { sm: "hidden sm:table-cell", md: "hidden md:table-cell", lg: "hidden lg:table-cell" };
+const HIDE_BELOW = { sm: "hidden sm:table-cell", md: "hidden md:table-cell", lg: "hidden lg:table-cell", xl: "hidden xl:table-cell" };
 
 const compare = (a, b) => {
   if (a == null) return 1;

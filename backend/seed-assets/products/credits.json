@@ -1,0 +1,74 @@
+[
+  {
+    "file": "macbook-pro-m3.jpg",
+    "product": "MacBook Pro M3",
+    "title": "M3 Macbook Pro 14 inch Space Grey model.jpg",
+    "author": "Kyu3a",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:M3_Macbook_Pro_14_inch_Space_Grey_model.jpg"
+  },
+  {
+    "file": "iphone-15-pro.jpg",
+    "product": "iPhone 15 Pro",
+    "title": "IPhone 15 Pro and Pro Max in Apple Store - 1.jpg",
+    "author": "Kyu3",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:IPhone_15_Pro_and_Pro_Max_in_Apple_Store_-_1.jpg"
+  },
+  {
+    "file": "samsung-galaxy-s24.png",
+    "product": "Samsung Galaxy S24",
+    "title": "Samsung Galaxy S24 (webtekno) 008.png",
+    "author": "webtekno",
+    "license": "CC BY 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Samsung_Galaxy_S24_(webtekno)_008.png"
+  },
+  {
+    "file": "sony-wh-1000x.jpg",
+    "product": "Sony WH-1000XM5",
+    "title": "Sony-WH-1000XM3-kabellose-Bluetooth-Noise-Cancelling-Kopfhoerer.3.jpg",
+    "author": "www.digitalpush.net",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Sony-WH-1000XM3-kabellose-Bluetooth-Noise-Cancelling-Kopfhoerer.3.jpg"
+  },
+  {
+    "file": "nike-air-jordan.jpg",
+    "product": "Nike Air Jordan",
+    "title": "Nike Air Jordan IV.jpg",
+    "author": "Osyffar",
+    "license": "CC0",
+    "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "source": "https://commons.wikimedia.org/wiki/File:Nike_Air_Jordan_IV.jpg"
+  },
+  {
+    "file": "denim-jacket.jpg",
+    "product": "Levi's Denim Jacket",
+    "title": "Jean jacket.jpg",
+    "author": "NikosLikomitros",
+    "license": "CC0",
+    "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "source": "https://commons.wikimedia.org/wiki/File:Jean_jacket.jpg"
+  },
+  {
+    "file": "ray-ban-sunglasses.jpg",
+    "product": "Ray-Ban Sunglasses",
+    "title": "2023 Okulary przeciwsłoneczne Ray-Ban (1).jpg",
+    "author": "Jacek Halicki",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:2023_Okulary_przeciws%C5%82oneczne_Ray-Ban_(1).jpg"
+  },
+  {
+    "file": "titan-watch.jpg",
+    "product": "Titan Watch",
+    "title": "TITAN watch.jpg",
+    "author": "Joydeep",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:TITAN_watch.jpg"
+  }
+]
