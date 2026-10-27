@@ -89,6 +89,15 @@ export const sendMessage = async (messageData) => {
 };
 
 /**
+ * Retry a message that failed to send
+ * @param {String} messageId - The message ID
+ * @returns {Promise} The message with its new status
+ */
+export const retryMessage = async (messageId) => {
+  return await api.post(`/messages/${messageId}/retry`);
+};
+
+/**
  * Delete a message (soft delete)
  * @param {String} messageId - The message ID
  * @returns {Promise} Deleted message
@@ -174,6 +183,7 @@ export default {
   // Message methods
   getMessages,
   sendMessage,
+  retryMessage,
   deleteMessage,
   editMessage,
   markMessageAsRead,

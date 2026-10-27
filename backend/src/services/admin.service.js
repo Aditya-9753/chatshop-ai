@@ -3,6 +3,7 @@ const Customer = require("../models/Customer.model");
 const Message = require("../models/Message.model");
 const Order = require("../models/Order.model");
 const Product = require("../models/Product.model");
+const { REVENUE_MATCH } = require("../utils/revenue");
 
 class AdminService {
   // Get dashboard overview stats
@@ -198,7 +199,7 @@ class AdminService {
     const totalProducts = await Product.countDocuments({ userId: user._id });
 
     const revenueData = await Order.aggregate([
-      { $match: { userId: user._id, paymentStatus: "paid" } },
+      { $match: { userId: user._id, ...REVENUE_MATCH } },
       { $group: { _id: null, totalRevenue: { $sum: "$total" } } },
     ]);
 
@@ -267,7 +268,7 @@ class AdminService {
 
     // Total revenue
     const revenueData = await Order.aggregate([
-      { $match: { paymentStatus: "paid" } },
+      { $match: REVENUE_MATCH },
       { $group: { _id: null, totalRevenue: { $sum: "$total" } } },
     ]);
 
@@ -285,7 +286,7 @@ class AdminService {
 
     // Monthly revenue trend
     const monthlyRevenue = await Order.aggregate([
-      { $match: { paymentStatus: "paid" } },
+      { $match: REVENUE_MATCH },
       {
         $group: {
           _id: { $dateToString: { format: "%Y-%m", date: "$createdAt" } },

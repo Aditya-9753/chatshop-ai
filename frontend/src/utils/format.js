@@ -61,3 +61,13 @@ export const percentChange = (current, previous) => {
   if (!previous) return current ? null : 0;
   return ((current - previous) / previous) * 100;
 };
+
+// Minutes as "45s", "12m", "1h 5m" or "2d 3h"; "—" when unknown
+export const formatDuration = (minutes) => {
+  if (minutes == null || Number.isNaN(minutes)) return "—";
+  if (minutes < 1) return `${Math.round(minutes * 60)}s`;
+  if (minutes < 60) return `${Math.round(minutes)}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ${Math.round(minutes % 60)}m`;
+  return `${Math.floor(hours / 24)}d ${hours % 24}h`;
+};
