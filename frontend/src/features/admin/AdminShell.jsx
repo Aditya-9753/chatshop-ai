@@ -36,7 +36,7 @@ function AdminNav({ section, onSection }) {
       <div className="flex items-center gap-2.5 p-1.5">
         <LogoMark />
         <span className="text-sm font-semibold text-fg">ChatShop</span>
-        <Badge tone="accent">Admin</Badge>
+        <Badge tone="accent">Super Admin</Badge>
       </div>
       <nav aria-label="Admin" className="mt-2 flex-1">
         <ul className="flex flex-col gap-0.5">
@@ -64,7 +64,7 @@ function AdminNav({ section, onSection }) {
   );
 }
 
-// Same structure as the app shell, with an "Admin" badge and admin nav
+// Same structure as the app shell, with a "Super Admin" badge and admin nav
 export default function AdminShell({ section, onSection, onRefresh, children }) {
   const { user, logout } = useAuth();
   const { isDarkMode, toggleTheme } = useTheme();
@@ -97,7 +97,9 @@ export default function AdminShell({ section, onSection, onRefresh, children }) 
         <div className="lg:pl-60">
           <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-line bg-canvas/85 px-4 backdrop-blur lg:px-8">
             <Button variant="ghost" size="icon" icon={Menu} onClick={() => setMenuOpen(true)} className="lg:hidden" aria-label="Open menu" />
-            <span className="text-sm text-fg-muted">Platform administration</span>
+            <span className="min-w-0 truncate text-sm text-fg-muted">
+              Super Admin panel<span className="hidden sm:inline"> · Platform administration</span>
+            </span>
             <div className="ml-auto flex items-center gap-2">
               <Button variant="secondary" size="sm" icon={RefreshCw} onClick={onRefresh} aria-label="Refresh data">
                 <span className="hidden sm:inline">Refresh data</span>

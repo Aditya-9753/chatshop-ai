@@ -64,7 +64,7 @@ const AdminLogin = () => {
             </Badge>
           </div>
           <Card className="p-6">
-            <h1 className="text-xl font-semibold tracking-tight text-fg">Admin sign in</h1>
+            <h1 className="text-xl font-semibold tracking-tight text-fg">Super Admin sign in</h1>
             <p className="mt-1 text-sm text-fg-muted">Restricted to platform administrators.</p>
             {challengeToken ? (
               <div className="mt-6">
