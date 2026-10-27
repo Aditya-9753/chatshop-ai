@@ -304,7 +304,7 @@ Log in at `/admin/login` with `admin@chatshopai.com`. The password decides which
 Change both in Super Admin → Security. Sections:
 
 - **Overview**: shop, subscription, MRR and revenue cards with change vs the previous 30 days; quick actions (add shop, broadcast, export); live system status (server, database, email, webhook secret); revenue chart; top shops; recent orders, chats and sign-ups
-- **Shops**: every account with its real customers, orders and revenue; add a shop, send a message, change plan or status, delete
+- **Shops**: every account with its real customers, orders and revenue; add a shop, send a message, change plan or status, delete; **Open as shop** (Super Admin): opens that shop's own dashboard with a "Back to Super Admin" banner. The session lasts 1 hour, is logged, and can't change the owner's password or two-factor login, or delete the account
 - **Orders / Customers / Products / Messages**: every shop's records with a shop filter; chats open read-only
 - **Analytics**: daily revenue, orders, sign-ups and messages (7/30/90 days), monthly growth, subscription distribution, platform usage
 - **Billing** (Super Admin): MRR, yearly run rate and revenue by plan; plans ending in the next 7 days and plans that ended, each with +7 / +30 days buttons
