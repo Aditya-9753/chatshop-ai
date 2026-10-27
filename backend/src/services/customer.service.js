@@ -90,10 +90,11 @@ class CustomerService {
       throw new Error("Customer not found");
     }
 
-    const { name, email, tags, notes } = updateData;
+    const { name, email, phone, tags, notes } = updateData;
 
     if (name) customer.name = name;
-    if (email) customer.email = email;
+    if (email !== undefined) customer.email = email;
+    if (phone !== undefined) customer.phone = phone;
     if (tags) customer.tags = tags;
     if (notes) customer.notes = notes;
 

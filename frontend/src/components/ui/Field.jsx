@@ -1,4 +1,5 @@
 import React, { forwardRef, useId } from "react";
+import { ChevronDown } from "lucide-react";
 import { cn } from "./cn";
 
 // Shared look for text inputs, textareas and selects
@@ -111,26 +112,26 @@ export const Select = forwardRef(function Select(
   return (
     <Field label={label} hint={hint} error={error} required={required} id={id} className={className}>
       {(fieldProps) => (
-        <select
-          ref={ref}
-          className={cn(
-            controlClass(error),
-            "h-9 pl-3 pr-8 appearance-none bg-no-repeat",
-            "bg-[length:16px] bg-[right_8px_center]",
-            "bg-[url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a8a95' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")]",
-            selectClassName
-          )}
-          {...fieldProps}
-          {...props}
-        >
-          {options
-            ? options.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))
-            : children}
-        </select>
+        <div className="relative">
+          <select
+            ref={ref}
+            className={cn(controlClass(error), "h-9 pl-3 pr-8 appearance-none", selectClassName)}
+            {...fieldProps}
+            {...props}
+          >
+            {options
+              ? options.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))
+              : children}
+          </select>
+          <ChevronDown
+            className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle"
+            aria-hidden="true"
+          />
+        </div>
       )}
     </Field>
   );

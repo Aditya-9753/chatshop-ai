@@ -33,8 +33,6 @@ exports.getProduct = async (req, res) => {
 // @desc    Create new product
 exports.createProduct = async (req, res) => {
   try {
-    console.log("Create product - body:", req.body);
-    console.log("Create product - file:", req.file);
 
     const productData = { ...req.body };
 
@@ -73,8 +71,6 @@ exports.createProduct = async (req, res) => {
 // @desc    Update product
 exports.updateProduct = async (req, res) => {
   try {
-    console.log("Update product - body:", req.body);
-    console.log("Update product - file:", req.file);
 
     const productData = { ...req.body };
 
