@@ -37,7 +37,7 @@ const Register = () => {
     if (!form.name.trim()) errors.name = "Enter your name";
     if (!EMAIL_PATTERN.test(form.email.trim())) errors.email = "Enter a valid email address";
     if (!form.phone.trim()) errors.phone = "Enter a phone number";
-    if (form.password.length < 8) errors.password = "Use at least 8 characters";
+    if (form.password.length < 6) errors.password = "Use at least 6 characters";
     if (form.confirmPassword !== form.password) errors.confirmPassword = "Passwords don't match";
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;

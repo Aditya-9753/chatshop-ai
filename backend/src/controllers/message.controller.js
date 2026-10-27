@@ -1,4 +1,7 @@
+const path = require("path");
 const messageService = require("../services/message.service");
+
+const UPLOADS_ROOT = path.join(__dirname, "../../uploads");
 const ResponseHandler = require("../utils/response.handler");
 
 // @desc    Get all messages
@@ -153,7 +156,8 @@ exports.uploadMessageMedia = async (req, res) => {
     }
 
     const fileData = {
-      mediaUrl: `/${req.file.path.replace(/\\/g, "/")}`,
+      // Public URL under /uploads, built from where the file was saved
+      mediaUrl: `/uploads/${path.relative(UPLOADS_ROOT, req.file.path).split(path.sep).join("/")}`,
       fileName: req.file.originalname,
       mimeType: req.file.mimetype,
       fileSize: req.file.size,

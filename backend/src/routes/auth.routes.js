@@ -4,7 +4,7 @@ const { body, oneOf } = require("express-validator");
 const rateLimit = require("express-rate-limit");
 const authController = require("../controllers/auth.controller");
 
-const PASSWORD_RULE = "Password must be at least 8 characters";
+const PASSWORD_RULE = "Password must be at least 6 characters";
 
 // Reset emails are limited per IP to stop inbox flooding
 const forgotPasswordLimiter = rateLimit({
@@ -26,7 +26,7 @@ router.post(
   [
     body("name").trim().notEmpty().withMessage("Name is required"),
     body("email").isEmail().withMessage("Valid email is required"),
-    body("password").isLength({ min: 8 }).withMessage(PASSWORD_RULE),
+    body("password").isLength({ min: 6 }).withMessage(PASSWORD_RULE),
     body("phone").notEmpty().withMessage("Phone number is required"),
   ],
   authController.register
@@ -63,8 +63,8 @@ router.post(
     body("token").notEmpty().withMessage("Reset token is required"),
     oneOf(
       [
-        body("password").isLength({ min: 8 }),
-        body("newPassword").isLength({ min: 8 }),
+        body("password").isLength({ min: 6 }),
+        body("newPassword").isLength({ min: 6 }),
       ],
       { message: PASSWORD_RULE }
     ),

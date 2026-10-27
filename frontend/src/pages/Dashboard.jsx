@@ -4,13 +4,23 @@ import { Clock, IndianRupee, MessageSquare, Plus, ShoppingCart, UserPlus } from 
 import { useAuth } from "../context/AuthContext";
 import analyticsService from "../services/analytics.service";
 import { Button, Card, CardBody, CardHeader, ErrorState, PageHeader, Skeleton, StatCard } from "../components/ui";
-import { ChannelSplit, ChartCard } from "../components/charts/Charts";
+import { ChannelSplit, ChartCard, seriesStats } from "../components/charts/Charts";
 import { ChannelStatus, NeedsAttention, OnboardingChecklist } from "../features/dashboard/Attention";
-import { formatCurrency, formatDuration, formatNumber, percentChange } from "../utils/format";
+import { formatCurrency, formatCurrencyCompact, formatDuration, formatNumber, percentChange } from "../utils/format";
 
 const greeting = () => {
   const hour = new Date().getHours();
   return hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+};
+
+// Headline numbers shown above the revenue chart
+const revenueSummary = (data) => {
+  const stats = seriesStats(data.series, "revenue");
+  return [
+    { label: "Total", value: formatCurrency(stats.total), delta: percentChange(data.kpis.revenue.current, data.kpis.revenue.previous), note: "vs previous 7 days" },
+    { label: "Daily average", value: formatCurrency(stats.average) },
+    { label: "Best day", value: stats.bestDay ? formatCurrency(stats.bestDay.value) : "—", note: stats.bestDay?.date },
+  ];
 };
 
 function DashboardSkeleton() {
@@ -77,7 +87,7 @@ const Dashboard = () => {
         <DashboardSkeleton />
       ) : (
         <>
-          {!data.onboarding.whatsappConnected && <OnboardingChecklist onboarding={data.onboarding} />}
+          {!data.onboarding.whatsappConnected && user?.role !== "admin" && <OnboardingChecklist onboarding={data.onboarding} />}
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <StatCard
@@ -117,11 +127,14 @@ const Dashboard = () => {
           <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
             <div className="flex flex-col gap-6 lg:col-span-2">
               <ChartCard
-                title="Revenue"
-                description="Paid orders, excluding cancelled, per day"
+                title="Revenue per day"
+                description="Paid orders, excluding cancelled, for the last 7 days"
                 data={data.series}
                 series={[{ key: "revenue", label: "Revenue", color: "var(--chart-1)" }]}
                 format={(v) => formatCurrency(v)}
+                yFormat={formatCurrencyCompact}
+                average
+                summary={revenueSummary(data)}
               />
               <Card>
                 <CardHeader title="Messages by channel" description="Last 7 days, both directions" />

@@ -72,6 +72,9 @@ exports.authorizeAdmin = (req, res, next) => {
 
 // Check subscription
 exports.checkSubscription = (req, res, next) => {
+  // Platform admins can open every page without a plan of their own
+  if (req.user.role === "admin") return next();
+
   if (!req.user.subscription || req.user.subscription.status !== "active") {
     return res.status(403).json({
       success: false,

@@ -2,8 +2,8 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarDays, Clock, IndianRupee, MessageSquare, Receipt, ShoppingCart, UserPlus } from "lucide-react";
 import analyticsService from "../services/analytics.service";
 import { Card, CardBody, CardHeader, ChannelBadge, EmptyState, ErrorState, PageHeader, Skeleton, StatCard, Tabs } from "../components/ui";
-import { ChannelSplit, ChartCard } from "../components/charts/Charts";
-import { formatCurrency, formatDuration, formatNumber, percentChange } from "../utils/format";
+import { ChannelSplit, ChartCard, seriesStats } from "../components/charts/Charts";
+import { formatCurrency, formatCurrencyCompact, formatDuration, formatNumber, percentChange } from "../utils/format";
 
 const DAY_MS = 86400000;
 
@@ -98,6 +98,15 @@ const Analytics = () => {
   const days = range ? Math.round((range.end - range.start) / DAY_MS) : 0;
   const deltaLabel = `vs previous ${days} days`;
   const initial = loading && !report;
+  const stats = useMemo(
+    () =>
+      report && {
+        revenue: seriesStats(report.series, "revenue"),
+        orders: seriesStats(report.series, "orders"),
+        newCustomers: seriesStats(report.series, "newCustomers"),
+      },
+    [report]
+  );
 
   return (
     <div>
@@ -161,23 +170,60 @@ const Analytics = () => {
             </div>
           ) : (
             <>
-              <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
                 <ChartCard
-                  title="Revenue"
-                  description="Paid orders, excluding cancelled"
+                  title="Revenue per day"
+                  description="Paid orders, excluding cancelled."
                   data={report.series}
                   series={[{ key: "revenue", label: "Revenue", color: "var(--chart-1)" }]}
                   format={(v) => formatCurrency(v)}
+                  yFormat={formatCurrencyCompact}
+                  average
+                  summary={[
+                    { label: "Total revenue", value: formatCurrency(kpi("revenue").current), delta: delta("revenue"), note: deltaLabel },
+                    { label: "Per day", value: formatCurrency(stats.revenue.average) },
+                    { label: "Best day", value: stats.revenue.bestDay ? formatCurrency(stats.revenue.bestDay.value) : "—", note: stats.revenue.bestDay?.date },
+                  ]}
                 />
                 <ChartCard
-                  title="Messages"
-                  description="Received from customers and sent by you"
+                  title="Orders per day"
+                  description="Every order except cancelled ones."
+                  data={report.series}
+                  series={[{ key: "orders", label: "Orders", color: "var(--chart-1)" }]}
+                  format={formatNumber}
+                  average
+                  summary={[
+                    { label: "Total orders", value: formatNumber(kpi("orders").current), delta: delta("orders"), note: deltaLabel },
+                    { label: "Average order", value: formatCurrency(kpi("averageOrderValue").current) },
+                    { label: "Days with orders", value: `${stats.orders.activeDays} of ${report.series.length}` },
+                  ]}
+                />
+                <ChartCard
+                  title="Messages per day"
+                  description="Received from customers and sent by you, stacked."
                   data={report.series}
                   series={[
                     { key: "messagesIn", label: "Received", color: "var(--chart-1)" },
                     { key: "messagesOut", label: "Sent", color: "var(--chart-2)" },
                   ]}
+                  stacked
                   format={formatNumber}
+                  summary={[
+                    { label: "Received", value: formatNumber(kpi("messagesReceived").current), delta: delta("messagesReceived"), note: deltaLabel },
+                    { label: "Sent", value: formatNumber(kpi("messagesSent").current) },
+                    { label: "Median reply time", value: formatDuration(kpi("responseTimeMinutes").current) },
+                  ]}
+                />
+                <ChartCard
+                  title="New customers per day"
+                  description="People who messaged or bought from you for the first time."
+                  data={report.series}
+                  series={[{ key: "newCustomers", label: "New customers", color: "var(--chart-2)" }]}
+                  format={formatNumber}
+                  summary={[
+                    { label: "New customers", value: formatNumber(kpi("newCustomers").current), delta: delta("newCustomers"), note: deltaLabel },
+                    { label: "Best day", value: stats.newCustomers.bestDay ? formatNumber(stats.newCustomers.bestDay.value) : "—", note: stats.newCustomers.bestDay?.date },
+                  ]}
                 />
               </div>
 

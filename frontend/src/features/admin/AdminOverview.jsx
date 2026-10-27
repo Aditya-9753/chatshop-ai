@@ -3,7 +3,7 @@ import { IndianRupee, MessageSquare, ShoppingCart, UserPlus, Users } from "lucid
 import adminService from "../../services/admin.service";
 import { Card, CardBody, CardHeader, ChannelBadge, ErrorState, PageHeader, Skeleton, StatCard } from "../../components/ui";
 import { ChartCard } from "../../components/charts/Charts";
-import { formatCurrency, formatNumber } from "../../utils/format";
+import { formatCurrency, formatCurrencyCompact, formatNumber } from "../../utils/format";
 
 const PLANS = [
   { key: "starter", label: "Starter" },
@@ -151,6 +151,7 @@ export function AdminAnalytics() {
             series={[{ key: "count", label: "Sign-ups", color: "var(--chart-1)" }]}
             format={formatNumber}
             granularity="month"
+            kind="area"
           />
           <ChartCard
             title="Order revenue"
@@ -158,7 +159,9 @@ export function AdminAnalytics() {
             data={monthly(data.monthlyRevenue, "revenue")}
             series={[{ key: "revenue", label: "Revenue", color: "var(--chart-1)" }]}
             format={(v) => formatCurrency(v)}
+            yFormat={formatCurrencyCompact}
             granularity="month"
+            kind="area"
           />
         </div>
       )}
