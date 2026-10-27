@@ -29,6 +29,16 @@ class AdminService {
     return await api.get(`/admin/activity?days=${days}&tz=${encodeURIComponent(tz)}`);
   }
 
+  // Every shop's records, newest first. params: { shop, status, limit }
+  async listAll(kind, params = {}) {
+    const query = new URLSearchParams(Object.entries(params).filter(([, v]) => v)).toString();
+    return await api.get(`/admin/${kind}${query ? `?${query}` : ""}`);
+  }
+
+  async getConversationMessages(conversationId) {
+    return await api.get(`/admin/conversations/${conversationId}/messages`);
+  }
+
   async getSystemStats() {
     return await api.get(`${API_ENDPOINTS.ADMIN.STATS}`);
   }

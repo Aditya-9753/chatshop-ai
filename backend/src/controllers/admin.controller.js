@@ -86,3 +86,33 @@ exports.getDailyActivity = async (req, res) => {
     return ResponseHandler.error(res, error.message);
   }
 };
+
+const adminDataService = require("../services/adminData.service");
+
+// Platform-wide lists: GET /api/admin/{orders,customers,products,conversations}?shop=&limit=
+const listHandler = (method) => async (req, res) => {
+  try {
+    const rows = await adminDataService[method](req.query);
+    return ResponseHandler.success(res, rows);
+  } catch (error) {
+    console.error(`Admin ${method} error:`, error);
+    return ResponseHandler.error(res, error.message);
+  }
+};
+
+exports.getAllOrders = listHandler("orders");
+exports.getAllCustomers = listHandler("customers");
+exports.getAllProducts = listHandler("products");
+exports.getAllConversations = listHandler("conversations");
+
+// @desc    One conversation's messages (read-only)
+// @route   GET /api/admin/conversations/:id/messages
+exports.getConversationMessages = async (req, res) => {
+  try {
+    const data = await adminDataService.conversationMessages(req.params.id);
+    return ResponseHandler.success(res, data);
+  } catch (error) {
+    console.error("Admin conversation messages error:", error);
+    return ResponseHandler.notFound(res, error.message);
+  }
+};

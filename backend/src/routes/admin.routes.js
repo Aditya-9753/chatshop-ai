@@ -10,7 +10,21 @@ const {
   deleteUser,
   getSystemStats,
   getDailyActivity,
+  getAllOrders,
+  getAllCustomers,
+  getAllProducts,
+  getAllConversations,
+  getConversationMessages,
 } = require("../controllers/admin.controller");
+
+// @route   GET /api/admin/{orders,customers,products,conversations}
+// @desc    Every shop's records, newest first (?shop=<userId>&limit=)
+// @access  Private/Admin
+router.get("/orders", protect, isAdmin, getAllOrders);
+router.get("/customers", protect, isAdmin, getAllCustomers);
+router.get("/products", protect, isAdmin, getAllProducts);
+router.get("/conversations", protect, isAdmin, getAllConversations);
+router.get("/conversations/:id/messages", protect, isAdmin, getConversationMessages);
 
 // @route   GET /api/admin/activity
 // @desc    Platform activity per day and top shops

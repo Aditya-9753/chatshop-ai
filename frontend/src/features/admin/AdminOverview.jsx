@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { IndianRupee, MessageSquare, ShoppingCart, Store, UserPlus, Users } from "lucide-react";
 import adminService from "../../services/admin.service";
-import { Avatar, Card, CardBody, CardHeader, ChannelBadge, ErrorState, PageHeader, Skeleton, StatCard, Tabs } from "../../components/ui";
+import { Avatar, Card, CardBody, CardHeader, ChannelBadge, ErrorState, PageHeader, Skeleton, StatCard, StatusPill, Tabs } from "../../components/ui";
 import { ChartCard, seriesStats } from "../../components/charts/Charts";
-import { formatCurrency, formatCurrencyCompact, formatNumber } from "../../utils/format";
+import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber, formatRelative } from "../../utils/format";
+import { shopName } from "./AdminRecords";
 
 const PLANS = [
   { key: "starter", label: "Starter" },
@@ -15,6 +17,40 @@ const PLANS = [
 const fetchDashboard = () => adminService.getDashboardStats();
 const fetchSystem = () => adminService.getSystemStats();
 const fetchActivity = (days) => adminService.getDailyActivity(days);
+const fetchRecentOrders = () => adminService.listAll("orders", { limit: 6 });
+const fetchRecentChats = () => adminService.listAll("conversations", { limit: 6 });
+const fetchNewShops = () => adminService.getAllUsers({ limit: 6 });
+
+// A short "latest" list with a link to the full section
+function RecentCard({ title, description, section, rows, empty, render }) {
+  const [, setParams] = useSearchParams();
+  return (
+    <Card>
+      <CardHeader
+        title={title}
+        description={description}
+        action={
+          <button onClick={() => setParams({ section })} className="text-xs font-medium text-accent hover:underline">
+            View all
+          </button>
+        }
+      />
+      <div className="px-5 pb-4">
+        {!rows ? (
+          <div className="space-y-2">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-9 w-full" />
+            ))}
+          </div>
+        ) : rows.length === 0 ? (
+          <p className="py-6 text-center text-caption text-fg-muted">{empty}</p>
+        ) : (
+          <ul className="divide-y divide-line/60">{rows.map(render)}</ul>
+        )}
+      </div>
+    </Card>
+  );
+}
 
 function useLoad(fetcher, arg) {
   const [data, setData] = useState(null);
@@ -98,6 +134,9 @@ function TopShops({ shops, days }) {
 export function AdminOverview() {
   const { data, error, load } = useLoad(fetchDashboard);
   const activity = useLoad(fetchActivity, 30);
+  const recentOrders = useLoad(fetchRecentOrders);
+  const recentChats = useLoad(fetchRecentChats);
+  const newShops = useLoad(fetchNewShops);
   const totals = activity.data && {
     revenue: seriesStats(activity.data.series, "revenue").total,
     orders: seriesStats(activity.data.series, "orders").total,
@@ -122,7 +161,11 @@ export function AdminOverview() {
 
           <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
             <div className="lg:col-span-2">
-              {activity.data ? (
+              {activity.error ? (
+                <Card>
+                  <ErrorState title="Couldn't load the revenue chart" description={activity.error} onRetry={activity.load} />
+                </Card>
+              ) : activity.data ? (
                 <ChartCard
                   title="Order revenue across all shops"
                   description="Paid orders per day, last 30 days"
@@ -141,7 +184,76 @@ export function AdminOverview() {
                 <Skeleton className="h-[380px] rounded-xl" />
               )}
             </div>
-            {activity.data ? <TopShops shops={activity.data.topShops} days={30} /> : <Skeleton className="h-[380px] rounded-xl" />}
+            {activity.data ? <TopShops shops={activity.data.topShops} days={30} /> : !activity.error && <Skeleton className="h-[380px] rounded-xl" />}
+          </div>
+
+          <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <RecentCard
+              title="Recent orders"
+              description="Newest first, every shop"
+              section="orders"
+              rows={recentOrders.data}
+              empty="No orders yet."
+              render={(o) => (
+                <li key={o._id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                  <span className="min-w-0">
+                    <span className="block truncate text-fg">
+                      <span className="font-mono text-caption">{o.orderNumber}</span> · {o.customerId?.name || "Customer"}
+                    </span>
+                    <span className="block truncate text-xs text-fg-muted">
+                      {shopName(o.userId)} · {formatRelative(o.createdAt)}
+                    </span>
+                  </span>
+                  <span className="flex shrink-0 flex-col items-end gap-1">
+                    <span className="tabular-nums text-fg">{formatCurrency(o.total)}</span>
+                    <StatusPill status={o.status} />
+                  </span>
+                </li>
+              )}
+            />
+            <RecentCard
+              title="Latest chats"
+              description="Most recent conversations, every shop"
+              section="messages"
+              rows={recentChats.data}
+              empty="No conversations yet."
+              render={(c) => (
+                <li key={c._id} className="flex items-center gap-3 py-2.5 text-sm">
+                  <Avatar name={c.customerId?.name} size="sm" platform={c.platform} />
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="truncate font-medium text-fg">{c.customerId?.name || "Customer"}</span>
+                      <span className="shrink-0 text-xs text-fg-muted">{formatRelative(c.lastMessage?.timestamp)}</span>
+                    </span>
+                    <span className="block truncate text-caption text-fg-muted">
+                      {shopName(c.userId)} · {c.lastMessage?.content || "No messages"}
+                    </span>
+                  </span>
+                </li>
+              )}
+            />
+            <RecentCard
+              title="Newest shops"
+              description="Latest sign-ups"
+              section="users"
+              rows={newShops.data}
+              empty="No shops yet."
+              render={(u) => (
+                <li key={u._id} className="flex items-center gap-3 py-2.5 text-sm">
+                  <Avatar name={u.name} size="sm" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium text-fg">{shopName(u)}</span>
+                    <span className="block truncate text-caption text-fg-muted">
+                      {u.email} · joined {formatDate(u.createdAt)}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-right">
+                    <span className="block text-caption capitalize text-fg">{u.subscription?.plan || "No plan"}</span>
+                    <span className="block text-xs tabular-nums text-fg-muted">{formatCurrency(u.activity?.revenue || 0)}</span>
+                  </span>
+                </li>
+              )}
+            />
           </div>
 
           {!data ? (
