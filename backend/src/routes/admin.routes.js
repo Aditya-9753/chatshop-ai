@@ -80,4 +80,10 @@ router.get("/audit", protect, isAdmin, superAdminOnly, tools.auditLog);
 router.get("/admin-panel", protect, isAdmin, superAdminOnly, tools.adminPanelStatus);
 router.put("/admin-panel", protect, isAdmin, superAdminOnly, tools.setAdminPanelPassword);
 
+// Super Admin only: billing & renewals, and opening a shop as its owner
+const superAdmin = require("../controllers/superAdmin.controller");
+router.get("/billing", protect, isAdmin, superAdminOnly, superAdmin.billing);
+router.post("/users/:id/extend", protect, isAdmin, superAdminOnly, superAdmin.extendSubscription);
+router.post("/users/:id/impersonate", protect, isAdmin, superAdminOnly, superAdmin.impersonate);
+
 module.exports = router;

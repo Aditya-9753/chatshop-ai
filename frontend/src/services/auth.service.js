@@ -1,5 +1,6 @@
 import api from "./api.service";
 import { API_ENDPOINTS } from "../config/api.config";
+import { clearShopView } from "./shopView";
 
 class AuthService {
   async login(email, password) {
@@ -86,6 +87,7 @@ class AuthService {
   logout() {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    clearShopView();
   }
 
   getCurrentUser() {

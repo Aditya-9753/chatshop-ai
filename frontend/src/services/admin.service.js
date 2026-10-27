@@ -85,6 +85,19 @@ class AdminService {
     return api.put("/admin/admin-panel", { password });
   }
 
+  // Super Admin only
+  getBilling() {
+    return api.get("/admin/billing");
+  }
+
+  extendSubscription(id, days) {
+    return api.post(`/admin/users/${id}/extend`, { days });
+  }
+
+  openAsShop(id) {
+    return api.post(`/admin/users/${id}/impersonate`);
+  }
+
   // Download a CSV (shops, orders, customers, products) or the JSON backup
   async download(path, fileName) {
     const blob = await api.get(path, { responseType: "blob" });

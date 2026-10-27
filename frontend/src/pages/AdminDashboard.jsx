@@ -5,6 +5,7 @@ import AdminShell, { sectionsFor } from "../features/admin/AdminShell";
 import AdminUsers from "../features/admin/AdminUsers";
 import { AdminOverview } from "../features/admin/AdminOverview";
 import AdminAnalytics from "../features/admin/AdminAnalytics";
+import AdminBilling from "../features/admin/AdminBilling";
 import { AdminCustomers, AdminOrders, AdminProducts } from "../features/admin/AdminRecords";
 import AdminMessages from "../features/admin/AdminMessages";
 import AdminSettings from "../features/admin/AdminSettings";
@@ -18,6 +19,7 @@ const SECTIONS = {
   products: AdminProducts,
   messages: AdminMessages,
   analytics: AdminAnalytics,
+  billing: AdminBilling,
   settings: AdminSettings,
   security: AdminSecurity,
 };

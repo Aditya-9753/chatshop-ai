@@ -25,6 +25,8 @@ const ACTION_LABELS = {
   "data.backup": "Downloaded a backup",
   "cache.clear": "Cleared the cache",
   "admin_panel.password": "Changed the Admin panel password",
+  "shop.impersonate": "Opened a shop's dashboard",
+  "subscription.extend": "Extended a shop's plan",
 };
 
 // Second password on this account that opens the limited Admin panel

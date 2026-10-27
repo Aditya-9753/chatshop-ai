@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import * as Dialog from "@radix-ui/react-dialog";
-import { AlertTriangle, MoreHorizontal, ShieldCheck } from "lucide-react";
+import { AlertTriangle, Eye, MoreHorizontal, ShieldCheck } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { Button, cn, TooltipProvider } from "../components/ui";
 import CommandPalette from "../components/CommandPalette";
 import useInboxSummary from "../hooks/useInboxSummary";
 import AnnouncementBanner from "../features/dashboard/Announcements";
+import { endShopView, SHOP_VIEW_EXIT_URL } from "../services/shopView";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 import { TAB_BAR_ITEMS } from "./navigation";
@@ -78,6 +79,25 @@ function AdminBanner() {
   );
 }
 
+// The Super Admin opened this shop from the Shops page ("Open as shop")
+function ShopViewBanner({ user }) {
+  const back = () => {
+    endShopView();
+    window.location.assign(SHOP_VIEW_EXIT_URL);
+  };
+  return (
+    <div role="status" className="flex flex-wrap items-center gap-3 border-b border-warning/30 bg-warning-soft px-4 py-2.5 text-caption text-warning-fg lg:px-8">
+      <Eye className="h-4 w-4 shrink-0" aria-hidden="true" />
+      <span className="flex-1">
+        You're viewing <strong>{user.businessInfo?.businessName || user.name}</strong>'s dashboard as Super Admin. Changes you make here are real.
+      </span>
+      <Button size="sm" onClick={back}>
+        Back to Super Admin
+      </Button>
+    </div>
+  );
+}
+
 const DashboardLayout = () => {
   const location = useLocation();
   const { user } = useAuth();
@@ -130,6 +150,7 @@ const DashboardLayout = () => {
             unreadChats={unreadChats}
             unreadCount={unreadCount}
           />
+          {user?.actingAdmin && <ShopViewBanner user={user} />}
           {planInactive && <PlanBanner />}
           {user?.role === "admin" && <AdminBanner />}
           {user?.role !== "admin" && <AnnouncementBanner />}
