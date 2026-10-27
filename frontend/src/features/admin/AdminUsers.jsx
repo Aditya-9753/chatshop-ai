@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Download, Eye, Trash2, Users } from "lucide-react";
 import adminService from "../../services/admin.service";
 import { useToast } from "../../components/Toast";
@@ -42,6 +43,8 @@ function exportCsv(users) {
 
 function UserDrawer({ userId, onClose, onChanged, onDelete }) {
   const toast = useToast();
+  const [, setParams] = useSearchParams();
+  const openSection = (section) => setParams({ section, shop: userId });
   const [detail, setDetail] = useState(null);
   const [subscription, setSubscription] = useState({ plan: "", status: "inactive", endDate: "" });
   const [saving, setSaving] = useState(false);
@@ -126,6 +129,21 @@ function UserDrawer({ userId, onClose, onChanged, onDelete }) {
               </div>
             ))}
           </dl>
+          <section>
+            <SectionLabel className="mb-2">See this shop's data</SectionLabel>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                ["orders", "Orders"],
+                ["customers", "Customers"],
+                ["products", "Products"],
+                ["messages", "Messages"],
+              ].map(([section, label]) => (
+                <Button key={section} variant="secondary" size="sm" onClick={() => openSection(section)}>
+                  View {label.toLowerCase()}
+                </Button>
+              ))}
+            </div>
+          </section>
           <section>
             <SectionLabel className="mb-2">Channels</SectionLabel>
             <dl className="divide-y divide-line/60">
@@ -225,8 +243,8 @@ export default function AdminUsers() {
   return (
     <div>
       <PageHeader
-        title="Users"
-        description="Every shop on the platform."
+        title="Shops"
+        description="Every shop on the platform, with its real customers, orders and revenue."
         actions={
           <Button variant="secondary" icon={Download} onClick={() => exportCsv(users)} disabled={!users.length}>
             Export CSV

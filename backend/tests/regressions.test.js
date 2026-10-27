@@ -92,3 +92,50 @@ test("the admin panel gets real per-shop numbers and a daily platform series", a
   const forbidden = await request(app).get("/api/admin/activity").set("Authorization", `Bearer ${shop.token}`);
   assert.equal(forbidden.status, 403);
 });
+
+test("the super admin can list every shop's orders, customers, products and chats", async () => {
+  const User = require("../src/models/User.model");
+  const Customer = require("../src/models/Customer.model");
+  const Order = require("../src/models/Order.model");
+  const Product = require("../src/models/Product.model");
+  const Conversation = require("../src/models/Conversation.model");
+  const Message = require("../src/models/Message.model");
+
+  const admin = await registerUser(app);
+  await User.updateOne({ _id: admin.user.id }, { role: "admin" });
+  const shopA = await registerUser(app, { name: "Shop A" });
+  const shopB = await registerUser(app, { name: "Shop B" });
+
+  const customer = await Customer.create({ userId: shopA.user.id, name: "Asha", platform: "whatsapp", phone: "+910000000002" });
+  await Customer.create({ userId: shopB.user.id, name: "Bela", platform: "instagram", platformId: "ig1" });
+  await Order.create({ userId: shopA.user.id, customerId: customer._id, orderNumber: "ORD-ALL-1", platform: "whatsapp", total: 700 });
+  await Product.create({ userId: shopB.user.id, name: "Saree", price: 2000 });
+  const convo = await Conversation.create({ userId: shopA.user.id, customerId: customer._id, platform: "whatsapp", lastMessage: { content: "Hi", type: "text", direction: "incoming", timestamp: new Date() } });
+  await Message.create({ userId: shopA.user.id, customerId: customer._id, conversationId: convo._id, platform: "whatsapp", direction: "incoming", content: { text: "Hi" }, status: "received" });
+
+  const get = (path) => request(app).get(`/api/admin/${path}`).set("Authorization", `Bearer ${admin.token}`);
+
+  const customers = await get("customers");
+  assert.ok(customers.body.data.some((c) => c.name === "Asha" && c.userId.name === "Shop A"));
+  assert.ok(customers.body.data.some((c) => c.name === "Bela" && c.userId.name === "Shop B"));
+
+  const onlyA = await get(`customers?shop=${shopA.user.id}`);
+  assert.ok(onlyA.body.data.every((c) => String(c.userId._id) === String(shopA.user.id)));
+
+  const orders = await get("orders");
+  const order = orders.body.data.find((o) => o.orderNumber === "ORD-ALL-1");
+  assert.equal(order.customerId.name, "Asha");
+  assert.equal(order.userId.name, "Shop A");
+
+  const products = await get("products");
+  assert.ok(products.body.data.some((p) => p.name === "Saree" && p.userId.name === "Shop B"));
+
+  const chats = await get("conversations");
+  assert.ok(chats.body.data.some((c) => String(c._id) === String(convo._id)));
+  const thread = await get(`conversations/${convo._id}/messages`);
+  assert.equal(thread.status, 200);
+  assert.equal(thread.body.data.messages[0].content.text, "Hi");
+
+  const blocked = await request(app).get("/api/admin/orders").set("Authorization", `Bearer ${shopA.token}`);
+  assert.equal(blocked.status, 403);
+});

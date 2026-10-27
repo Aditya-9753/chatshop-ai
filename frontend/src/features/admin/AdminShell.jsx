@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import * as Dialog from "@radix-ui/react-dialog";
-import { BarChart3, LayoutDashboard, Lock, LogOut, Menu, Moon, Sun, Users } from "lucide-react";
+import { BarChart3, LayoutDashboard, Lock, LogOut, Menu, MessageSquare, Moon, Package, ShoppingCart, Store, Sun, Users } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 import { LogoMark } from "../../components/Logo";
@@ -20,7 +20,11 @@ import {
 
 export const ADMIN_SECTIONS = [
   { value: "overview", label: "Overview", icon: LayoutDashboard },
-  { value: "users", label: "Users", icon: Users },
+  { value: "users", label: "Shops", icon: Store },
+  { value: "orders", label: "Orders", icon: ShoppingCart },
+  { value: "customers", label: "Customers", icon: Users },
+  { value: "products", label: "Products", icon: Package },
+  { value: "messages", label: "Messages", icon: MessageSquare },
   { value: "analytics", label: "Analytics", icon: BarChart3 },
   { value: "security", label: "Security", icon: Lock },
 ];
