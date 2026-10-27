@@ -9,6 +9,7 @@ import { useToast } from "../../components/Toast";
 import { PasswordInput, PasswordStrength } from "../../components/auth/PasswordInput";
 import { Alert, Avatar, Badge, Button, Card, CardBody, CardHeader, cn, EmptyState, Input, Modal, Select, Skeleton, StatusPill, Switch } from "../../components/ui";
 import { formatCurrency, formatDate } from "../../utils/format";
+import usePublicSettings from "../../hooks/usePublicSettings";
 
 // AI replies: preferences are stored now; auto-reply ships in a later phase
 export function AiSettings({ profile, onProfileChange }) {
@@ -76,6 +77,7 @@ const PLAN_ORDER = ["starter", "business", "premium", "one-time"];
 
 export function BillingSettings({ profile }) {
   const [plans, setPlans] = useState(null);
+  const { supportEmail, contactPhone } = usePublicSettings();
   const subscription = profile.subscription || {};
 
   useEffect(() => {
@@ -137,7 +139,16 @@ export function BillingSettings({ profile }) {
             </div>
           )}
           <p className="mt-4 text-caption text-fg-muted">
-            Online checkout is coming soon. To change your plan now, contact support.
+            Online checkout is coming soon. To change your plan now, contact support
+            {supportEmail && (
+              <>
+                {" at "}
+                <a href={`mailto:${supportEmail}`} className="font-medium text-accent hover:underline">
+                  {supportEmail}
+                </a>
+              </>
+            )}
+            {contactPhone && ` or ${contactPhone}`}.
           </p>
         </CardBody>
       </Card>

@@ -59,4 +59,18 @@ router.put("/ai-config", protect, updateAIConfig);
 // @access  Private
 router.put("/business-info", protect, updateBusinessInfo);
 
+const tools = require("../controllers/adminTools.controller");
+
+// @route   GET /api/users/announcements
+// @desc    Messages from the platform admin for this shop
+// @access  Private
+router.get("/announcements", protect, tools.myAnnouncements);
+
+// @route   POST /api/users/2fa/{setup,enable,disable}
+// @desc    Two-factor login with an authenticator app
+// @access  Private
+router.post("/2fa/setup", protect, tools.twoFactorSetup);
+router.post("/2fa/enable", protect, tools.twoFactorEnable);
+router.post("/2fa/disable", protect, tools.twoFactorDisable);
+
 module.exports = router;

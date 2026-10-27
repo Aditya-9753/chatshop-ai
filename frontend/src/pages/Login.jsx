@@ -4,6 +4,7 @@ import { Mail } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import AuthLayout from "../components/auth/AuthLayout";
 import { PasswordInput } from "../components/auth/PasswordInput";
+import TwoFactorStep from "../components/auth/TwoFactorStep";
 import { Alert, Button, Input } from "../components/ui";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -18,6 +19,7 @@ const Login = () => {
   const [fieldErrors, setFieldErrors] = useState({});
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [challengeToken, setChallengeToken] = useState(null);
 
   const destination = (admin) =>
     admin ? "/admin/dashboard" : location.state?.from?.pathname || "/dashboard";
@@ -49,6 +51,11 @@ const Login = () => {
     setError("");
     try {
       const response = await login(form.email.trim(), form.password);
+      if (response.data.twoFactorRequired) {
+        setChallengeToken(response.data.challengeToken);
+        setLoading(false);
+        return;
+      }
       navigate(destination(response.data.user?.role === "admin"), { replace: true });
     } catch (err) {
       setError(err.message || "Login failed. Please try again.");
@@ -69,6 +76,14 @@ const Login = () => {
         </>
       }
     >
+      {challengeToken ? (
+        <TwoFactorStep
+          challengeToken={challengeToken}
+          onDone={(user) => navigate(destination(user?.role === "admin"), { replace: true })}
+          onCancel={() => setChallengeToken(null)}
+        />
+      ) : (
+      <>
       {params.get("expired") && !error && (
         <Alert tone="info" className="mb-5">
           Your session ended. Please log in again.
@@ -118,6 +133,8 @@ const Login = () => {
           {loading ? "Logging in…" : "Log in"}
         </Button>
       </form>
+      </>
+      )}
     </AuthLayout>
   );
 };

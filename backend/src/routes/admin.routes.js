@@ -61,4 +61,18 @@ router.delete("/users/:id", protect, isAdmin, deleteUser);
 // @access  Private/Admin
 router.get("/stats", protect, isAdmin, getSystemStats);
 
+// Tools: system status, trends, settings, shops, broadcasts, data, audit
+const tools = require("../controllers/adminTools.controller");
+router.get("/system", protect, isAdmin, tools.systemStatus);
+router.get("/trends", protect, isAdmin, tools.trends);
+router.get("/settings", protect, isAdmin, tools.getSettings);
+router.put("/settings", protect, isAdmin, tools.updateSettings);
+router.post("/users", protect, isAdmin, tools.createShop);
+router.post("/broadcast", protect, isAdmin, tools.broadcast);
+router.get("/announcements", protect, isAdmin, tools.announcements);
+router.get("/export/:kind", protect, isAdmin, tools.exportCsv);
+router.get("/backup", protect, isAdmin, tools.backup);
+router.post("/cache/clear", protect, isAdmin, tools.clearCache);
+router.get("/audit", protect, isAdmin, tools.auditLog);
+
 module.exports = router;

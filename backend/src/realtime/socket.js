@@ -21,6 +21,7 @@ function init(httpServer) {
       if (!token) return next(new Error("Not authorized"));
 
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      if (decoded.purpose) return next(new Error("Not authorized"));
       const user = await User.findById(decoded.id).select("_id passwordChangedAt");
       if (!user || user.changedPasswordAfter(decoded.iat)) {
         return next(new Error("Not authorized"));

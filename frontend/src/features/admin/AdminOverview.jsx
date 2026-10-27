@@ -2,10 +2,11 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { IndianRupee, MessageSquare, ShoppingCart, Store, UserPlus, Users } from "lucide-react";
 import adminService from "../../services/admin.service";
-import { Avatar, Card, CardBody, CardHeader, ChannelBadge, ErrorState, PageHeader, Skeleton, StatCard, StatusPill, Tabs } from "../../components/ui";
+import { Avatar, Card, CardBody, CardHeader, ChannelBadge, ErrorState, PageHeader, Skeleton, StatCard, StatusPill } from "../../components/ui";
 import { ChartCard, seriesStats } from "../../components/charts/Charts";
-import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber, formatRelative } from "../../utils/format";
+import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber, formatRelative, percentChange } from "../../utils/format";
 import { shopName } from "./AdminRecords";
+import { QuickActions, SystemStatusCard } from "./AdminTools";
 
 const PLANS = [
   { key: "starter", label: "Starter" },
@@ -15,11 +16,12 @@ const PLANS = [
 
 // Defined once so the load callbacks below stay stable between renders
 const fetchDashboard = () => adminService.getDashboardStats();
-const fetchSystem = () => adminService.getSystemStats();
-const fetchActivity = (days) => adminService.getDailyActivity(days);
+export const fetchSystem = () => adminService.getSystemStats();
+export const fetchActivity = (days) => adminService.getDailyActivity(days);
 const fetchRecentOrders = () => adminService.listAll("orders", { limit: 6 });
 const fetchRecentChats = () => adminService.listAll("conversations", { limit: 6 });
 const fetchNewShops = () => adminService.getAllUsers({ limit: 6 });
+const fetchTrends = () => adminService.getTrends();
 
 // A short "latest" list with a link to the full section
 function RecentCard({ title, description, section, rows, empty, render }) {
@@ -52,7 +54,7 @@ function RecentCard({ title, description, section, rows, empty, render }) {
   );
 }
 
-function useLoad(fetcher, arg) {
+export function useLoad(fetcher, arg) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const load = useCallback(async () => {
@@ -70,7 +72,7 @@ function useLoad(fetcher, arg) {
   return { data, error, load };
 }
 
-function Bars({ rows, total }) {
+export function Bars({ rows, total }) {
   return (
     <ul className="flex flex-col gap-4">
       {rows.map((row) => {
@@ -94,7 +96,7 @@ function Bars({ rows, total }) {
 }
 
 // The shops that sold the most in the selected window
-function TopShops({ shops, days }) {
+export function TopShops({ shops, days }) {
   const max = Math.max(1, ...shops.map((s) => s.revenue));
   return (
     <Card>
@@ -137,6 +139,11 @@ export function AdminOverview() {
   const recentOrders = useLoad(fetchRecentOrders);
   const recentChats = useLoad(fetchRecentChats);
   const newShops = useLoad(fetchNewShops);
+  const trends = useLoad(fetchTrends);
+  const trend = (key) => trends.data && percentChange(trends.data[key].current, trends.data[key].previous);
+  const VS = "vs previous 30 days";
+  // When the previous 30 days had nothing, say so instead of a blank
+  const note = (key) => trends.data && !trends.data[key].previous && "No data from the 30 days before to compare";
   const totals = activity.data && {
     revenue: seriesStats(activity.data.series, "revenue").total,
     orders: seriesStats(activity.data.series, "orders").total,
@@ -152,11 +159,26 @@ export function AdminOverview() {
         </Card>
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <StatCard label="Shops" icon={Store} loading={!data} value={formatNumber(data?.users.total)} />
-            <StatCard label="Active subscriptions" icon={Users} loading={!data} value={formatNumber(data?.users.premium)} />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <StatCard label="Total shops" icon={Store} loading={!data} value={formatNumber(data?.users.total)} delta={trend("users")} deltaLabel={VS} deltaNote={note("users")} />
+            <StatCard label="Active subscriptions" icon={Users} loading={!data} value={formatNumber(data?.users.premium)} delta={trend("activeSubscriptions")} deltaLabel={VS} deltaNote={note("activeSubscriptions")} />
+            <StatCard label="Active shops, 30 days" icon={UserPlus} loading={!data} value={formatNumber(data?.users.active)} delta={trend("activeUsers")} deltaLabel={VS} deltaNote={note("activeUsers")} />
             <StatCard label="MRR (estimated)" icon={IndianRupee} loading={!data} value={formatCurrency(data?.revenue.total)} />
+            <StatCard label="Order revenue, 30 days" icon={IndianRupee} loading={!trends.data} value={formatCurrency(trends.data?.orderRevenue.current)} delta={trend("orderRevenue")} deltaLabel={VS} deltaNote={note("orderRevenue")} />
             <StatCard label="New shops, 7 days" icon={UserPlus} loading={!data} value={formatNumber(data?.users.recentSignups)} />
+          </div>
+
+          <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <QuickActions
+              onChanged={() => {
+                load();
+                newShops.load();
+                trends.load();
+              }}
+            />
+            <div className="lg:col-span-2">
+              <SystemStatusCard />
+            </div>
           </div>
 
           <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -272,7 +294,7 @@ export function AdminOverview() {
               <Card>
                 <CardHeader title="Connected channels" description="Shops with each channel live" />
                 <CardBody className="flex flex-col gap-3">
-                  {["whatsapp", "instagram"].map((p) => (
+                  {["whatsapp", "instagram", "facebook"].map((p) => (
                     <div key={p} className="flex items-center justify-between">
                       <ChannelBadge platform={p} />
                       <span className="text-sm tabular-nums text-fg">
@@ -300,117 +322,6 @@ export function AdminOverview() {
               </Card>
             </div>
           )}
-        </>
-      )}
-    </div>
-  );
-}
-
-// Monthly series from the API come newest-first as { _id: "YYYY-MM" }
-const monthly = (rows = [], key) =>
-  [...rows].reverse().map((row) => ({ date: `${row._id}-01`, [key]: row[key] ?? row.count ?? 0 }));
-
-const RANGES = [
-  { value: 7, label: "7 days" },
-  { value: 30, label: "30 days" },
-  { value: 90, label: "90 days" },
-];
-
-export function AdminAnalytics() {
-  const [days, setDays] = useState(30);
-  const activity = useLoad(fetchActivity, days);
-  const system = useLoad(fetchSystem);
-  const series = activity.data?.series || [];
-  const stat = (key) => seriesStats(series, key);
-  const best = (key, format) => (stat(key).bestDay ? format(stat(key).bestDay.value) : "—");
-
-  return (
-    <div>
-      <PageHeader title="Analytics" description="Sign-ups, orders and conversations across every shop." />
-      <Tabs variant="pill" tabs={RANGES} value={days} onChange={setDays} label="Date range" className="mb-6" />
-
-      {activity.error ? (
-        <Card>
-          <ErrorState description={activity.error} onRetry={activity.load} />
-        </Card>
-      ) : !activity.data ? (
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-          {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-[380px] rounded-xl" />
-          ))}
-        </div>
-      ) : (
-        <>
-          <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-            <ChartCard
-              title="Revenue per day"
-              description="Paid orders across all shops, excluding cancelled."
-              data={series}
-              series={[{ key: "revenue", label: "Revenue", color: "var(--chart-1)" }]}
-              format={(v) => formatCurrency(v)}
-              yFormat={formatCurrencyCompact}
-              average
-              summary={[
-                { label: "Total", value: formatCurrency(stat("revenue").total) },
-                { label: "Per day", value: formatCurrency(stat("revenue").average) },
-                { label: "Best day", value: best("revenue", formatCurrency), note: stat("revenue").bestDay?.date },
-              ]}
-            />
-            <ChartCard
-              title="Orders per day"
-              description="Every order except cancelled ones."
-              data={series}
-              series={[{ key: "orders", label: "Orders", color: "var(--chart-1)" }]}
-              format={formatNumber}
-              average
-              summary={[
-                { label: "Total orders", value: formatNumber(stat("orders").total) },
-                { label: "Days with orders", value: `${stat("orders").activeDays} of ${series.length}` },
-              ]}
-            />
-            <ChartCard
-              title="New shops per day"
-              description="Sign-ups, not counting admins."
-              data={series}
-              series={[{ key: "signups", label: "Sign-ups", color: "var(--chart-2)" }]}
-              format={formatNumber}
-              summary={[
-                { label: "New shops", value: formatNumber(stat("signups").total) },
-                { label: "Best day", value: best("signups", formatNumber), note: stat("signups").bestDay?.date },
-              ]}
-            />
-            <ChartCard
-              title="Messages per day"
-              description="Sent and received, on every channel."
-              data={series}
-              series={[{ key: "messages", label: "Messages", color: "var(--chart-2)" }]}
-              format={formatNumber}
-              average
-              summary={[
-                { label: "Messages", value: formatNumber(stat("messages").total) },
-                { label: "Per day", value: formatNumber(Math.round(stat("messages").average)) },
-              ]}
-            />
-          </div>
-
-          <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
-            <TopShops shops={activity.data.topShops} days={days} />
-            <div className="lg:col-span-2">
-              {system.data ? (
-                <ChartCard
-                  title="Revenue by month"
-                  description="Paid orders across all shops, last 12 months"
-                  data={monthly(system.data.monthlyRevenue, "revenue")}
-                  series={[{ key: "revenue", label: "Revenue", color: "var(--chart-1)" }]}
-                  format={(v) => formatCurrency(v)}
-                  yFormat={formatCurrencyCompact}
-                  granularity="month"
-                />
-              ) : (
-                <Skeleton className="h-[380px] rounded-xl" />
-              )}
-            </div>
-          </div>
         </>
       )}
     </div>

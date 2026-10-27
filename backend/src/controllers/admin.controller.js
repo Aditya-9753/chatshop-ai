@@ -1,5 +1,8 @@
 const adminService = require("../services/admin.service");
 const ResponseHandler = require("../utils/response.handler");
+const audit = require("../utils/audit");
+const cache = require("../utils/cache");
+const User = require("../models/User.model");
 
 // @desc    Get admin dashboard stats
 exports.getDashboardStats = async (req, res) => {
@@ -42,6 +45,11 @@ exports.getUser = async (req, res) => {
 exports.updateUser = async (req, res) => {
   try {
     const user = await adminService.updateUser(req.params.id, req.body);
+    cache.clear();
+    await audit(req, "shop.update", {
+      target: user.email,
+      details: req.body.subscription ? `Plan ${user.subscription?.plan || "none"}, ${user.subscription?.status}` : undefined,
+    });
     return ResponseHandler.success(res, user, "User updated successfully");
   } catch (error) {
     console.error("Update user error:", error);
@@ -52,7 +60,10 @@ exports.updateUser = async (req, res) => {
 // @desc    Delete user
 exports.deleteUser = async (req, res) => {
   try {
+    const target = await User.findById(req.params.id).select("email");
     await adminService.deleteUser(req.params.id);
+    cache.clear();
+    await audit(req, "shop.delete", { target: target?.email || req.params.id });
     return ResponseHandler.success(
       res,
       null,

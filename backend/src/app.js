@@ -71,6 +71,9 @@ app.use("/api/orders", require("./routes/order.routes"));
 app.use("/api/analytics", require("./routes/analytics.routes"));
 app.use("/api/admin", require("./routes/admin.routes"));
 
+// Platform name and support contact, shown on public pages
+app.get("/api/settings/public", require("./controllers/adminTools.controller").publicSettings);
+
 // Health Check
 app.get("/", (req, res) => {
   res.json({

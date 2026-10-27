@@ -4,6 +4,15 @@ const { body, oneOf } = require("express-validator");
 const rateLimit = require("express-rate-limit");
 const authController = require("../controllers/auth.controller");
 
+// Guessing six-digit codes is cheap, so the second step is rate-limited
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many attempts. Please wait 15 minutes." },
+});
+
 const PASSWORD_RULE = "Password must be at least 6 characters";
 
 // Reset emails are limited per IP to stop inbox flooding
@@ -43,6 +52,11 @@ router.post(
   ],
   authController.login
 );
+
+// @route   POST /api/auth/login/2fa
+// @desc    Second step for accounts with two-factor login
+// @access  Public (needs the challenge token from /login)
+router.post("/login/2fa", loginLimiter, authController.loginWithCode);
 
 // @route   POST /api/auth/forgot-password
 // @desc    Send password reset email

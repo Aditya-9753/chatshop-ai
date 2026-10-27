@@ -5,6 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import { LogoMark } from "../components/Logo";
 import ThemeToggle from "../components/ThemeToggle";
 import { PasswordInput } from "../components/auth/PasswordInput";
+import TwoFactorStep from "../components/auth/TwoFactorStep";
 import { Alert, Badge, Button, Card, Input } from "../components/ui";
 
 const AdminLogin = () => {
@@ -13,6 +14,7 @@ const AdminLogin = () => {
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [challengeToken, setChallengeToken] = useState(null);
 
   useEffect(() => {
     if (isAuthenticated && isAdmin) navigate("/admin/dashboard", { replace: true });
@@ -29,6 +31,11 @@ const AdminLogin = () => {
     setLoading(true);
     try {
       const response = await login(form.email.trim(), form.password);
+      if (response.data.twoFactorRequired) {
+        setChallengeToken(response.data.challengeToken);
+        setLoading(false);
+        return;
+      }
       if (response.data.user?.role !== "admin") {
         logout();
         setError("This account doesn't have admin access.");
@@ -59,6 +66,23 @@ const AdminLogin = () => {
           <Card className="p-6">
             <h1 className="text-xl font-semibold tracking-tight text-fg">Admin sign in</h1>
             <p className="mt-1 text-sm text-fg-muted">Restricted to platform administrators.</p>
+            {challengeToken ? (
+              <div className="mt-6">
+                <TwoFactorStep
+                  challengeToken={challengeToken}
+                  onDone={(user) => {
+                    if (user?.role !== "admin") {
+                      logout();
+                      setChallengeToken(null);
+                      setError("This account doesn't have admin access.");
+                      return;
+                    }
+                    navigate("/admin/dashboard", { replace: true });
+                  }}
+                  onCancel={() => setChallengeToken(null)}
+                />
+              </div>
+            ) : (
             <form onSubmit={onSubmit} noValidate className="mt-6 flex flex-col gap-4">
               <Input label="Email" name="email" type="email" icon={Mail} autoComplete="email" value={form.email} onChange={onChange} autoFocus />
               <PasswordInput label="Password" name="password" autoComplete="current-password" value={form.password} onChange={onChange} />
@@ -67,6 +91,7 @@ const AdminLogin = () => {
                 {loading ? "Signing in…" : "Sign in"}
               </Button>
             </form>
+            )}
           </Card>
         </div>
       </main>

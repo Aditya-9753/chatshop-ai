@@ -6,6 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import { Button, cn, TooltipProvider } from "../components/ui";
 import CommandPalette from "../components/CommandPalette";
 import useInboxSummary from "../hooks/useInboxSummary";
+import AnnouncementBanner from "../features/dashboard/Announcements";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 import { TAB_BAR_ITEMS } from "./navigation";
@@ -131,6 +132,7 @@ const DashboardLayout = () => {
           />
           {planInactive && <PlanBanner />}
           {user?.role === "admin" && <AdminBanner />}
+          {user?.role !== "admin" && <AnnouncementBanner />}
           <main
             id="main"
             className={cn(

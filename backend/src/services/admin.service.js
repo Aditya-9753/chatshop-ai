@@ -66,6 +66,10 @@ class AdminService {
       role: "user",
       "instagramConfig.isConnected": true,
     });
+    const facebookConnected = await User.countDocuments({
+      role: "user",
+      "facebookConfig.isConnected": true,
+    });
 
     // Total entities across all users
     const totalCustomers = await Customer.countDocuments();
@@ -97,6 +101,7 @@ class AdminService {
       platforms: {
         whatsapp: whatsappConnected,
         instagram: instagramConnected,
+        facebook: facebookConnected,
       },
       entities: {
         customers: totalCustomers,
@@ -386,7 +391,23 @@ class AdminService {
       { $limit: 12 },
     ]);
 
+    // Platform usage: messages and customers per channel
+    const [messagesByPlatform, customersByPlatform] = await Promise.all([
+      Message.aggregate([{ $group: { _id: "$platform", count: { $sum: 1 } } }]),
+      Customer.aggregate([{ $group: { _id: "$platform", count: { $sum: 1 } } }]),
+    ]);
+    const platformUsage = ["whatsapp", "instagram", "facebook"].map((platform) => ({
+      platform,
+      messages: messagesByPlatform.find((r) => r._id === platform)?.count || 0,
+      customers: customersByPlatform.find((r) => r._id === platform)?.count || 0,
+      connectedShops: 0,
+    }));
+    for (const usage of platformUsage) {
+      usage.connectedShops = await User.countDocuments({ [`${usage.platform}Config.isConnected`]: true });
+    }
+
     return {
+      platformUsage,
       totalUsers,
       activeSubscriptions,
       totalCustomers,

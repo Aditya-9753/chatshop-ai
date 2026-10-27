@@ -23,6 +23,8 @@ exports.protect = async (req, res, next) => {
     try {
       // Verify token
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      // A two-factor challenge token is not a session
+      if (decoded.purpose) throw new Error("Not a session token");
 
       // Get user from token
       req.user = await User.findById(decoded.id).select("-password");

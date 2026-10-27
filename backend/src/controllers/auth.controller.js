@@ -1,5 +1,6 @@
 const authService = require("../services/auth.service");
 const ResponseHandler = require("../utils/response.handler");
+const audit = require("../utils/audit");
 const { validationResult } = require("express-validator");
 
 // @desc    Register new user
@@ -12,6 +13,9 @@ exports.register = async (req, res) => {
     }
 
     const result = await authService.register(req.body);
+    // Tell the admins (if they asked for new-shop alerts) and log it
+    require("../services/adminTools.service").notifyNewShop(result.user);
+    await audit(req, "shop.signup", { actor: { _id: result.user.id, email: result.user.email }, target: result.user.email });
     return ResponseHandler.created(
       res,
       result,
@@ -34,9 +38,26 @@ exports.login = async (req, res) => {
 
     const { email, password } = req.body;
     const result = await authService.login(email, password);
+    if (result.twoFactorRequired) {
+      return ResponseHandler.success(res, result, "Enter the code from your authenticator app");
+    }
+    await audit(req, "auth.login", { actor: { _id: result.user.id, email: result.user.email } });
     return ResponseHandler.success(res, result, "Login successful");
   } catch (error) {
     console.error("Login controller error:", error);
+    return ResponseHandler.unauthorized(res, error.message);
+  }
+};
+
+// @desc    Second login step for accounts with two-factor login
+// @route   POST /api/auth/login/2fa  { challengeToken, code }
+exports.loginWithCode = async (req, res) => {
+  try {
+    const { challengeToken, code } = req.body;
+    const result = await authService.loginWithCode(challengeToken, code);
+    await audit(req, "auth.login", { actor: { _id: result.user.id, email: result.user.email }, details: "with two-factor code" });
+    return ResponseHandler.success(res, result, "Login successful");
+  } catch (error) {
     return ResponseHandler.unauthorized(res, error.message);
   }
 };
