@@ -55,6 +55,8 @@ const userSchema = new mongoose.Schema(
     whatsappConfig: {
       isConnected: { type: Boolean, default: false },
       phoneNumber: String,
+      // Meta's phone number ID: used to match webhooks and in the send URL
+      phoneNumberId: { type: String, index: true },
       businessAccountId: String,
       accessToken: String,
       webhookVerifyToken: String,
@@ -104,13 +106,42 @@ const userSchema = new mongoose.Schema(
         facebook: { type: Number, default: 0 },
       },
     },
-    resetPasswordToken: String,
-    resetPasswordExpire: Date,
+    // Password reset: only the sha256 hash of the emailed token is stored
+    passwordResetToken: { type: String, select: false },
+    passwordResetExpires: { type: Date, select: false },
+    // JWTs issued before this moment are rejected (logs out old sessions)
+    passwordChangedAt: Date,
+    emailVerificationToken: { type: String, select: false },
+    emailVerificationExpires: { type: Date, select: false },
   },
   {
     timestamps: true,
+    toJSON: {
+      // Never send platform access tokens or secrets to the browser
+      transform(doc, ret) {
+        delete ret.password;
+        delete ret.passwordResetToken;
+        delete ret.passwordResetExpires;
+        delete ret.emailVerificationToken;
+        delete ret.emailVerificationExpires;
+        for (const key of ["whatsappConfig", "instagramConfig", "facebookConfig"]) {
+          if (ret[key]) {
+            ret[key].hasAccessToken = Boolean(ret[key].accessToken);
+            delete ret[key].accessToken;
+            delete ret[key].webhookVerifyToken;
+          }
+        }
+        return ret;
+      },
+    },
   }
 );
+
+// True when the JWT (issued at `iat`, in seconds) predates a password change
+userSchema.methods.changedPasswordAfter = function (iat) {
+  if (!this.passwordChangedAt) return false;
+  return iat * 1000 < this.passwordChangedAt.getTime();
+};
 
 // Indexes for faster queries
 userSchema.index({ email: 1 }, { unique: true });

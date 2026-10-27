@@ -26,10 +26,21 @@ const conversationSchema = new mongoose.Schema(
       // ⬇️ FIX: We wrap 'type' in an object so Mongoose knows it's a field name
       type: { 
         type: String, 
-        enum: ["text", "image", "video", "audio", "document", "template"],
+        enum: [
+          "text",
+          "image",
+          "video",
+          "audio",
+          "document",
+          "product",
+          "location",
+          "sticker",
+          "template",
+        ],
         default: "text"
       },
-      timestamp: { type: Date }
+      timestamp: { type: Date },
+      direction: { type: String, enum: ["incoming", "outgoing"] },
     },
     
     unreadCount: { type: Number, default: 0 },

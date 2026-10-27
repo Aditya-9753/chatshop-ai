@@ -19,10 +19,33 @@ exports.getMessages = async (req, res) => {
 // @desc    Send message
 exports.sendMessage = async (req, res) => {
   try {
+    // A platform failure is not an HTTP error: the message is saved as
+    // "failed" with Meta's error text so the inbox can offer a retry.
     const message = await messageService.sendMessage(req.user._id, req.body);
-    return ResponseHandler.created(res, message, "Message sent successfully");
+    return ResponseHandler.created(
+      res,
+      message,
+      message.status === "failed" ? "Message not delivered" : "Message sent",
+    );
   } catch (error) {
     console.error("Send message error:", error);
+    return ResponseHandler.badRequest(res, error.message);
+  }
+};
+
+// @desc    Retry a failed message
+// @route   POST /api/messages/:id/retry
+// @access  Private
+exports.retryMessage = async (req, res) => {
+  try {
+    const message = await messageService.retryMessage(req.user._id, req.params.id);
+    return ResponseHandler.success(
+      res,
+      message,
+      message.status === "failed" ? "Message not delivered" : "Message sent",
+    );
+  } catch (error) {
+    console.error("Retry message error:", error);
     return ResponseHandler.badRequest(res, error.message);
   }
 };

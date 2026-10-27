@@ -68,16 +68,23 @@ class ConversationService {
     const { content, type, direction } = messageData;
 
     const updateData = {
-      lastMessage: {
-        content: content.text || content.caption || `[${type}]`,
-        type: type,
-        timestamp: new Date(),
+      $set: {
+        lastMessage: {
+          content: content.text || content.caption || `[${type}]`,
+          type: type,
+          timestamp: new Date(),
+          direction,
+        },
       },
     };
 
-    // Increment unread count if it's an incoming message
+    // A new incoming message counts as unread and reopens a closed chat
     if (direction === "incoming") {
       updateData.$inc = { unreadCount: 1 };
+      await Conversation.updateOne(
+        { _id: conversationId, status: { $in: ["closed", "archived"] } },
+        { status: "open" }
+      );
     }
 
     const conversation = await Conversation.findByIdAndUpdate(
@@ -106,15 +113,16 @@ class ConversationService {
       throw new Error("Conversation not found");
     }
 
-    // Also mark all messages in this conversation as read
+    // Also mark all messages in this conversation as read (matched by
+    // customer too, since older messages were saved without conversationId)
     await Message.updateMany(
       {
-        conversationId,
         userId,
+        $or: [{ conversationId }, { customerId: conversation.customerId }],
         direction: "incoming",
         isRead: false,
       },
-      { isRead: true }
+      { isRead: true, readAt: new Date() }
     );
 
     return conversation;

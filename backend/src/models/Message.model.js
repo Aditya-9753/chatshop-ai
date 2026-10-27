@@ -55,6 +55,7 @@ const messageSchema = new mongoose.Schema(
       thumbnailUrl: String, // Good for Videos/Documents previews
       fileName: String, // Good for Documents
       mimeType: String, // File MIME type
+      mediaId: String, // Platform media ID (WhatsApp sends IDs, not URLs)
       duration: Number, // Audio/Video duration in seconds
       fileSize: Number, // File size in bytes
       location: {
@@ -136,8 +137,10 @@ const messageSchema = new mongoose.Schema(
     ],
     status: {
       type: String,
-      enum: ["queued", "sent", "delivered", "read", "failed"],
-      default: "queued", // "queued" is better initial state than "sent"
+      // Outgoing: queued -> sent -> delivered -> read, or failed.
+      // Incoming messages are saved as "received".
+      enum: ["queued", "sent", "delivered", "read", "failed", "received"],
+      default: "queued",
     },
     // If status is "failed", store WHY here
     errorDetails: {
@@ -159,6 +162,8 @@ const messageSchema = new mongoose.Schema(
     metadata: {
       platformMessageId: { type: String, unique: true, sparse: true }, // The WhatsApp/Meta ID
       timestamp: Date,
+      deliveredAt: Date,
+      readAt: Date,
     },
   },
   {

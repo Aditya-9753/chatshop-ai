@@ -6,6 +6,7 @@ const morgan = require("morgan");
 const rateLimit = require("express-rate-limit");
 const path = require("path");
 require("dotenv").config();
+const allowedOrigins = require("./utils/origins");
 
 const app = express();
 
@@ -21,17 +22,20 @@ app.use(
 ); // Security headers with CORS exception for images
 app.use(
   cors({
-    origin: [
-      process.env.FRONTEND_URL || "http://localhost:5174",
-      "http://localhost:5173",
-      "http://localhost:5174",
-    ],
+    origin: allowedOrigins,
     credentials: true,
   })
 );
-app.use(express.json());
+// Keep the raw body: Meta webhook signatures are computed over the exact bytes
+app.use(
+  express.json({
+    verify: (req, res, buf) => {
+      req.rawBody = buf;
+    },
+  })
+);
 app.use(express.urlencoded({ extended: true }));
-app.use(morgan("dev")); // Logging
+if (process.env.NODE_ENV !== "test") app.use(morgan("dev")); // Logging
 
 // Serve static files (uploaded images)
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
@@ -39,7 +43,9 @@ app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 // Rate Limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  max: 600, // limit each IP to 600 requests per windowMs
+  // Meta delivers webhooks from a few IPs; never throttle them
+  skip: (req) => req.path.endsWith("/webhook"),
 });
 app.use("/api/", limiter);
 

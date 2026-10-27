@@ -1,6 +1,6 @@
 const axios = require("axios");
 
-const INSTAGRAM_API_URL = "https://graph.facebook.com/v18.0";
+const { GRAPH_API_URL: INSTAGRAM_API_URL, toMetaError } = require("./meta");
 
 class InstagramAPI {
   // Send message via Instagram Graph API
@@ -28,10 +28,7 @@ class InstagramAPI {
         "Instagram API send message error:",
         error.response?.data || error.message
       );
-      throw new Error(
-        error.response?.data?.error?.message ||
-          "Failed to send Instagram message"
-      );
+      throw toMetaError(error, "Failed to send Instagram message");
     }
   }
 
@@ -72,7 +69,7 @@ class InstagramAPI {
         "Instagram API send media error:",
         error.response?.data || error.message
       );
-      throw new Error("Failed to send media message");
+      throw toMetaError(error, "Failed to send media message");
     }
   }
 
