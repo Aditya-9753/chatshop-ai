@@ -70,6 +70,15 @@ export default function ChatThread({
   const stickToBottom = useRef(true);
   const customer = conversation.customerId || {};
   const timeline = useMemo(() => buildTimeline(messages), [messages]);
+
+  // Messages already there when the chat opened don't animate; new ones do
+  const seenIds = useRef(null);
+  useEffect(() => {
+    seenIds.current = null;
+  }, [conversation._id]);
+  useEffect(() => {
+    if (!loading && seenIds.current === null) seenIds.current = new Set(messages.map((m) => m._id));
+  }, [loading, messages]);
   const closed = conversation.status === "closed";
 
   // Follow new messages only when the reader is already near the bottom
@@ -145,6 +154,7 @@ export default function ChatThread({
               ) : (
                 <MessageBubble
                   key={item.key}
+                  fresh={seenIds.current !== null && !seenIds.current.has(item.message._id)}
                   message={item.message}
                   grouped={item.grouped}
                   onRetry={onRetryMessage}

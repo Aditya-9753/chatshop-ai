@@ -9,13 +9,16 @@ import { formatCurrency, formatDate, formatRelative } from "../../utils/format";
 
 const OPEN_ORDER_STATUSES = ["pending", "confirmed", "processing", "shipped"];
 
+// Ready-made segments from the original customer page, one click to add
+export const PRESET_TAGS = ["VIP", "High Value", "First Time", "Returning", "Inactive", "Needs Follow-up"];
+
 export function Tags({ customer, onChange }) {
   const toast = useToast();
   const [value, setValue] = useState("");
 
-  const add = async (e) => {
-    e.preventDefault();
-    const tag = value.trim();
+  const add = async (e, preset) => {
+    e?.preventDefault();
+    const tag = (preset || value).trim();
     if (!tag) return;
     try {
       const res = await customerService.addTag(customer._id, tag);
@@ -57,6 +60,21 @@ export function Tags({ customer, onChange }) {
           />
         </form>
       </div>
+      {PRESET_TAGS.some((t) => !(customer.tags || []).includes(t)) && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-fg-muted">Suggested:</span>
+          {PRESET_TAGS.filter((t) => !(customer.tags || []).includes(t)).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => add(null, t)}
+              className="rounded-md border border-dashed border-line-strong px-1.5 py-0.5 text-xs text-fg-muted hover:border-accent hover:text-accent"
+            >
+              + {t}
+            </button>
+          ))}
+        </div>
+      )}
     </section>
   );
 }

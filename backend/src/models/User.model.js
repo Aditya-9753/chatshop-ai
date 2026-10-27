@@ -92,6 +92,9 @@ const userSchema = new mongoose.Schema(
       website: String,
       address: String,
       gstNumber: String,
+      businessEmail: String,
+      businessPhone: String,
+      description: String,
     },
     stats: {
       totalMessages: { type: Number, default: 0 },

@@ -139,3 +139,40 @@ test("the super admin can list every shop's orders, customers, products and chat
   const blocked = await request(app).get("/api/admin/orders").set("Authorization", `Bearer ${shopA.token}`);
   assert.equal(blocked.status, 403);
 });
+
+test("orders support tax type, rate and discount; business contact fields save", async () => {
+  const Customer = require("../src/models/Customer.model");
+  const owner2 = await registerUser(app);
+  const customer = await Customer.create({ userId: owner2.user.id, name: "Tax", platform: "instagram", platformId: "t1" });
+  const auth = (r) => r.set("Authorization", `Bearer ${owner2.token}`);
+
+  const order = await auth(request(app).post("/api/orders")).send({
+    customerId: customer._id,
+    items: [{ name: "Shirt", price: 1000, quantity: 2 }],
+    taxType: "cgst_sgst",
+    taxRate: 18,
+    discount: 200,
+    shipping: 50,
+    platform: "whatsapp",
+  });
+  assert.equal(order.status, 201);
+  // (2000 - 200) = 1800; 18% tax = 324; + 50 shipping = 2174
+  assert.equal(order.body.data.discount, 200);
+  assert.equal(order.body.data.tax, 324);
+  assert.equal(order.body.data.total, 2174);
+  assert.equal(order.body.data.taxType, "cgst_sgst");
+  assert.equal(order.body.data.platform, "whatsapp");
+
+  const noTax = await auth(request(app).post("/api/orders")).send({ customerId: customer._id, items: [{ name: "Cap", price: 300, quantity: 1 }], taxType: "none", taxRate: 18 });
+  assert.equal(noTax.body.data.tax, 0);
+  assert.equal(noTax.body.data.total, 300);
+
+  const biz = await auth(request(app).put("/api/users/business-info")).send({ businessEmail: "shop@example.com", businessPhone: "+91 1", description: "Handmade" });
+  assert.equal(biz.body.data.businessEmail, "shop@example.com");
+  assert.equal(biz.body.data.description, "Handmade");
+
+  const overview = await auth(request(app).get("/api/analytics/overview"));
+  assert.equal(overview.body.data.conversionRate, 200);
+  assert.ok(overview.body.data.recentActivity.some((a) => a.kind === "order"));
+  assert.ok(overview.body.data.recentActivity.some((a) => a.kind === "customer"));
+});

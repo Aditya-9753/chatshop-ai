@@ -181,7 +181,7 @@ export default function Sidebar({ collapsed, onToggleCollapsed, unreadCount, onN
                             </span>
                             {!collapsed && <span className="flex-1 truncate">{item.name}</span>}
                             {!collapsed && badge && (
-                              <span className="rounded-md bg-accent px-1.5 text-xs font-semibold tabular-nums text-accent-fg">
+                              <span key={badge} className="animate-badge-ring rounded-md bg-accent px-1.5 text-xs font-semibold tabular-nums text-accent-fg">
                                 {badge > 99 ? "99+" : badge}
                               </span>
                             )}

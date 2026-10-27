@@ -1,7 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarDays, Clock, IndianRupee, MessageSquare, Receipt, ShoppingCart, UserPlus } from "lucide-react";
+import { Link } from "react-router-dom";
+import { CalendarDays, Clock, Download, IndianRupee, Megaphone, MessageSquare, Receipt, ShoppingCart, UserPlus, Users } from "lucide-react";
+import api from "../services/api.service";
+import { API_ENDPOINTS } from "../config/api.config";
+import { ChannelStatus } from "../features/dashboard/Attention";
 import analyticsService from "../services/analytics.service";
-import { Card, CardBody, CardHeader, ChannelBadge, EmptyState, ErrorState, PageHeader, Skeleton, StatCard, Tabs } from "../components/ui";
+import { Button, Card, CardBody, CardHeader, ChannelBadge, EmptyState, ErrorState, PageHeader, Skeleton, StatCard, Tabs } from "../components/ui";
 import { ChannelSplit, ChartCard, seriesStats } from "../components/charts/Charts";
 import { formatCurrency, formatCurrencyCompact, formatDuration, formatNumber, percentChange } from "../utils/format";
 
@@ -15,10 +19,12 @@ const startOfDay = (date) => {
 
 // Presets end at the end of today; "custom" uses the two date inputs
 const PRESETS = [
+  { value: "today", label: "Today" },
   { value: "7", label: "7 days" },
   { value: "30", label: "30 days" },
   { value: "90", label: "90 days" },
   { value: "month", label: "This month" },
+  { value: "365", label: "Last year" },
   { value: "custom", label: "Custom" },
 ];
 
@@ -29,6 +35,9 @@ const toInput = (date) => {
 
 function rangeFor(preset, custom) {
   const end = new Date(startOfDay(new Date()).getTime() + DAY_MS);
+  if (preset === "today") {
+    return { start: startOfDay(new Date()), end };
+  }
   if (preset === "month") {
     const start = startOfDay(new Date());
     start.setDate(1);
@@ -40,6 +49,35 @@ function rangeFor(preset, custom) {
     return { start, end: customEnd };
   }
   return { start: new Date(end.getTime() - Number(preset) * DAY_MS), end };
+}
+
+// Download the report as CSV: headline numbers, then one row per day
+function exportReport(report, range) {
+  const cell = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const day = (d) => d.toISOString().slice(0, 10);
+  const last = new Date(range.end.getTime() - 1);
+  const k = report.kpis;
+  const lines = [
+    ["ChatShop report", `${day(range.start)} to ${day(last)}`],
+    [],
+    ["Metric", "This period", "Previous period"],
+    ["Revenue", k.revenue.current, k.revenue.previous],
+    ["Orders", k.orders.current, k.orders.previous],
+    ["Average order", Math.round(k.averageOrderValue.current), Math.round(k.averageOrderValue.previous)],
+    ["New customers", k.newCustomers.current, k.newCustomers.previous],
+    ["Messages received", k.messagesReceived.current, k.messagesReceived.previous],
+    ["Messages sent", k.messagesSent.current, k.messagesSent.previous],
+    ["Median response (min)", k.responseTimeMinutes.current ?? "", k.responseTimeMinutes.previous ?? ""],
+    [],
+    ["Date", "Revenue", "Orders", "Messages received", "Messages sent", "New customers"],
+    ...report.series.map((d) => [d.date, d.revenue, d.orders, d.messagesIn, d.messagesOut, d.newCustomers]),
+  ];
+  const blob = new Blob([lines.map((row) => row.map(cell).join(",")).join("\n")], { type: "text/csv;charset=utf-8" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `analytics-${day(range.start)}-to-${day(last)}.csv`;
+  link.click();
+  URL.revokeObjectURL(link.href);
 }
 
 function RankedList({ rows, empty, render }) {
@@ -71,6 +109,22 @@ const Analytics = () => {
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [channels, setChannels] = useState(null);
+
+  // Connection status per channel, for the Platform status card
+  useEffect(() => {
+    api
+      .get(API_ENDPOINTS.USER.PROFILE)
+      .then((res) => {
+        const u = res.data;
+        setChannels({
+          whatsapp: { connected: !!u.whatsappConfig?.isConnected, label: u.whatsappConfig?.phoneNumber },
+          instagram: { connected: !!u.instagramConfig?.isConnected, label: u.instagramConfig?.username },
+          facebook: { connected: !!u.facebookConfig?.isConnected, label: u.facebookConfig?.pageName },
+        });
+      })
+      .catch(() => setChannels(null));
+  }, []);
 
   const customValid = preset !== "custom" || (custom.from && custom.to && custom.from <= custom.to);
   const range = useMemo(() => (customValid ? rangeFor(preset, custom) : null), [preset, custom, customValid]);
@@ -110,7 +164,15 @@ const Analytics = () => {
 
   return (
     <div>
-      <PageHeader title="Analytics" description="Sales and conversations for any period, compared with the period before." />
+      <PageHeader
+        title="Analytics"
+        description="Sales and conversations for any period, compared with the period before."
+        actions={
+          <Button variant="secondary" icon={Download} disabled={!report || !range} onClick={() => exportReport(report, range)}>
+            Export
+          </Button>
+        }
+      />
 
       {/* One filter row scopes every number and chart below */}
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -261,6 +323,30 @@ const Analytics = () => {
                         </span>
                       )}
                     />
+                  </CardBody>
+                </Card>
+              </div>
+
+              <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+                <Card>
+                  <CardHeader title="Customers by channel" description={`All customers · ${formatNumber(report.channels.reduce((sum, c) => sum + c.customers, 0))} in total`} />
+                  <CardBody>
+                    <ChannelSplit rows={report.channels} valueKey="customers" format={formatNumber} />
+                  </CardBody>
+                </Card>
+                {channels ? <ChannelStatus channels={channels} /> : <Skeleton className="h-48 rounded-xl" />}
+                <Card>
+                  <CardHeader title="Quick actions" />
+                  <CardBody className="grid grid-cols-1 gap-2">
+                    <Button as={Link} to="/dashboard/customers" variant="secondary" icon={Users} className="justify-start">
+                      Manage customers
+                    </Button>
+                    <Button as={Link} to="/dashboard/messages?broadcast=1" variant="secondary" icon={Megaphone} className="justify-start">
+                      Send broadcast
+                    </Button>
+                    <Button as={Link} to="/dashboard/orders" variant="secondary" icon={ShoppingCart} className="justify-start">
+                      View all orders
+                    </Button>
                   </CardBody>
                 </Card>
               </div>

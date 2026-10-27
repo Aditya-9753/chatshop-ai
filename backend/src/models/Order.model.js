@@ -36,6 +36,10 @@ const orderSchema = new mongoose.Schema(
     ],
     subtotal: Number,
     tax: { type: Number, default: 0 },
+    // gst | cgst_sgst | custom | none; taxRate is the percentage applied
+    taxType: { type: String, enum: ["gst", "cgst_sgst", "custom", "none"], default: "gst" },
+    taxRate: { type: Number, default: 0 },
+    discount: { type: Number, default: 0 },
     shipping: { type: Number, default: 0 },
     total: {
       type: Number,

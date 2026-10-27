@@ -92,7 +92,15 @@ export function printInvoice(order, user) {
     </table>
     <div class="totals">
       <div><span class="muted">Subtotal</span><span>${money(order.subtotal ?? order.total)}</span></div>
-      ${order.tax ? `<div><span class="muted">Tax</span><span>${money(order.tax)}</span></div>` : ""}
+      ${order.discount ? `<div><span class="muted">Discount</span><span>− ${money(order.discount)}</span></div>` : ""}
+      ${
+        !order.tax
+          ? ""
+          : order.taxType === "cgst_sgst"
+            ? `<div><span class="muted">CGST (${(order.taxRate || 0) / 2}%)</span><span>${money(order.tax / 2)}</span></div>
+               <div><span class="muted">SGST (${(order.taxRate || 0) / 2}%)</span><span>${money(order.tax / 2)}</span></div>`
+            : `<div><span class="muted">${order.taxType === "gst" ? "GST" : "Tax"}${order.taxRate ? ` (${order.taxRate}%)` : ""}</span><span>${money(order.tax)}</span></div>`
+      }
       ${order.shipping ? `<div><span class="muted">Shipping</span><span>${money(order.shipping)}</span></div>` : ""}
       <div class="grand"><span>Total</span><span>${money(order.total)}</span></div>
       <div><span class="muted">Payment method</span><span>${esc((order.paymentMethod || "cod").toUpperCase())}</span></div>

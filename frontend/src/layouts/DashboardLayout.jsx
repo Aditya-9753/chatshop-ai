@@ -35,7 +35,7 @@ function TabBar({ onOpenMore, unreadCount }) {
           <item.icon className="h-5 w-5" aria-hidden="true" />
           {item.name === "Messages" ? "Inbox" : item.name}
           {item.badge && unreadCount > 0 && (
-            <span className="absolute right-[calc(50%-18px)] top-2 h-2 w-2 rounded-full bg-accent ring-2 ring-surface" />
+            <span key={unreadCount} className="animate-badge-ring absolute right-[calc(50%-18px)] top-2 h-2 w-2 rounded-full bg-accent ring-2 ring-surface" />
           )}
         </NavLink>
       ))}

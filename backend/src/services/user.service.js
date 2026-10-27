@@ -161,17 +161,15 @@ class UserService {
       throw new Error("User not found");
     }
 
-    const { businessName, businessType, website, address, gstNumber } =
-      businessData;
-
-    if (businessName) user.businessInfo.businessName = businessName;
-    if (businessType) user.businessInfo.businessType = businessType;
-    if (website) user.businessInfo.website = website;
-    if (address) user.businessInfo.address = address;
-    if (gstNumber) user.businessInfo.gstNumber = gstNumber;
+    // Strings can be cleared by sending ""; missing fields are left alone
+    const FIELDS = ["businessName", "businessType", "website", "address", "gstNumber", "businessEmail", "businessPhone", "description"];
+    if (!user.businessInfo) user.businessInfo = {};
+    for (const field of FIELDS) {
+      if (typeof businessData[field] === "string") user.businessInfo[field] = businessData[field].trim();
+    }
 
     await user.save();
-    return user.businessInfo;
+    return user.toJSON().businessInfo;
   }
 
   // Update Facebook configuration

@@ -10,6 +10,7 @@ import { PasswordInput, PasswordStrength } from "../../components/auth/PasswordI
 import { Alert, Avatar, Badge, Button, Card, CardBody, CardHeader, cn, EmptyState, Input, Modal, Select, Skeleton, StatusPill, Switch } from "../../components/ui";
 import { formatCurrency, formatDate } from "../../utils/format";
 import usePublicSettings from "../../hooks/usePublicSettings";
+import { PRICING } from "../marketing/content";
 
 // AI replies: preferences are stored now; auto-reply ships in a later phase
 export function AiSettings({ profile, onProfileChange }) {
@@ -95,11 +96,26 @@ export function BillingSettings({ profile }) {
           <div>
             <p className="text-lg font-semibold capitalize text-fg">{subscription.plan || "No plan"}</p>
             <p className="text-caption text-fg-muted">
-              {subscription.endDate ? `Renews or ends on ${formatDate(subscription.endDate)}` : "No active billing period"}
+              {subscription.endDate
+                ? `Renews or ends on ${formatDate(subscription.endDate)} · ${Math.max(0, Math.ceil((new Date(subscription.endDate) - Date.now()) / 86400000))} days remaining`
+                : "No active billing period"}
             </p>
           </div>
           <StatusPill status={subscription.status || "inactive"} />
         </CardBody>
+        {PRICING.find((p) => p.key === subscription.plan) && (
+          <div className="border-t border-line px-5 py-4">
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-fg-muted">Included in your plan</p>
+            <ul className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+              {PRICING.find((p) => p.key === subscription.plan).features.map((f) => (
+                <li key={f} className="flex items-start gap-2 text-caption text-fg">
+                  <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent" aria-hidden="true" />
+                  {f}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </Card>
 
       <Card>

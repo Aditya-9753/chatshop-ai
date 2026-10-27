@@ -215,6 +215,43 @@ class ReportService {
     return { current: median(current), previous: median(previous) };
   }
 
+  // Latest things that happened in the shop: messages in, orders, new customers
+  async recentActivity(userId, limit = 8) {
+    const [messages, orders, customers] = await Promise.all([
+      Message.find({ userId, direction: "incoming", isDeleted: false })
+        .populate("customerId", "name platform")
+        .sort({ createdAt: -1 })
+        .limit(limit)
+        .lean(),
+      Order.find({ userId }).populate("customerId", "name platform").sort({ createdAt: -1 }).limit(limit).lean(),
+      Customer.find({ userId }).sort({ createdAt: -1 }).limit(limit).lean(),
+    ]);
+
+    return [
+      ...messages.map((m) => ({
+        kind: "message",
+        at: m.createdAt,
+        customerId: m.customerId?._id,
+        name: m.customerId?.name,
+        platform: m.platform,
+        text: m.content?.text || m.content?.caption || `[${m.type}]`,
+      })),
+      ...orders.map((o) => ({
+        kind: "order",
+        at: o.createdAt,
+        orderId: o._id,
+        name: o.customerId?.name,
+        platform: o.platform,
+        text: o.orderNumber,
+        total: o.total,
+        status: o.status,
+      })),
+      ...customers.map((c) => ({ kind: "customer", at: c.createdAt, customerId: c._id, name: c.name, platform: c.platform })),
+    ]
+      .sort((a, b) => new Date(b.at) - new Date(a.at))
+      .slice(0, limit);
+  }
+
   // Dashboard: last 7 days plus what needs attention right now
   async overview(userId, { tz }) {
     const objectId = new mongoose.Types.ObjectId(userId);
@@ -239,6 +276,8 @@ class ReportService {
 
     return {
       ...report,
+      conversionRate: customerCount ? Math.round((orderCount / customerCount) * 1000) / 10 : 0,
+      recentActivity: await this.recentActivity(objectId),
       attention: {
         unansweredChats: unanswered,
         unansweredCount,

@@ -72,7 +72,8 @@ class OrderService {
   // Create new order. Line totals, subtotal and total are computed here
   // rather than trusted from the client.
   async createOrder(userId, orderData) {
-    const { customerId, items, tax = 0, shipping = 0, paymentMethod, shippingAddress, notes } = orderData;
+    const { customerId, items, shipping = 0, discount = 0, paymentMethod, shippingAddress, notes } = orderData;
+    const taxType = ["gst", "cgst_sgst", "custom", "none"].includes(orderData.taxType) ? orderData.taxType : "gst";
 
     const customer = await Customer.findOne({ _id: customerId, userId });
     if (!customer) {
@@ -92,19 +93,32 @@ class OrderService {
       return { productId: item.productId || undefined, name: item.name, quantity, price, total };
     });
 
-    const subtotal = Math.round(lines.reduce((sum, line) => sum + line.total, 0) * 100) / 100;
-    const taxAmount = Math.max(0, Math.round(Number(tax) * 100) / 100 || 0);
+    const round = (n) => Math.round(n * 100) / 100;
+    const subtotal = round(lines.reduce((sum, line) => sum + line.total, 0));
+    const discountAmount = Math.min(subtotal, Math.max(0, Number(discount) || 0));
+    // Tax is a percentage of the subtotal after discount. A plain tax
+    // amount (older clients) is still accepted when no rate is given.
+    const taxRate = taxType === "none" ? 0 : Math.max(0, Number(orderData.taxRate) || 0);
+    const taxAmount =
+      taxType === "none"
+        ? 0
+        : orderData.taxRate !== undefined
+          ? round(((subtotal - discountAmount) * taxRate) / 100)
+          : Math.max(0, round(Number(orderData.tax) || 0));
     const shippingAmount = Math.max(0, Number(shipping) || 0);
-    const total = Math.round((subtotal + taxAmount + shippingAmount) * 100) / 100;
+    const total = round(subtotal - discountAmount + taxAmount + shippingAmount);
 
     const order = await Order.create({
       userId,
       customerId,
       orderNumber: orderHelper.generateOrderNumber(),
-      platform: orderData.platform || customer.platform,
+      platform: ["whatsapp", "instagram", "facebook"].includes(orderData.platform) ? orderData.platform : customer.platform,
       items: lines,
       subtotal,
       tax: taxAmount,
+      taxType,
+      taxRate,
+      discount: discountAmount,
       shipping: shippingAmount,
       total,
       paymentMethod,

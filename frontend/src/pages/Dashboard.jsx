@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Clock, IndianRupee, MessageSquare, Plus, ShoppingCart, UserPlus } from "lucide-react";
+import { Clock, IndianRupee, MessageSquare, Percent, Plus, ShoppingCart, UserPlus } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import analyticsService from "../services/analytics.service";
 import { Button, Card, CardBody, CardHeader, ErrorState, PageHeader, Skeleton, StatCard } from "../components/ui";
 import { ChannelSplit, ChartCard, seriesStats } from "../components/charts/Charts";
 import { ChannelStatus, NeedsAttention, OnboardingChecklist } from "../features/dashboard/Attention";
+import { QuickActionsCard, RecentActivity, UpgradeCard } from "../features/dashboard/ShopWidgets";
 import { formatCurrency, formatCurrencyCompact, formatDuration, formatNumber, percentChange } from "../utils/format";
 
 const greeting = () => {
@@ -26,8 +27,8 @@ const revenueSummary = (data) => {
 function DashboardSkeleton() {
   return (
     <>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {[1, 2, 3, 4].map((i) => (
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        {[1, 2, 3, 4, 5].map((i) => (
           <StatCard key={i} label=" " loading />
         ))}
       </div>
@@ -89,7 +90,7 @@ const Dashboard = () => {
         <>
           {!data.onboarding.whatsappConnected && user?.role !== "admin" && <OnboardingChecklist onboarding={data.onboarding} />}
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
             <StatCard
               label="Revenue"
               icon={IndianRupee}
@@ -122,6 +123,12 @@ const Dashboard = () => {
               }
               invertDelta
             />
+            <StatCard
+              label="Conversion rate"
+              icon={Percent}
+              value={`${data.conversionRate ?? 0}%`}
+              deltaNote="Orders per customer, all time"
+            />
           </div>
 
           <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -142,10 +149,13 @@ const Dashboard = () => {
                   <ChannelSplit rows={data.channelStats} valueKey="messages" format={formatNumber} />
                 </CardBody>
               </Card>
+              <RecentActivity items={data.recentActivity || []} />
             </div>
             <div className="flex flex-col gap-6">
+              <QuickActionsCard />
               <NeedsAttention attention={data.attention} />
               <ChannelStatus channels={data.channels} />
+              {user?.role !== "admin" && <UpgradeCard plan={user?.subscription?.plan} />}
             </div>
           </div>
         </>
