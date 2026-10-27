@@ -9,7 +9,7 @@ import { formatCurrency, formatDate, formatRelative } from "../../utils/format";
 
 const OPEN_ORDER_STATUSES = ["pending", "confirmed", "processing", "shipped"];
 
-function Tags({ customer, onChange }) {
+export function Tags({ customer, onChange }) {
   const toast = useToast();
   const [value, setValue] = useState("");
 
@@ -61,7 +61,7 @@ function Tags({ customer, onChange }) {
   );
 }
 
-function Notes({ customerId }) {
+export function Notes({ customerId }) {
   const toast = useToast();
   const [notes, setNotes] = useState(null);
   const [draft, setDraft] = useState("");

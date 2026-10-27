@@ -19,6 +19,10 @@ class OrderService {
     return await api.put(API_ENDPOINTS.ORDERS.UPDATE_STATUS(id), data);
   }
 
+  async deleteOrder(id) {
+    return await api.delete(API_ENDPOINTS.ORDERS.GET(id));
+  }
+
   async getOrderStats(params = {}) {
     const queryString = new URLSearchParams(params).toString();
     return await api.get(`${API_ENDPOINTS.ORDERS.STATS}?${queryString}`);

@@ -42,7 +42,7 @@ export function Tabs({ tabs, value, onChange, variant = "underline", fill, class
       aria-label={label}
       onKeyDown={onKeyDown}
       className={cn(
-        "flex items-center overflow-x-auto scrollbar-none",
+        "relative flex items-center overflow-x-auto scrollbar-none",
         variant === "underline" ? "gap-5 border-b border-line" : cn("gap-1 rounded-lg bg-surface-2 p-1", fill ? "w-full" : "w-fit max-w-full"),
         className
       )}

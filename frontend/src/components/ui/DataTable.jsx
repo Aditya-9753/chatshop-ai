@@ -126,7 +126,7 @@ export default function DataTable({
         </div>
       )}
 
-      <div className="overflow-x-auto scrollbar-thin">
+      <div className="relative overflow-x-auto scrollbar-thin">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-line bg-surface-2/60">

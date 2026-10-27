@@ -1,779 +1,237 @@
-import React, { useState, useEffect } from "react";
-import {
-  BarChart,
-  Bar,
-  LineChart,
-  Line,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-} from "recharts";
-import {
-  TrendingUp,
-  TrendingDown,
-  DollarSign,
-  Users,
-  ShoppingBag,
-  MessageSquare,
-  Instagram,
-  MessageCircle,
-  Facebook,
-  Package,
-  ArrowUpRight,
-  ArrowDownRight,
-  Download,
-  RefreshCw,
-} from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { CalendarDays, Clock, IndianRupee, MessageSquare, Receipt, ShoppingCart, UserPlus } from "lucide-react";
 import analyticsService from "../services/analytics.service";
-import { useToast } from "../components/Toast";
-import { useTheme } from "../context/ThemeContext";
+import { Card, CardBody, CardHeader, ChannelBadge, EmptyState, ErrorState, PageHeader, Skeleton, StatCard, Tabs } from "../components/ui";
+import { ChannelSplit, ChartCard } from "../components/charts/Charts";
+import { formatCurrency, formatDuration, formatNumber, percentChange } from "../utils/format";
+
+const DAY_MS = 86400000;
+
+const startOfDay = (date) => {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+};
+
+// Presets end at the end of today; "custom" uses the two date inputs
+const PRESETS = [
+  { value: "7", label: "7 days" },
+  { value: "30", label: "30 days" },
+  { value: "90", label: "90 days" },
+  { value: "month", label: "This month" },
+  { value: "custom", label: "Custom" },
+];
+
+const toInput = (date) => {
+  const d = new Date(date);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
+function rangeFor(preset, custom) {
+  const end = new Date(startOfDay(new Date()).getTime() + DAY_MS);
+  if (preset === "month") {
+    const start = startOfDay(new Date());
+    start.setDate(1);
+    return { start, end };
+  }
+  if (preset === "custom") {
+    const start = startOfDay(new Date(`${custom.from}T00:00:00`));
+    const customEnd = new Date(startOfDay(new Date(`${custom.to}T00:00:00`)).getTime() + DAY_MS);
+    return { start, end: customEnd };
+  }
+  return { start: new Date(end.getTime() - Number(preset) * DAY_MS), end };
+}
+
+function RankedList({ rows, empty, render }) {
+  if (!rows.length) return <p className="py-6 text-center text-caption text-fg-muted">{empty}</p>;
+  const max = Math.max(...rows.map((r) => r.revenue)) || 1;
+  return (
+    <ol className="flex flex-col gap-3">
+      {rows.map((row, i) => (
+        <li key={row._id || row.productId || row.name || i}>
+          <div className="mb-1 flex items-center justify-between gap-3 text-sm">
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="w-4 shrink-0 text-xs tabular-nums text-fg-muted">{i + 1}</span>
+              {render(row)}
+            </span>
+            <span className="shrink-0 tabular-nums text-fg">{formatCurrency(row.revenue)}</span>
+          </div>
+          <div className="ml-6 h-1.5 rounded-full bg-surface-2">
+            <div className="h-1.5 rounded-full bg-chart-1" style={{ width: `${(row.revenue / max) * 100}%` }} />
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
+}
 
 const Analytics = () => {
-  const [stats, setStats] = useState(null);
-  const [revenueData, setRevenueData] = useState([]);
-  const [customerData, setCustomerData] = useState(null);
-  const [messageData, setMessageData] = useState(null);
+  const [preset, setPreset] = useState("30");
+  const [custom, setCustom] = useState({ from: toInput(Date.now() - 30 * DAY_MS), to: toInput(Date.now()) });
+  const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [dateRange, setDateRange] = useState("week");
-  const { error, success } = useToast();
-  const { isDarkMode } = useTheme();
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    fetchAllAnalytics();
-  }, [dateRange]);
+  const customValid = preset !== "custom" || (custom.from && custom.to && custom.from <= custom.to);
+  const range = useMemo(() => (customValid ? rangeFor(preset, custom) : null), [preset, custom, customValid]);
 
-  const fetchAllAnalytics = async () => {
+  const load = useCallback(async () => {
+    if (!range) return;
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-
-      // Fetch all analytics data in parallel
-      const [dashboardRes, revenueRes, customerRes, messageRes] =
-        await Promise.all([
-          analyticsService.getDashboardStats(),
-          analyticsService.getRevenueAnalytics(dateRange),
-          analyticsService.getCustomerAnalytics(),
-          analyticsService.getMessageAnalytics(dateRange),
-        ]);
-
-      if (dashboardRes.success) setStats(dashboardRes.data);
-      if (revenueRes.success) setRevenueData(revenueRes.data);
-      if (customerRes.success) setCustomerData(customerRes.data);
-      if (messageRes.success) setMessageData(messageRes.data);
+      const response = await analyticsService.getReport(range);
+      setReport(response.data);
     } catch (err) {
-      error(err.message || "Failed to fetch analytics");
+      setError(err.message || "Please try again.");
     } finally {
       setLoading(false);
     }
-  };
+  }, [range]);
 
-  const handleRefresh = () => {
-    success("Refreshing data...");
-    fetchAllAnalytics();
-  };
+  useEffect(() => {
+    load();
+  }, [load]);
 
-  const handleExport = () => {
-    success("Exporting data...");
-    // TODO: Implement export functionality
-  };
-
-  // Prepare chart data
-  const platformData = [
-    {
-      name: "WhatsApp",
-      customers: stats?.whatsappCustomers || 0,
-      color: "#10b981",
-    },
-    {
-      name: "Instagram",
-      customers: stats?.instagramCustomers || 0,
-      color: "#ec4899",
-    },
-    {
-      name: "Facebook",
-      customers: stats?.facebookCustomers || 0,
-      color: "#3b82f6",
-    },
-  ];
-
-  // Calculate growth percentages
-  const calculateGrowth = (current, previous) => {
-    if (!previous) return 0;
-    return (((current - previous) / previous) * 100).toFixed(1);
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <RefreshCw className="w-12 h-12 text-indigo-600 animate-spin mx-auto mb-4" />
-          <p className={isDarkMode ? "text-gray-400" : "text-gray-600"}>
-            Loading analytics...
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const kpi = (key) => report?.kpis[key] || { current: 0, previous: 0 };
+  const delta = (key) => percentChange(kpi(key).current, kpi(key).previous);
+  const days = range ? Math.round((range.end - range.start) / DAY_MS) : 0;
+  const deltaLabel = `vs previous ${days} days`;
+  const initial = loading && !report;
 
   return (
-    <div className="space-y-6 pb-8">
-      {/* Header with Actions */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1
-            className={`text-3xl font-bold ${
-              isDarkMode ? "text-white" : "text-gray-900"
-            }`}
-          >
-            Analytics Dashboard
-          </h1>
-          <p
-            className={`mt-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}
-          >
-            Track your business performance and insights
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <select
-            value={dateRange}
-            onChange={(e) => setDateRange(e.target.value)}
-            className={`px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-sm font-medium ${
-              isDarkMode
-                ? "bg-gray-800 border-gray-700 text-white"
-                : "bg-white border-gray-300 text-gray-900"
-            }`}
-          >
-            <option value="today">Today</option>
-            <option value="week">Last 7 Days</option>
-            <option value="month">Last 30 Days</option>
-            <option value="year">Last Year</option>
-          </select>
-          <button
-            onClick={handleRefresh}
-            className={`p-2 border rounded-lg transition-colors ${
-              isDarkMode
-                ? "bg-gray-800 border-gray-700 hover:bg-gray-700 text-gray-300"
-                : "bg-white border-gray-300 hover:bg-gray-50 text-gray-600"
-            }`}
-          >
-            <RefreshCw className="w-5 h-5" />
-          </button>
-          <button
-            onClick={handleExport}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium"
-          >
-            <Download className="w-4 h-4" />
-            Export
-          </button>
-        </div>
+    <div>
+      <PageHeader title="Analytics" description="Sales and conversations for any period, compared with the period before." />
+
+      {/* One filter row scopes every number and chart below */}
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <Tabs variant="pill" tabs={PRESETS} value={preset} onChange={setPreset} label="Date range" />
+        {preset === "custom" && (
+          <div className="flex items-center gap-2">
+            <CalendarDays className="h-4 w-4 text-fg-muted" aria-hidden="true" />
+            <input
+              type="date"
+              aria-label="From"
+              value={custom.from}
+              max={custom.to}
+              onChange={(e) => setCustom({ ...custom, from: e.target.value })}
+              className="h-8 rounded-lg border border-line bg-surface px-2 text-sm text-fg outline-none focus:border-accent"
+            />
+            <span className="text-fg-muted">–</span>
+            <input
+              type="date"
+              aria-label="To"
+              value={custom.to}
+              min={custom.from}
+              max={toInput(Date.now())}
+              onChange={(e) => setCustom({ ...custom, to: e.target.value })}
+              className="h-8 rounded-lg border border-line bg-surface px-2 text-sm text-fg outline-none focus:border-accent"
+            />
+          </div>
+        )}
       </div>
 
-      {/* KPI Cards - Updated Design */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* Total Revenue Card */}
-        <div
-          className={`rounded-xl shadow-sm border p-6 hover:shadow-md transition-shadow ${
-            isDarkMode
-              ? "bg-gray-800 border-gray-700"
-              : "bg-white border-gray-200"
-          }`}
-        >
-          <div className="flex items-start justify-between mb-3">
-            <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
-              <DollarSign className="w-6 h-6 text-white" />
-            </div>
-            <span className="flex items-center gap-1 text-xs font-semibold text-green-600 bg-green-50 px-2 py-1 rounded-full">
-              <TrendingUp className="w-3 h-3" />
-              +12.5%
-            </span>
+      {error && !report ? (
+        <Card>
+          <ErrorState title="Couldn't load analytics" description={error} onRetry={load} />
+        </Card>
+      ) : (
+        <div className={loading && report ? "opacity-60 transition-opacity" : "transition-opacity"} aria-busy={loading}>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+            <StatCard label="Revenue" icon={IndianRupee} loading={initial} value={formatCurrency(kpi("revenue").current)} delta={delta("revenue")} deltaLabel={deltaLabel} />
+            <StatCard label="Orders" icon={ShoppingCart} loading={initial} value={formatNumber(kpi("orders").current)} delta={delta("orders")} deltaLabel={deltaLabel} />
+            <StatCard label="Average order" icon={Receipt} loading={initial} value={formatCurrency(kpi("averageOrderValue").current)} delta={delta("averageOrderValue")} deltaLabel={deltaLabel} />
+            <StatCard label="New customers" icon={UserPlus} loading={initial} value={formatNumber(kpi("newCustomers").current)} delta={delta("newCustomers")} deltaLabel={deltaLabel} />
+            <StatCard label="Messages received" icon={MessageSquare} loading={initial} value={formatNumber(kpi("messagesReceived").current)} delta={delta("messagesReceived")} deltaLabel={deltaLabel} />
+            <StatCard
+              label="Median response"
+              icon={Clock}
+              loading={initial}
+              value={formatDuration(kpi("responseTimeMinutes").current)}
+              delta={kpi("responseTimeMinutes").current != null && kpi("responseTimeMinutes").previous ? delta("responseTimeMinutes") : undefined}
+              deltaLabel={deltaLabel}
+              invertDelta
+            />
           </div>
-          <p
-            className={`text-sm mb-1 ${
-              isDarkMode ? "text-gray-400" : "text-gray-600"
-            }`}
-          >
-            Total Revenue
-          </p>
-          <p
-            className={`text-2xl font-bold ${
-              isDarkMode ? "text-white" : "text-gray-900"
-            }`}
-          >
-            ₹{(stats?.totalRevenue || 0).toLocaleString("en-IN")}
-          </p>
-          <p
-            className={`text-xs mt-2 ${
-              isDarkMode ? "text-gray-500" : "text-gray-500"
-            }`}
-          >
-            vs last {dateRange === "today" ? "day" : dateRange}
-          </p>
-        </div>
 
-        {/* Total Orders Card */}
-        <div
-          className={`rounded-xl shadow-sm border p-6 hover:shadow-md transition-shadow ${
-            isDarkMode
-              ? "bg-gray-800 border-gray-700"
-              : "bg-white border-gray-200"
-          }`}
-        >
-          <div className="flex items-start justify-between mb-3">
-            <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
-              <ShoppingBag className="w-6 h-6 text-white" />
+          {initial ? (
+            <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <Skeleton className="h-[340px] rounded-xl" />
+              <Skeleton className="h-[340px] rounded-xl" />
             </div>
-            <span className="flex items-center gap-1 text-xs font-semibold text-green-600 bg-green-50 px-2 py-1 rounded-full">
-              <TrendingUp className="w-3 h-3" />
-              +8.2%
-            </span>
-          </div>
-          <p
-            className={`text-sm mb-1 ${
-              isDarkMode ? "text-gray-400" : "text-gray-600"
-            }`}
-          >
-            Total Orders
-          </p>
-          <p
-            className={`text-2xl font-bold ${
-              isDarkMode ? "text-white" : "text-gray-900"
-            }`}
-          >
-            {stats?.totalOrders || 0}
-          </p>
-          <p
-            className={`text-xs mt-2 ${
-              isDarkMode ? "text-gray-500" : "text-gray-500"
-            }`}
-          >
-            {stats?.todayOrders || 0} orders today
-          </p>
-        </div>
-
-        {/* Total Customers Card */}
-        <div
-          className={`rounded-xl shadow-sm border p-6 hover:shadow-md transition-shadow ${
-            isDarkMode
-              ? "bg-gray-800 border-gray-700"
-              : "bg-white border-gray-200"
-          }`}
-        >
-          <div className="flex items-start justify-between mb-3">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-lg flex items-center justify-center">
-              <Users className="w-6 h-6 text-white" />
-            </div>
-            <span className="flex items-center gap-1 text-xs font-semibold text-green-600 bg-green-50 px-2 py-1 rounded-full">
-              <TrendingUp className="w-3 h-3" />
-              +15.3%
-            </span>
-          </div>
-          <p
-            className={`text-sm mb-1 ${
-              isDarkMode ? "text-gray-400" : "text-gray-600"
-            }`}
-          >
-            Total Customers
-          </p>
-          <p
-            className={`text-2xl font-bold ${
-              isDarkMode ? "text-white" : "text-gray-900"
-            }`}
-          >
-            {stats?.totalCustomers || 0}
-          </p>
-          <p
-            className={`text-xs mt-2 ${
-              isDarkMode ? "text-gray-500" : "text-gray-500"
-            }`}
-          >
-            Across all platforms
-          </p>
-        </div>
-
-        {/* Total Messages Card */}
-        <div
-          className={`rounded-xl shadow-sm border p-6 hover:shadow-md transition-shadow ${
-            isDarkMode
-              ? "bg-gray-800 border-gray-700"
-              : "bg-white border-gray-200"
-          }`}
-        >
-          <div className="flex items-start justify-between mb-3">
-            <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
-              <MessageSquare className="w-6 h-6 text-white" />
-            </div>
-            <span className="flex items-center gap-1 text-xs font-semibold text-green-600 bg-green-50 px-2 py-1 rounded-full">
-              <TrendingUp className="w-3 h-3" />
-              +5.7%
-            </span>
-          </div>
-          <p
-            className={`text-sm mb-1 ${
-              isDarkMode ? "text-gray-400" : "text-gray-600"
-            }`}
-          >
-            Total Messages
-          </p>
-          <p
-            className={`text-2xl font-bold ${
-              isDarkMode ? "text-white" : "text-gray-900"
-            }`}
-          >
-            {stats?.totalMessages || 0}
-          </p>
-          <p
-            className={`text-xs mt-2 ${
-              isDarkMode ? "text-gray-500" : "text-gray-500"
-            }`}
-          >
-            {stats?.todayMessages || 0} messages today
-          </p>
-        </div>
-      </div>
-
-      {/* Charts Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Revenue Trend Chart */}
-        <div
-          className={`rounded-xl shadow-sm border p-6 ${
-            isDarkMode
-              ? "bg-gray-800 border-gray-700"
-              : "bg-white border-gray-200"
-          }`}
-        >
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3
-                className={`text-lg font-bold ${
-                  isDarkMode ? "text-white" : "text-gray-900"
-                }`}
-              >
-                Revenue Trend
-              </h3>
-              <p
-                className={`text-sm ${
-                  isDarkMode ? "text-gray-400" : "text-gray-500"
-                }`}
-              >
-                Daily revenue over time
-              </p>
-            </div>
-          </div>
-          <ResponsiveContainer width="100%" height={280}>
-            <AreaChart data={revenueData}>
-              <defs>
-                <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis
-                dataKey="_id"
-                stroke="#9ca3af"
-                style={{ fontSize: "12px" }}
-              />
-              <YAxis stroke="#9ca3af" style={{ fontSize: "12px" }} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "#fff",
-                  border: "1px solid #e5e7eb",
-                  borderRadius: "8px",
-                  boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                }}
-              />
-              <Area
-                type="monotone"
-                dataKey="revenue"
-                stroke="#6366f1"
-                strokeWidth={2}
-                fill="url(#colorRevenue)"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Platform Distribution Chart */}
-        <div
-          className={`rounded-xl shadow-sm border p-6 ${
-            isDarkMode
-              ? "bg-gray-800 border-gray-700"
-              : "bg-white border-gray-200"
-          }`}
-        >
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3
-                className={`text-lg font-bold ${
-                  isDarkMode ? "text-white" : "text-gray-900"
-                }`}
-              >
-                Platform Distribution
-              </h3>
-              <p
-                className={`text-sm ${
-                  isDarkMode ? "text-gray-400" : "text-gray-500"
-                }`}
-              >
-                Customers by platform
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center justify-center">
-            <ResponsiveContainer width="100%" height={280}>
-              <PieChart>
-                <Pie
-                  data={platformData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  paddingAngle={5}
-                  dataKey="customers"
-                >
-                  {platformData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="flex items-center justify-center gap-6 mt-4">
-            {platformData.map((platform, index) => (
-              <div key={index} className="flex items-center gap-2">
-                <div
-                  className="w-3 h-3 rounded-full"
-                  style={{ backgroundColor: platform.color }}
+          ) : (
+            <>
+              <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+                <ChartCard
+                  title="Revenue"
+                  description="Paid orders, excluding cancelled"
+                  data={report.series}
+                  series={[{ key: "revenue", label: "Revenue", color: "var(--chart-1)" }]}
+                  format={(v) => formatCurrency(v)}
                 />
-                <span
-                  className={`text-sm ${
-                    isDarkMode ? "text-gray-300" : "text-gray-700"
-                  }`}
-                >
-                  {platform.name}:{" "}
-                  <span className="font-semibold">{platform.customers}</span>
-                </span>
+                <ChartCard
+                  title="Messages"
+                  description="Received from customers and sent by you"
+                  data={report.series}
+                  series={[
+                    { key: "messagesIn", label: "Received", color: "var(--chart-1)" },
+                    { key: "messagesOut", label: "Sent", color: "var(--chart-2)" },
+                  ]}
+                  format={formatNumber}
+                />
               </div>
-            ))}
-          </div>
-        </div>
-      </div>
 
-      {/* Top Customers Table */}
-      <div
-        className={`rounded-xl shadow-sm border p-6 ${
-          isDarkMode
-            ? "bg-gray-800 border-gray-700"
-            : "bg-white border-gray-200"
-        }`}
-      >
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h3
-              className={`text-lg font-bold ${
-                isDarkMode ? "text-white" : "text-gray-900"
-              }`}
-            >
-              Top Customers
-            </h3>
-            <p
-              className={`text-sm ${
-                isDarkMode ? "text-gray-400" : "text-gray-500"
-              }`}
-            >
-              Highest spending customers
-            </p>
-          </div>
-          <button className="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1">
-            View All
-            <ArrowUpRight className="w-4 h-4" />
-          </button>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr
-                className={`border-b ${
-                  isDarkMode ? "border-gray-700" : "border-gray-200"
-                }`}
-              >
-                <th
-                  className={`text-left text-xs font-semibold uppercase tracking-wider pb-3 ${
-                    isDarkMode ? "text-gray-400" : "text-gray-600"
-                  }`}
-                >
-                  Customer
-                </th>
-                <th
-                  className={`text-left text-xs font-semibold uppercase tracking-wider pb-3 ${
-                    isDarkMode ? "text-gray-400" : "text-gray-600"
-                  }`}
-                >
-                  Platform
-                </th>
-                <th
-                  className={`text-left text-xs font-semibold uppercase tracking-wider pb-3 ${
-                    isDarkMode ? "text-gray-400" : "text-gray-600"
-                  }`}
-                >
-                  Orders
-                </th>
-                <th
-                  className={`text-left text-xs font-semibold uppercase tracking-wider pb-3 ${
-                    isDarkMode ? "text-gray-400" : "text-gray-600"
-                  }`}
-                >
-                  Total Spent
-                </th>
-              </tr>
-            </thead>
-            <tbody
-              className={`divide-y ${
-                isDarkMode ? "divide-gray-700" : "divide-gray-100"
-              }`}
-            >
-              {customerData?.topCustomers
-                ?.slice(0, 5)
-                .map((customer, index) => (
-                  <tr
-                    key={index}
-                    className={
-                      isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-50"
-                    }
-                  >
-                    <td className="py-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold">
-                          {customer.name?.charAt(0) || "?"}
-                        </div>
-                        <div>
-                          <p
-                            className={`text-sm font-semibold ${
-                              isDarkMode ? "text-white" : "text-gray-900"
-                            }`}
-                          >
-                            {customer.name || "Unknown"}
-                          </p>
-                          <p
-                            className={`text-xs ${
-                              isDarkMode ? "text-gray-400" : "text-gray-500"
-                            }`}
-                          >
-                            {customer.phone}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-3">
-                      <span
-                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${
-                          customer.platform === "whatsapp"
-                            ? "bg-green-100 text-green-700"
-                            : customer.platform === "instagram"
-                            ? "bg-pink-100 text-pink-700"
-                            : "bg-blue-100 text-blue-700"
-                        }`}
-                      >
-                        {customer.platform === "whatsapp" ? (
-                          <MessageCircle className="w-3 h-3" />
-                        ) : customer.platform === "instagram" ? (
-                          <Instagram className="w-3 h-3" />
-                        ) : (
-                          <Facebook className="w-3 h-3" />
-                        )}
-                        {customer.platform}
-                      </span>
-                    </td>
-                    <td className="py-3">
-                      <span
-                        className={`text-sm font-medium ${
-                          isDarkMode ? "text-gray-300" : "text-gray-900"
-                        }`}
-                      >
-                        {customer.totalOrders || 0}
-                      </span>
-                    </td>
-                    <td className="py-3">
-                      <span
-                        className={`text-sm font-bold ${
-                          isDarkMode ? "text-white" : "text-gray-900"
-                        }`}
-                      >
-                        ₹{(customer.totalSpent || 0).toLocaleString("en-IN")}
-                      </span>
-                    </td>
-                  </tr>
-                )) || (
-                <tr>
-                  <td
-                    colSpan="4"
-                    className={`py-8 text-center ${
-                      isDarkMode ? "text-gray-400" : "text-gray-500"
-                    }`}
-                  >
-                    No customer data available
-                  </td>
-                </tr>
+              <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+                <Card>
+                  <CardHeader title="Revenue by channel" description="Where paid orders came from" />
+                  <CardBody>
+                    <ChannelSplit rows={report.channels} valueKey="revenue" format={(v) => formatCurrency(v)} />
+                  </CardBody>
+                </Card>
+                <Card>
+                  <CardHeader title="Top products" description="By revenue in this period" />
+                  <CardBody>
+                    <RankedList
+                      rows={report.topProducts}
+                      empty="No paid orders in this period."
+                      render={(p) => (
+                        <span className="min-w-0 truncate text-fg">
+                          {p.name} <span className="text-caption text-fg-muted">· {formatNumber(p.quantity)} sold</span>
+                        </span>
+                      )}
+                    />
+                  </CardBody>
+                </Card>
+                <Card>
+                  <CardHeader title="Top customers" description="By revenue in this period" />
+                  <CardBody>
+                    <RankedList
+                      rows={report.topCustomers}
+                      empty="No paid orders in this period."
+                      render={(c) => (
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span className="truncate text-fg">{c.name}</span>
+                          <ChannelBadge platform={c.platform} compact />
+                        </span>
+                      )}
+                    />
+                  </CardBody>
+                </Card>
+              </div>
+
+              {report.series.every((d) => !d.revenue && !d.messagesIn && !d.messagesOut) && (
+                <Card className="mt-6">
+                  <EmptyState
+                    icon={CalendarDays}
+                    title="Nothing happened in this period"
+                    description="Pick a longer range, or connect a channel to start receiving messages."
+                  />
+                </Card>
               )}
-            </tbody>
-          </table>
+            </>
+          )}
         </div>
-      </div>
-
-      {/* Quick Stats Row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Connection Status */}
-        <div
-          className={`rounded-xl shadow-sm border p-6 ${
-            isDarkMode
-              ? "bg-gray-800 border-gray-700"
-              : "bg-white border-gray-200"
-          }`}
-        >
-          <h4
-            className={`text-sm font-semibold mb-4 ${
-              isDarkMode ? "text-white" : "text-gray-900"
-            }`}
-          >
-            Platform Status
-          </h4>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <MessageCircle className="w-5 h-5 text-green-600" />
-                <span
-                  className={`text-sm ${
-                    isDarkMode ? "text-gray-300" : "text-gray-700"
-                  }`}
-                >
-                  WhatsApp
-                </span>
-              </div>
-              <span
-                className={`px-2 py-1 rounded-full text-xs font-medium ${
-                  stats?.whatsappConnected
-                    ? "bg-green-100 text-green-700"
-                    : "bg-gray-100 text-gray-700"
-                }`}
-              >
-                {stats?.whatsappConnected ? "Connected" : "Disconnected"}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Instagram className="w-5 h-5 text-pink-600" />
-                <span
-                  className={`text-sm ${
-                    isDarkMode ? "text-gray-300" : "text-gray-700"
-                  }`}
-                >
-                  Instagram
-                </span>
-              </div>
-              <span
-                className={`px-2 py-1 rounded-full text-xs font-medium ${
-                  stats?.instagramConnected
-                    ? "bg-green-100 text-green-700"
-                    : "bg-gray-100 text-gray-700"
-                }`}
-              >
-                {stats?.instagramConnected ? "Connected" : "Disconnected"}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Facebook className="w-5 h-5 text-blue-600" />
-                <span
-                  className={`text-sm ${
-                    isDarkMode ? "text-gray-300" : "text-gray-700"
-                  }`}
-                >
-                  Facebook
-                </span>
-              </div>
-              <span
-                className={`px-2 py-1 rounded-full text-xs font-medium ${
-                  stats?.facebookConnected
-                    ? "bg-green-100 text-green-700"
-                    : "bg-gray-100 text-gray-700"
-                }`}
-              >
-                {stats?.facebookConnected ? "Connected" : "Disconnected"}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Subscription Info */}
-        <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-sm p-6 text-white">
-          <h4 className="text-sm font-semibold mb-4 opacity-90">
-            Current Plan
-          </h4>
-          <p className="text-2xl font-bold mb-2 capitalize">
-            {stats?.subscription?.plan || "Free"}
-          </p>
-          <p className="text-sm opacity-80">
-            {stats?.subscription?.status === "active"
-              ? "Active until " +
-                new Date(stats.subscription.endDate).toLocaleDateString()
-              : "No active subscription"}
-          </p>
-        </div>
-
-        {/* Quick Actions */}
-        <div
-          className={`rounded-xl shadow-sm border p-6 ${
-            isDarkMode
-              ? "bg-gray-800 border-gray-700"
-              : "bg-white border-gray-200"
-          }`}
-        >
-          <h4
-            className={`text-sm font-semibold mb-4 ${
-              isDarkMode ? "text-white" : "text-gray-900"
-            }`}
-          >
-            Quick Actions
-          </h4>
-          <div className="space-y-2">
-            <button
-              className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-colors ${
-                isDarkMode
-                  ? "text-gray-300 hover:bg-gray-700"
-                  : "text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              View All Orders
-            </button>
-            <button
-              className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-colors ${
-                isDarkMode
-                  ? "text-gray-300 hover:bg-gray-700"
-                  : "text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              Manage Customers
-            </button>
-            <button
-              className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-colors ${
-                isDarkMode
-                  ? "text-gray-300 hover:bg-gray-700"
-                  : "text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              Send Broadcast
-            </button>
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 };
