@@ -43,8 +43,9 @@ class ResponseHandler {
   }
 
   // Validation error response
+  // Lead with the first problem so forms can show it inline
   static validationError(res, errors) {
-    return this.badRequest(res, "Validation failed", errors);
+    return this.badRequest(res, errors[0]?.msg || "Validation failed", errors);
   }
 
   // Paginated response

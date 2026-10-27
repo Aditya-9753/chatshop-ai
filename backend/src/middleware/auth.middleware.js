@@ -34,6 +34,14 @@ exports.protect = async (req, res, next) => {
         });
       }
 
+      // Sessions started before the last password change are logged out
+      if (req.user.changedPasswordAfter(decoded.iat)) {
+        return res.status(401).json({
+          success: false,
+          message: "Password was changed. Please log in again.",
+        });
+      }
+
       next();
     } catch (error) {
       return res.status(401).json({
