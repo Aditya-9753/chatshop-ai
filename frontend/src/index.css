@@ -9,7 +9,7 @@
   background: linear-gradient(135deg, rgb(79, 70, 229), rgb(147, 51, 234));
   color: white;
   font-weight: 600;
-  box-shadow: 0 10px 15px -3pxgit a rgba(79, 70, 229, 0.3);
+  box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.3);
   transition: all 0.4s ease-out;
   position: relative;
   cursor: pointer;
