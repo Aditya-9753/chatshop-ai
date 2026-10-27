@@ -76,6 +76,15 @@ class AdminService {
     return api.get(`/admin/audit?limit=${limit}`);
   }
 
+  // Second password on the admin account that opens the limited Admin panel
+  getAdminPanel() {
+    return api.get("/admin/admin-panel");
+  }
+
+  setAdminPanelPassword(password) {
+    return api.put("/admin/admin-panel", { password });
+  }
+
   // Download a CSV (shops, orders, customers, products) or the JSON backup
   async download(path, fileName) {
     const blob = await api.get(path, { responseType: "blob" });

@@ -64,8 +64,8 @@ const AdminLogin = () => {
             </Badge>
           </div>
           <Card className="p-6">
-            <h1 className="text-xl font-semibold tracking-tight text-fg">Super Admin sign in</h1>
-            <p className="mt-1 text-sm text-fg-muted">Restricted to platform administrators.</p>
+            <h1 className="text-xl font-semibold tracking-tight text-fg">Admin sign in</h1>
+            <p className="mt-1 text-sm text-fg-muted">For the Super Admin and Admin panel. Your password decides which one opens.</p>
             {challengeToken ? (
               <div className="mt-6">
                 <TwoFactorStep

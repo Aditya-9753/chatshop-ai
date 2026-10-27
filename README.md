@@ -217,9 +217,10 @@ npm run dev
 
 - **Frontend:** http://localhost:5174
 - **Backend API:** http://localhost:5000
-- **Default Admin:**
+- **Default Admin** (one email, two passwords, at `/admin/login`):
   - Email: `admin@chatshopai.com`
-  - Password: `Admin@12345`
+  - Super Admin password: `Admin@12345`
+  - Admin panel password: `Admin@123456`
 
 ## 📊 API Endpoints
 
@@ -293,7 +294,14 @@ Rules for new UI: use tokens and kit components only (no hex values, no `isDarkM
 
 ## 🛡️ Super admin panel
 
-Log in at `/admin/login` (default `admin@chatshopai.com` / `Admin@12345`; change it in Security). Sections:
+Log in at `/admin/login` with `admin@chatshopai.com`. The password decides which panel opens:
+
+| Password | Panel | Can do |
+|---|---|---|
+| `Admin@12345` (`ADMIN_PASSWORD`) | **Super Admin** | Everything below |
+| `Admin@123456` (`ADMIN_PANEL_PASSWORD`) | **Admin** | Every shop and its data, plans and status, add shops, broadcast, export. No Settings, Security, backup, cache, audit log or deleting shops (the server returns 403) |
+
+Change both in Super Admin → Security. Sections:
 
 - **Overview**: shop, subscription, MRR and revenue cards with change vs the previous 30 days; quick actions (add shop, broadcast, export); live system status (server, database, email, webhook secret); revenue chart; top shops; recent orders, chats and sign-ups
 - **Shops**: every account with its real customers, orders and revenue; add a shop, send a message, change plan or status, delete

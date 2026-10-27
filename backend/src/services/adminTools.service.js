@@ -337,6 +337,25 @@ class AdminToolsService {
   async auditLog(limit = 100) {
     return AuditLog.find().sort({ createdAt: -1 }).limit(Math.min(Number(limit) || 100, 500)).lean();
   }
+
+  // The second password on the admin account that opens the limited Admin panel
+  async adminPanelStatus(userId) {
+    const user = await User.findById(userId).select("+adminPanel.password");
+    return { set: Boolean(user?.adminPanel?.password), changedAt: user?.adminPanel?.changedAt || null };
+  }
+
+  async setAdminPanelPassword(userId, password) {
+    if (!password || String(password).length < 6) throw new Error("Use at least 6 characters");
+    const user = await User.findById(userId).select("+password");
+    // Same as the Super Admin password would always log in as Super Admin
+    if (await bcrypt.compare(password, user.password)) {
+      throw new Error("Use a different password from the Super Admin one");
+    }
+    // 1s back, like passwordChangedAt: logs out older Admin panel sessions
+    user.adminPanel = { password: await bcrypt.hash(password, 10), changedAt: new Date(Date.now() - 1000) };
+    await user.save();
+    return this.adminPanelStatus(userId);
+  }
 }
 
 module.exports = new AdminToolsService();

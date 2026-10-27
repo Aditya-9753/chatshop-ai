@@ -41,7 +41,10 @@ exports.login = async (req, res) => {
     if (result.twoFactorRequired) {
       return ResponseHandler.success(res, result, "Enter the code from your authenticator app");
     }
-    await audit(req, "auth.login", { actor: { _id: result.user.id, email: result.user.email } });
+    await audit(req, "auth.login", {
+      actor: { _id: result.user.id, email: result.user.email },
+      details: result.user.adminLevel === "admin" ? "Admin panel" : undefined,
+    });
     return ResponseHandler.success(res, result, "Login successful");
   } catch (error) {
     console.error("Login controller error:", error);
@@ -55,7 +58,10 @@ exports.loginWithCode = async (req, res) => {
   try {
     const { challengeToken, code } = req.body;
     const result = await authService.loginWithCode(challengeToken, code);
-    await audit(req, "auth.login", { actor: { _id: result.user.id, email: result.user.email }, details: "with two-factor code" });
+    await audit(req, "auth.login", {
+      actor: { _id: result.user.id, email: result.user.email },
+      details: result.user.adminLevel === "admin" ? "Admin panel, with two-factor code" : "with two-factor code",
+    });
     return ResponseHandler.success(res, result, "Login successful");
   } catch (error) {
     return ResponseHandler.unauthorized(res, error.message);

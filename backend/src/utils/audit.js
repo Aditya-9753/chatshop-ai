@@ -10,7 +10,8 @@ async function audit(req, action, { target, details, actor } = {}) {
       actorEmail: user?.email,
       action,
       target,
-      details,
+      // Say when it was done from the limited Admin panel
+      details: req?.adminLevel === "admin" ? [details, "via Admin panel"].filter(Boolean).join(" · ") : details,
       ip: req?.ip,
     });
   } catch (error) {

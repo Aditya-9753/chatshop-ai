@@ -20,3 +20,12 @@ exports.isAdmin = async (req, res, next) => {
     return ResponseHandler.error(res, "Authorization failed");
   }
 };
+
+// Block the limited Admin panel (admin-panel password) from Super Admin
+// actions. Shop owners pass straight through, so it also fits /users routes.
+exports.superAdminOnly = (req, res, next) => {
+  if (req.user?.role === "admin" && req.adminLevel === "admin") {
+    return ResponseHandler.forbidden(res, "Only the Super Admin can do this.");
+  }
+  next();
+};

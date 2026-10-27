@@ -44,6 +44,17 @@ exports.protect = async (req, res, next) => {
         });
       }
 
+      // Admins: "super" (Super Admin) or "admin" (limited admin panel)
+      if (req.user.role === "admin") {
+        req.adminLevel = decoded.adminLevel === "admin" ? "admin" : "super";
+        if (req.adminLevel === "admin" && req.user.changedAdminPanelPasswordAfter(decoded.iat)) {
+          return res.status(401).json({
+            success: false,
+            message: "Password was changed. Please log in again.",
+          });
+        }
+      }
+
       next();
     } catch (error) {
       return res.status(401).json({

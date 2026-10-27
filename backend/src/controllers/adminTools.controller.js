@@ -70,6 +70,15 @@ exports.clearCache = handle(async (req, res) => {
 
 exports.auditLog = handle(async (req, res) => ResponseHandler.success(res, await adminTools.auditLog(req.query.limit)));
 
+// ---------- Admin panel password (Super Admin only) ----------
+exports.adminPanelStatus = handle(async (req, res) => ResponseHandler.success(res, await adminTools.adminPanelStatus(req.user._id)));
+
+exports.setAdminPanelPassword = handle(async (req, res) => {
+  const status = await adminTools.setAdminPanelPassword(req.user._id, req.body.password);
+  await audit(req, "admin_panel.password", { details: "Admin panel password changed" });
+  return ResponseHandler.success(res, status, "Admin panel password saved");
+});
+
 // ---------- Two-factor login (any signed-in user) ----------
 exports.twoFactorSetup = handle(async (req, res) => {
   const { platformName } = await adminTools.publicSettings();
