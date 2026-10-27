@@ -10,6 +10,10 @@ const api = axios.create({
   },
 });
 
+// Requests where a 401 means "wrong credentials", not "session expired".
+// These must show their error inline instead of reloading the page.
+const CREDENTIAL_ENDPOINTS = ["/auth/login", "/auth/register", "/auth/forgot-password", "/auth/reset-password", "/users/password"];
+
 // Request interceptor - Add auth token
 api.interceptors.request.use(
   (config) => {
@@ -39,23 +43,29 @@ api.interceptors.response.use(
     if (error.response) {
       // Server responded with error
       const { status, data } = error.response;
+      const url = error.config?.url || "";
+      const isCredentialRequest = CREDENTIAL_ENDPOINTS.some((path) => url.startsWith(path));
 
-      if (status === 401) {
-        // Unauthorized - clear token and redirect to login
+      // Session expired or revoked: clear it and send the user to login
+      if (status === 401 && !isCredentialRequest && localStorage.getItem("token")) {
         localStorage.removeItem("token");
         localStorage.removeItem("user");
-        window.location.href = "/login";
+        const onAuthPage = ["/login", "/admin/login"].includes(window.location.pathname);
+        if (!onAuthPage) {
+          const target = window.location.pathname.startsWith("/admin") ? "/admin/login" : "/login";
+          window.location.href = `${target}?expired=1`;
+        }
       }
 
       return Promise.reject({
         status,
-        message: data.message || "Something went wrong",
-        errors: data.errors,
+        message: data?.message || "Something went wrong",
+        errors: data?.errors,
       });
     } else if (error.request) {
       // Request made but no response
       return Promise.reject({
-        message: "Network error. Please check your connection.",
+        message: "Can't reach the server. Check your connection and try again.",
       });
     } else {
       // Something else happened

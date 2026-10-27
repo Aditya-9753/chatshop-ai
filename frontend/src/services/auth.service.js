@@ -9,11 +9,15 @@ class AuthService {
     });
 
     if (response.success && response.data.token) {
-      localStorage.setItem("token", response.data.token);
-      localStorage.setItem("user", JSON.stringify(response.data.user));
+      this.saveSession(response.data.token, response.data.user);
     }
 
     return response;
+  }
+
+  saveSession(token, user) {
+    if (token) localStorage.setItem("token", token);
+    if (user) localStorage.setItem("user", JSON.stringify(user));
   }
 
   async register(userData) {
@@ -22,7 +26,7 @@ class AuthService {
   }
 
   async verifyEmail(token) {
-    const response = await api.post(API_ENDPOINTS.AUTH.VERIFY_EMAIL, { token });
+    const response = await api.get(`${API_ENDPOINTS.AUTH.VERIFY_EMAIL}/${token}`);
     return response;
   }
 
@@ -33,23 +37,43 @@ class AuthService {
     return response;
   }
 
-  async resetPassword(token, newPassword) {
+  // Check a reset link before showing the form
+  async validateResetToken(token) {
+    return api.get(`${API_ENDPOINTS.AUTH.RESET_PASSWORD}/${token}`);
+  }
+
+  async resetPassword(token, password) {
     const response = await api.post(API_ENDPOINTS.AUTH.RESET_PASSWORD, {
       token,
+      password,
+    });
+    return response;
+  }
+
+  async changePassword(currentPassword, newPassword) {
+    const response = await api.put(API_ENDPOINTS.USER.UPDATE_PASSWORD, {
+      currentPassword,
       newPassword,
     });
+    // Other sessions are logged out; keep this one with the fresh token
+    if (response.data?.token) {
+      localStorage.setItem("token", response.data.token);
+    }
     return response;
   }
 
   logout() {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-    window.location.href = "/login";
   }
 
   getCurrentUser() {
-    const userStr = localStorage.getItem("user");
-    return userStr ? JSON.parse(userStr) : null;
+    try {
+      const userStr = localStorage.getItem("user");
+      return userStr && localStorage.getItem("token") ? JSON.parse(userStr) : null;
+    } catch {
+      return null;
+    }
   }
 
   isAuthenticated() {

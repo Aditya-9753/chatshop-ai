@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import authService from "../services/auth.service";
-import navigationManager from "../utils/navigationManager";
+import { disconnectRealtime } from "../services/realtime";
 
 const AuthContext = createContext(null);
 
@@ -13,66 +13,45 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => authService.getCurrentUser());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is logged in on mount/refresh
-    const initializeAuth = () => {
-      try {
-        const currentUser = authService.getCurrentUser();
-        if (currentUser) {
-          setUser(currentUser);
-          // Track successful auth restoration
-          console.log("✅ User session restored:", currentUser.email);
-        }
-      } catch (error) {
-        console.error("Error loading user:", error);
-        // Clear invalid data
-        localStorage.removeItem("user");
-        localStorage.removeItem("token");
-      } finally {
-        setLoading(false);
-      }
-    };
+    setLoading(false);
 
-    initializeAuth();
-
-    // Session validation on window focus
-    const handleFocus = () => {
-      const currentUser = authService.getCurrentUser();
-      if (!currentUser && user) {
-        // Session expired
+    // Another tab logged out (or the session was cleared after a 401)
+    const onStorage = (event) => {
+      if (event.key === "token" && !event.newValue) {
         setUser(null);
-        navigationManager.clearHistory();
+        disconnectRealtime();
       }
     };
-
-    window.addEventListener("focus", handleFocus);
-    return () => window.removeEventListener("focus", handleFocus);
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
   }, []);
 
-  const login = async (email, password) => {
+  // Throws { message } on failure so the form can show it inline
+  const login = useCallback(async (email, password) => {
     const response = await authService.login(email, password);
     setUser(response.data.user);
-    navigationManager.clearHistory(); // Clear old navigation history on new login
     return response;
-  };
+  }, []);
 
-  const register = async (userData) => {
-    return await authService.register(userData);
-  };
+  const register = useCallback((userData) => authService.register(userData), []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     authService.logout();
+    disconnectRealtime();
     setUser(null);
-    navigationManager.clearHistory();
-  };
+  }, []);
 
-  const updateUser = (userData) => {
-    setUser(userData);
-    localStorage.setItem("user", JSON.stringify(userData));
-  };
+  const updateUser = useCallback((userData) => {
+    setUser((current) => {
+      const next = { ...current, ...userData };
+      localStorage.setItem("user", JSON.stringify(next));
+      return next;
+    });
+  }, []);
 
   const value = {
     user,
