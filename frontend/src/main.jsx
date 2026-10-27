@@ -1,11 +1,12 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import "@fontsource-variable/inter";
+import "@fontsource-variable/jetbrains-mono";
 import App from "./App.jsx";
-import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import "./index.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
-  <ErrorBoundary>
+  <React.StrictMode>
     <App />
-  </ErrorBoundary>
+  </React.StrictMode>
 );

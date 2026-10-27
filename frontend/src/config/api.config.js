@@ -4,6 +4,16 @@ export const API_CONFIG = {
   TIMEOUT: 30000,
 };
 
+// Backend origin (for socket.io and uploaded files)
+export const SERVER_URL = API_CONFIG.BASE_URL.replace(/\/api\/?$/, "");
+
+// Uploaded files are stored as "/uploads/..." paths on the backend
+export const assetUrl = (path) => {
+  if (!path) return null;
+  if (/^(https?:|blob:|data:)/.test(path)) return path;
+  return `${SERVER_URL}${path.startsWith("/") ? "" : "/"}${path}`;
+};
+
 // API Endpoints
 export const API_ENDPOINTS = {
   // Auth
