@@ -10,6 +10,7 @@ import { InboxVisual, InsightsVisual, OrdersVisual } from "../components/marketi
 import { Badge, Button, ChannelIcon, cn } from "../components/ui";
 import { FAQS, PRICING, TRIAL_DAYS } from "../features/marketing/content";
 import { formatCurrency } from "../utils/format";
+import usePublicSettings from "../hooks/usePublicSettings";
 
 const NAV = [
   { href: "#features", label: "Features" },
@@ -262,12 +263,28 @@ function FinalCta() {
 }
 
 function Footer() {
+  const { supportEmail, contactPhone } = usePublicSettings();
   return (
     <footer className="border-t border-line">
       <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-10 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <div>
           <Logo />
           <p className="mt-2 text-sm text-fg-muted">The inbox for shops that sell on chat.</p>
+          {(supportEmail || contactPhone) && (
+            <p className="mt-1 text-sm text-fg-muted">
+              {supportEmail && (
+                <a href={`mailto:${supportEmail}`} className="hover:text-fg">
+                  {supportEmail}
+                </a>
+              )}
+              {supportEmail && contactPhone && " · "}
+              {contactPhone && (
+                <a href={`tel:${contactPhone}`} className="hover:text-fg">
+                  {contactPhone}
+                </a>
+              )}
+            </p>
+          )}
         </div>
         <nav aria-label="Footer" className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-fg-muted">
           {NAV.map((item) => (

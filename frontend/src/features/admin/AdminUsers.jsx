@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Download, Eye, Trash2, Users } from "lucide-react";
+import { Download, Eye, Megaphone, Trash2, UserPlus, Users } from "lucide-react";
 import adminService from "../../services/admin.service";
 import { useToast } from "../../components/Toast";
 import {
@@ -19,6 +19,7 @@ import {
   StatusPill,
 } from "../../components/ui";
 import { formatCurrency, formatDate, formatNumber } from "../../utils/format";
+import { AddShopModal, BroadcastModal } from "./AdminTools";
 
 const PLAN_OPTIONS = [
   { value: "", label: "No plan" },
@@ -41,7 +42,7 @@ function exportCsv(users) {
   URL.revokeObjectURL(link.href);
 }
 
-function UserDrawer({ userId, onClose, onChanged, onDelete }) {
+function UserDrawer({ userId, onClose, onChanged, onDelete, onMessage }) {
   const toast = useToast();
   const [, setParams] = useSearchParams();
   const openSection = (section) => setParams({ section, shop: userId });
@@ -92,6 +93,9 @@ function UserDrawer({ userId, onClose, onChanged, onDelete }) {
           <>
             <Button variant="danger-ghost" icon={Trash2} className="mr-auto" onClick={() => onDelete(user)}>
               Delete user
+            </Button>
+            <Button variant="secondary" icon={Megaphone} onClick={() => onMessage(user)}>
+              Send message
             </Button>
             <Button onClick={save} loading={saving}>
               Save subscription
@@ -176,6 +180,8 @@ export default function AdminUsers() {
   const [status, setStatus] = useState("all");
   const [openId, setOpenId] = useState(null);
   const [deleting, setDeleting] = useState(null);
+  const [adding, setAdding] = useState(false);
+  const [messageTo, setMessageTo] = useState(null); // [] = every shop
 
   const load = useCallback(async () => {
     setState((s) => ({ ...s, loading: true, error: null }));
@@ -246,9 +252,17 @@ export default function AdminUsers() {
         title="Shops"
         description="Every shop on the platform, with its real customers, orders and revenue."
         actions={
-          <Button variant="secondary" icon={Download} onClick={() => exportCsv(users)} disabled={!users.length}>
-            Export CSV
-          </Button>
+          <>
+            <Button variant="secondary" icon={Download} onClick={() => exportCsv(users)} disabled={!users.length}>
+              Export CSV
+            </Button>
+            <Button variant="secondary" icon={Megaphone} onClick={() => setMessageTo([])}>
+              Broadcast
+            </Button>
+            <Button icon={UserPlus} onClick={() => setAdding(true)}>
+              Add shop
+            </Button>
+          </>
         }
       />
       <DataTable
@@ -285,6 +299,7 @@ export default function AdminUsers() {
         onRowClick={(u) => setOpenId(u._id)}
         rowActions={(u) => [
           { label: "View details", icon: Eye, onSelect: () => setOpenId(u._id) },
+          { label: "Send message", icon: Megaphone, onSelect: () => setMessageTo([u]) },
           { label: "Delete", icon: Trash2, danger: true, onSelect: () => setDeleting(u) },
         ]}
         empty={{ icon: Users, title: "No users found", description: "Users appear here as shops sign up." }}
@@ -295,7 +310,10 @@ export default function AdminUsers() {
         onClose={() => setOpenId(null)}
         onChanged={(user) => setUsers((list) => list.map((u) => (u._id === user._id ? { ...u, ...user } : u)))}
         onDelete={setDeleting}
+        onMessage={(u) => setMessageTo([u])}
       />
+      <AddShopModal open={adding} onOpenChange={setAdding} onCreated={load} />
+      <BroadcastModal open={!!messageTo} onOpenChange={(open) => !open && setMessageTo(null)} recipients={messageTo || []} />
       <ConfirmDialog
         open={!!deleting}
         onOpenChange={(open) => !open && setDeleting(null)}

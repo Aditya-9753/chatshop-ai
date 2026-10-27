@@ -291,6 +291,21 @@ Kit: Button, Input, Textarea, Select, Switch, Checkbox, Card, StatCard, DataTabl
 
 Rules for new UI: use tokens and kit components only (no hex values, no `isDarkMode ? …` colour ternaries, no one-off gradients), design loading, empty and error states, and keep files under 500 lines.
 
+## 🛡️ Super admin panel
+
+Log in at `/admin/login` (default `admin@chatshopai.com` / `Admin@12345`; change it in Security). Sections:
+
+- **Overview**: shop, subscription, MRR and revenue cards with change vs the previous 30 days; quick actions (add shop, broadcast, export); live system status (server, database, email, webhook secret); revenue chart; top shops; recent orders, chats and sign-ups
+- **Shops**: every account with its real customers, orders and revenue; add a shop, send a message, change plan or status, delete
+- **Orders / Customers / Products / Messages**: every shop's records with a shop filter; chats open read-only
+- **Analytics**: daily revenue, orders, sign-ups and messages (7/30/90 days), monthly growth, subscription distribution, platform usage
+- **Settings**: platform name and support contact (shown on the website and billing page), admin email notifications, export all data (CSV), JSON backup without secrets, clear the report cache, system info, message history
+- **Security**: change password, two-factor login with an authenticator app, audit log of logins and admin actions
+
+Broadcasts and messages appear as a banner in each shop's dashboard and are also emailed when `EMAIL_USER` / `EMAIL_PASSWORD` work (System status shows whether the mail login is accepted).
+
+Demo product photos: `npm run seed:images` in `backend` (credits in `backend/seed-assets/products/CREDITS.md`).
+
 ## 🔐 Authentication Flow
 
 1. User registers → Email sent (optional in dev)

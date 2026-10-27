@@ -3,6 +3,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const sendEmail = require("../utils/sendEmail");
+const twoFactorService = require("./twoFactor.service");
 
 const RESET_TOKEN_TTL = 60 * 60 * 1000; // 1 hour
 
@@ -113,10 +114,25 @@ class AuthService {
       throw new Error("Invalid email or password");
     }
 
+    // With two-factor login on, the password only earns a short challenge
+    if (user.twoFactor?.enabled) {
+      return { twoFactorRequired: true, challengeToken: twoFactorService.challengeFor(user) };
+    }
+
+    return this.session(user);
+  }
+
+  session(user) {
     return {
       token: this.generateToken(user._id),
       user: this.toSessionUser(user),
     };
+  }
+
+  // Second login step for accounts with two-factor login
+  async loginWithCode(challengeToken, code) {
+    const user = await twoFactorService.verifyChallenge(challengeToken, code);
+    return this.session(user);
   }
 
   // Verify email

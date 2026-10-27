@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import * as Dialog from "@radix-ui/react-dialog";
-import { BarChart3, LayoutDashboard, Lock, LogOut, Menu, MessageSquare, Moon, Package, ShoppingCart, Store, Sun, Users } from "lucide-react";
+import { BarChart3, LayoutDashboard, Lock, LogOut, Menu, MessageSquare, Moon, Package, RefreshCw, Settings, ShoppingCart, Store, Sun, Users } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 import { LogoMark } from "../../components/Logo";
@@ -26,6 +26,7 @@ export const ADMIN_SECTIONS = [
   { value: "products", label: "Products", icon: Package },
   { value: "messages", label: "Messages", icon: MessageSquare },
   { value: "analytics", label: "Analytics", icon: BarChart3 },
+  { value: "settings", label: "Settings", icon: Settings },
   { value: "security", label: "Security", icon: Lock },
 ];
 
@@ -64,7 +65,7 @@ function AdminNav({ section, onSection }) {
 }
 
 // Same structure as the app shell, with an "Admin" badge and admin nav
-export default function AdminShell({ section, onSection, children }) {
+export default function AdminShell({ section, onSection, onRefresh, children }) {
   const { user, logout } = useAuth();
   const { isDarkMode, toggleTheme } = useTheme();
   const navigate = useNavigate();
@@ -97,7 +98,10 @@ export default function AdminShell({ section, onSection, children }) {
           <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-line bg-canvas/85 px-4 backdrop-blur lg:px-8">
             <Button variant="ghost" size="icon" icon={Menu} onClick={() => setMenuOpen(true)} className="lg:hidden" aria-label="Open menu" />
             <span className="text-sm text-fg-muted">Platform administration</span>
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-2">
+              <Button variant="secondary" size="sm" icon={RefreshCw} onClick={onRefresh} aria-label="Refresh data">
+                <span className="hidden sm:inline">Refresh data</span>
+              </Button>
               <DropdownMenu>
                 <DropdownTrigger asChild>
                   <button className="rounded-full" aria-label="Account menu">

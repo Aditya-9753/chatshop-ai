@@ -15,6 +15,27 @@ class AuthService {
     return response;
   }
 
+  // Second step when the account has two-factor login on
+  async loginWithCode(challengeToken, code) {
+    const response = await api.post("/auth/login/2fa", { challengeToken, code });
+    if (response.success && response.data.token) {
+      this.saveSession(response.data.token, response.data.user);
+    }
+    return response;
+  }
+
+  setupTwoFactor() {
+    return api.post("/users/2fa/setup");
+  }
+
+  enableTwoFactor(code) {
+    return api.post("/users/2fa/enable", { code });
+  }
+
+  disableTwoFactor(code) {
+    return api.post("/users/2fa/disable", { code });
+  }
+
   saveSession(token, user) {
     if (token) localStorage.setItem("token", token);
     if (user) localStorage.setItem("user", JSON.stringify(user));

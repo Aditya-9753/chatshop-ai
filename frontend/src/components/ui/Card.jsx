@@ -57,7 +57,7 @@ function Sparkline({ data }) {
  * and sparkline. A positive delta is good unless `invertDelta` is set
  * (e.g. response time, where lower is better).
  */
-export function StatCard({ label, value, delta, deltaLabel = "vs last week", sparkline, icon: Icon, invertDelta, loading, className }) {
+export function StatCard({ label, value, delta, deltaLabel = "vs last week", deltaNote, sparkline, icon: Icon, invertDelta, loading, className }) {
   const hasDelta = typeof delta === "number" && Number.isFinite(delta);
   const good = hasDelta && (invertDelta ? delta <= 0 : delta >= 0);
 
@@ -75,6 +75,7 @@ export function StatCard({ label, value, delta, deltaLabel = "vs last week", spa
           <Sparkline data={sparkline} />
         </div>
       )}
+      {!hasDelta && deltaNote && !loading && <p className="text-xs text-fg-muted">{deltaNote}</p>}
       {hasDelta && !loading && (
         <div className="flex items-center gap-1.5 text-xs">
           <span

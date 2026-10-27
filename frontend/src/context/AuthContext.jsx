@@ -30,9 +30,16 @@ export const AuthProvider = ({ children }) => {
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
-  // Throws { message } on failure so the form can show it inline
+  // Throws { message } on failure so the form can show it inline. With
+  // two-factor login on, resolves with data.twoFactorRequired instead.
   const login = useCallback(async (email, password) => {
     const response = await authService.login(email, password);
+    if (response.data.user) setUser(response.data.user);
+    return response;
+  }, []);
+
+  const loginWithCode = useCallback(async (challengeToken, code) => {
+    const response = await authService.loginWithCode(challengeToken, code);
     setUser(response.data.user);
     return response;
   }, []);
@@ -57,6 +64,7 @@ export const AuthProvider = ({ children }) => {
     user,
     loading,
     login,
+    loginWithCode,
     register,
     logout,
     updateUser,

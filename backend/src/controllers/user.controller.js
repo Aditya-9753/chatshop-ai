@@ -1,5 +1,6 @@
 const userService = require("../services/user.service");
 const authService = require("../services/auth.service");
+const audit = require("../utils/audit");
 const ResponseHandler = require("../utils/response.handler");
 
 // @desc    Get user profile
@@ -50,6 +51,8 @@ exports.updatePassword = async (req, res) => {
       currentPassword,
       newPassword
     );
+
+    await audit(req, "auth.password_change");
 
     // Other sessions are now logged out; this one gets a fresh token
     return ResponseHandler.success(

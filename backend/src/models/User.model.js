@@ -111,6 +111,12 @@ const userSchema = new mongoose.Schema(
     passwordResetExpires: { type: Date, select: false },
     // JWTs issued before this moment are rejected (logs out old sessions)
     passwordChangedAt: Date,
+    // Two-factor login with an authenticator app (TOTP)
+    twoFactor: {
+      enabled: { type: Boolean, default: false },
+      secret: { type: String, select: false },
+      pendingSecret: { type: String, select: false },
+    },
     emailVerificationToken: { type: String, select: false },
     emailVerificationExpires: { type: Date, select: false },
   },
@@ -124,6 +130,10 @@ const userSchema = new mongoose.Schema(
         delete ret.passwordResetExpires;
         delete ret.emailVerificationToken;
         delete ret.emailVerificationExpires;
+        if (ret.twoFactor) {
+          delete ret.twoFactor.secret;
+          delete ret.twoFactor.pendingSecret;
+        }
         for (const key of ["whatsappConfig", "instagramConfig", "facebookConfig"]) {
           if (ret[key]) {
             ret[key].hasAccessToken = Boolean(ret[key].accessToken);
