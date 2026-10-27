@@ -373,7 +373,7 @@ Password: Demo@12345
 
 Admin Account:
 Email: admin@chatshopai.com
-Password: Admin@12345
+Password: Admin@123456
 ```
 
 ---

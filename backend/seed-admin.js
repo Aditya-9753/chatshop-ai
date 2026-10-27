@@ -10,7 +10,7 @@ const seedAdmin = async () => {
     console.log("✅ Connected to MongoDB\n");
 
     // Admin credentials
-    const adminEmail = "admin@chatshop.com";
+    const adminEmail = "admin@chatshopai.com";
     const adminPassword = "Admin@123456";
 
     // Check if admin already exists

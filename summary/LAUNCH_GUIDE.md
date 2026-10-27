@@ -119,7 +119,7 @@ npm run dev
 
 ```
 Email: admin@chatshopai.com
-Password: Admin@12345
+Password: Admin@123456
 ```
 
 ## 🔧 What Works Right Now
