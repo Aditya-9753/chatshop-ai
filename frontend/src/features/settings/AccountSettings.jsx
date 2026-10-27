@@ -162,7 +162,7 @@ export function TeamSettings({ profile }) {
   );
 }
 
-export function SecuritySettings({ profile }) {
+export function SecuritySettings({ profile, allowDelete = true }) {
   const toast = useToast();
   const { logout } = useAuth();
   const navigate = useNavigate();
@@ -232,6 +232,7 @@ export function SecuritySettings({ profile }) {
         </div>
       </Card>
 
+      {allowDelete && (
       <Card className="border-danger/30">
         <CardHeader title="Delete account" description="Permanently remove your account and workspace. This can't be undone." />
         <CardBody>
@@ -240,6 +241,7 @@ export function SecuritySettings({ profile }) {
           </Button>
         </CardBody>
       </Card>
+      )}
 
       <Modal
         open={deleteOpen}

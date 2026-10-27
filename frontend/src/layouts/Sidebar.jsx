@@ -132,7 +132,7 @@ export default function Sidebar({ collapsed, onToggleCollapsed, unreadCount, onN
         {NAV_GROUPS.map((group, index) => (
           <div key={group.label || index} className="mb-4">
             {group.label && !collapsed && (
-              <p className="mb-1 px-2.5 text-xs font-medium text-fg-subtle">{group.label}</p>
+              <p className="mb-1 px-2.5 text-xs font-medium text-fg-muted">{group.label}</p>
             )}
             <ul className="flex flex-col gap-0.5">
               {group.items.map((item) => {

@@ -44,6 +44,8 @@ const Button = forwardRef(function Button(
   ref
 ) {
   const isButton = Component === "button";
+  // A plain "hidden" (e.g. "hidden sm:inline-flex") must beat the base display
+  const hidden = /(^|\s)hidden(\s|$)/.test(className || "");
 
   return (
     <Component
@@ -53,7 +55,8 @@ const Button = forwardRef(function Button(
       aria-disabled={!isButton && (disabled || loading) ? true : undefined}
       aria-busy={loading || undefined}
       className={cn(
-        "inline-flex items-center justify-center rounded-lg font-medium whitespace-nowrap select-none",
+        !hidden && "inline-flex",
+        "items-center justify-center rounded-lg font-medium whitespace-nowrap select-none",
         "transition-colors duration-150 ease-out",
         "disabled:opacity-50 disabled:pointer-events-none",
         VARIANTS[variant],

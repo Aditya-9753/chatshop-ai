@@ -122,7 +122,7 @@ export default function Topbar({ onOpenMenu, onOpenSearch, unreadChats, unreadCo
 
       <button
         onClick={onOpenSearch}
-        className="flex h-9 w-full max-w-sm items-center gap-2 rounded-lg border border-line bg-surface px-3 text-sm text-fg-subtle hover:border-line-strong transition-colors"
+        className="flex h-9 w-full max-w-sm items-center gap-2 rounded-lg border border-line bg-surface px-3 text-sm text-fg-muted hover:border-line-strong transition-colors"
       >
         <Search className="h-4 w-4" aria-hidden="true" />
         <span className="flex-1 truncate text-left">
