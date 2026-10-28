@@ -8,7 +8,7 @@ const { InventoryItem, Invoice, Payment } = require("../models/sales");
 const { EmiContract, NbfcCase, Approval } = require("../models/finance");
 const { buildSchedule } = require("../domain/emi");
 const { fmt } = require("../domain/money");
-const { need } = require("../middleware/rbac");
+const { need, can } = require("../middleware/rbac");
 const { ah, AppError, scoped, audit, isOid, today } = require("../utils/helpers");
 const { resolveSettings } = require("../services/settings.service");
 const checkoutService = require("../services/checkout.service");
@@ -231,6 +231,17 @@ r.post(
 );
 
 // ---- Sale ----
+
+// The rules the New Sale screen needs (tenures, rate range, limits, card fees)
+r.get(
+  "/stores/:storeId/sale-rules",
+  need("invoice.create"),
+  loadStore,
+  ah(async (req, res) => {
+    const conf = await resolveSettings(req.emi.tenantId, req.store._id);
+    ok(res, { emi: conf.emi, cashLimitPerTxn: conf.cashLimitPerTxn, kycRequiredAbove: conf.kycRequiredAbove, mdrPct: conf.mdrPct, gst: conf.gst, canDiscount: can(req, "invoice.discount", req.store._id) });
+  })
+);
 
 // Live EMI schedule for the New Sale screen
 r.post(

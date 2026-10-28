@@ -1,4 +1,5 @@
 import React from "react";
+import { Store } from "lucide-react";
 import { cn } from "./cn";
 
 const TONES = {
@@ -99,6 +100,8 @@ export const CHANNELS = {
   whatsapp: { label: "WhatsApp", icon: WhatsAppMark, color: "text-whatsapp" },
   instagram: { label: "Instagram", icon: InstagramMark, color: "text-instagram" },
   facebook: { label: "Facebook", icon: FacebookMark, color: "text-facebook" },
+  // Counter sale billed in EMI & billing
+  store: { label: "Store", icon: Store, color: "text-fg-muted" },
 };
 
 export function ChannelIcon({ platform, className }) {

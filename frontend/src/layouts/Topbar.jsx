@@ -2,6 +2,7 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Bell, CreditCard, LogOut, Menu, Moon, Search, Sun, User } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { StoreSwitcher } from "../features/billing/components";
 import { useTheme } from "../context/ThemeContext";
 import {
   Avatar,
@@ -90,17 +91,25 @@ function AccountMenu() {
           <p className="truncate text-xs text-fg-muted">{user?.email}</p>
         </div>
         <DropdownSeparator />
-        <DropdownItem icon={User} onSelect={() => navigate("/dashboard/settings?tab=profile")}>
-          Profile
-        </DropdownItem>
-        <DropdownItem icon={CreditCard} onSelect={() => navigate("/dashboard/settings?tab=billing")}>
-          Billing
-        </DropdownItem>
+        {user?.role === "staff" ? (
+          <DropdownItem icon={User} onSelect={() => navigate("/dashboard/billing/settings?tab=account")}>
+            My account
+          </DropdownItem>
+        ) : (
+          <>
+            <DropdownItem icon={User} onSelect={() => navigate("/dashboard/settings?tab=profile")}>
+              Profile
+            </DropdownItem>
+            <DropdownItem icon={CreditCard} onSelect={() => navigate("/dashboard/settings?tab=billing")}>
+              Billing
+            </DropdownItem>
+          </>
+        )}
         <DropdownItem icon={isDarkMode ? Sun : Moon} onSelect={toggleTheme}>
           {isDarkMode ? "Light mode" : "Dark mode"}
         </DropdownItem>
         <DropdownSeparator />
-        <DropdownLabel>Signed in as {user?.role === "admin" ? "admin" : "owner"}</DropdownLabel>
+        <DropdownLabel>Signed in as {user?.role === "admin" ? "admin" : user?.role === "staff" ? "staff" : "owner"}</DropdownLabel>
         <DropdownItem
           icon={LogOut}
           onSelect={() => {
@@ -115,27 +124,32 @@ function AccountMenu() {
   );
 }
 
-export default function Topbar({ onOpenMenu, onOpenSearch, unreadChats, unreadCount }) {
+export default function Topbar({ onOpenMenu, onOpenSearch, unreadChats, unreadCount, staff }) {
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-line bg-canvas/85 px-4 backdrop-blur supports-[backdrop-filter]:bg-canvas/70 lg:px-6">
       <Button variant="ghost" size="icon" icon={Menu} onClick={onOpenMenu} className="lg:hidden" aria-label="Open menu" />
 
-      <button
-        onClick={onOpenSearch}
-        className="flex h-9 w-full max-w-sm items-center gap-2 rounded-lg border border-line bg-surface px-3 text-sm text-fg-muted hover:border-line-strong transition-colors"
-      >
-        <Search className="h-4 w-4" aria-hidden="true" />
-        <span className="flex-1 truncate text-left">
-          <span className="sm:hidden">Search</span>
-          <span className="hidden sm:inline">Search customers, orders…</span>
-        </span>
-        <kbd className="hidden rounded border border-line bg-surface-2 px-1.5 font-mono text-[11px] text-fg-muted sm:inline">
-          {isMac ? "⌘" : "Ctrl"} K
-        </kbd>
-      </button>
+      {/* Staff work in EMI & billing only: their store, not a shop-wide search */}
+      {staff ? (
+        <StoreSwitcher />
+      ) : (
+        <button
+          onClick={onOpenSearch}
+          className="flex h-9 w-full max-w-sm items-center gap-2 rounded-lg border border-line bg-surface px-3 text-sm text-fg-muted hover:border-line-strong transition-colors"
+        >
+          <Search className="h-4 w-4" aria-hidden="true" />
+          <span className="flex-1 truncate text-left">
+            <span className="sm:hidden">Search</span>
+            <span className="hidden sm:inline">Search customers, orders…</span>
+          </span>
+          <kbd className="hidden rounded border border-line bg-surface-2 px-1.5 font-mono text-[11px] text-fg-muted sm:inline">
+            {isMac ? "⌘" : "Ctrl"} K
+          </kbd>
+        </button>
+      )}
 
       <div className="ml-auto flex items-center gap-1">
-        <Notifications unreadChats={unreadChats} unreadCount={unreadCount} />
+        {!staff && <Notifications unreadChats={unreadChats} unreadCount={unreadCount} />}
         <AccountMenu />
       </div>
     </header>

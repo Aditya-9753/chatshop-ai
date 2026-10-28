@@ -315,6 +315,37 @@ Broadcasts and messages appear as a banner in each shop's dashboard and are also
 
 Demo product photos: `npm run seed:images` in `backend` (credits in `backend/seed-assets/products/CREDITS.md`).
 
+## 🧾 EMI & Billing
+
+Counter sales for phone shops: GST tax invoices, Shop EMI, NBFC finance, collections and double-entry accounts. It lives inside ChatShop (sidebar → **EMI & Billing**, API under `/api/emi`):
+
+- The shop owner is the tenant. Customers and products are ChatShop's own, with KYC (PAN, documents, risk grade) and GST fields (HSN, rate, sold by IMEI) added.
+- Every sale is also a ChatShop order (`platform: "store"`), so Orders, Dashboard, Analytics and customer totals include it.
+- A walk-in customer's mobile is their WhatsApp contact: when they message the shop it lands on the same customer, and EMI reminders go out from the shop's WhatsApp and show in the inbox.
+- Staff (Store Admin, Cashier, Accountant, Collection agent) get their own logins from Billing settings → Staff and only ever see EMI & billing. Maker-checker approvals cover high EMIs, late fee waivers, foreclosures and invoice cancellations.
+- Super Admin → **EMI & Billing**: shops (suspend/reactivate), platform rules (GST on interest, cash and KYC limits, rate and tenure ranges), NBFC partners, multi-store borrower risk, audit log, and the overdue/reminder jobs.
+
+Code: `backend/src/emi/` (`domain/` pure money maths in integer paise, `models/`, `services/`, `routes/`), screens in `frontend/src/pages/billing/`. Rules that keep the money right: amounts are integer paise; every money write runs in one transaction; checkout and EMI payments need an `Idempotency-Key`; journals are insert-only (mistakes are reversed); every query carries `tenantId`; prices come from the catalog, never the client.
+
+**MongoDB must be a replica set for transactions** (Atlas is). On a standalone local MongoDB the module still works, without all-or-nothing rollback, and logs a warning.
+
+Jobs (started by `server.js`, one server only; set `EMI_CRON=off` on the others): overdue job daily at 09:00 IST (days past due, buckets, one late fee per installment, reminders) and WhatsApp reminders every 5 minutes. `EMI_WEBHOOK_SECRET` enables `POST /api/emi/webhooks/gateway` (HMAC-SHA256 of the body in `x-signature`, `{ "event": "payment.settled", "txnRef": "…" }`).
+
+Demo data: `npm run seed:emi` in `backend` (local databases only, never deletes). Every login's password is `Password@123`:
+
+| Login | Opens |
+|---|---|
+| `super@crm.local` | Super Admin panel (`/admin/login`) |
+| `owner@crm.local` | Shop owner: everything, all stores |
+| `admin@crm.local` | Store Admin, Bhopal store |
+| `cashier@crm.local` | New sale, customers, EMI collection |
+| `accounts@crm.local` | Accounts & GST, payments |
+| `agent@crm.local` | Only EMI contracts assigned to them |
+
+Tests: `npm test` in `backend` runs the calculation tests (GST, EMI, MDR, NBFC, checks, overdue, allocation, dates, foreclosure), 2,000 random sales that must close the ledger at zero, and the end-to-end API flows. To exercise transactions, point them at a replica set: `TEST_MONGODB_URL="mongodb://127.0.0.1:27018/{db}?replicaSet=rs0" npm test`.
+
+Not built yet (need outside providers): invoice/agreement PDF files (invoices print from the browser), eSign, UPI AutoPay / eNACH, SMS, a payment gateway SDK (cashiers type the reference; the webhook settles it), credit notes for foreclosing UPFRONT-GST contracts, a customer portal.
+
 ## 🔐 Authentication Flow
 
 1. User registers → Email sent (optional in dev)

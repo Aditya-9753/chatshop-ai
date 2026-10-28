@@ -10,18 +10,19 @@ import AnnouncementBanner from "../features/dashboard/Announcements";
 import { endShopView, SHOP_VIEW_EXIT_URL } from "../services/shopView";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
-import { TAB_BAR_ITEMS } from "./navigation";
+import { TAB_BAR_ITEMS, STAFF_TAB_BAR_ITEMS } from "./navigation";
+import { useBilling } from "../features/billing/BillingContext";
 
 const COLLAPSED_KEY = "sidebar-collapsed";
 
 // Mobile bottom tab bar: four main pages plus "More" for the rest
-function TabBar({ onOpenMore, unreadCount }) {
+function TabBar({ onOpenMore, unreadCount, items }) {
   return (
     <nav
       aria-label="Main"
       className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
     >
-      {TAB_BAR_ITEMS.map((item) => (
+      {items.map((item) => (
         <NavLink
           key={item.href}
           to={item.href}
@@ -34,7 +35,7 @@ function TabBar({ onOpenMore, unreadCount }) {
           }
         >
           <item.icon className="h-5 w-5" aria-hidden="true" />
-          {item.name === "Messages" ? "Inbox" : item.name}
+          <span className="max-w-full truncate px-1">{item.short || (item.name === "Messages" ? "Inbox" : item.name)}</span>
           {item.badge && unreadCount > 0 && (
             <span key={unreadCount} className="animate-badge-ring absolute right-[calc(50%-18px)] top-2 h-2 w-2 rounded-full bg-accent ring-2 ring-surface" />
           )}
@@ -101,11 +102,14 @@ function ShopViewBanner({ user }) {
 const DashboardLayout = () => {
   const location = useLocation();
   const { user } = useAuth();
-  const planInactive = user?.role !== "admin" && user?.subscription?.status !== "active";
+  const billing = useBilling();
+  const staff = user?.role === "staff";
+  const planInactive = user?.role !== "admin" && !staff && user?.subscription?.status !== "active";
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSED_KEY) === "1");
-  const { unreadChats, unreadCount } = useInboxSummary();
+  const { unreadChats, unreadCount } = useInboxSummary({ enabled: !staff });
+  const tabItems = staff ? STAFF_TAB_BAR_ITEMS.filter((item) => billing.can(item.perm)).slice(0, 4) : TAB_BAR_ITEMS;
 
   // The inbox fills the viewport and scrolls its own panes
   const fullBleed = location.pathname.startsWith("/dashboard/messages");
@@ -149,6 +153,7 @@ const DashboardLayout = () => {
             onOpenSearch={() => setSearchOpen(true)}
             unreadChats={unreadChats}
             unreadCount={unreadCount}
+            staff={staff}
           />
           {user?.actingAdmin && <ShopViewBanner user={user} />}
           {planInactive && <PlanBanner />}
@@ -166,8 +171,8 @@ const DashboardLayout = () => {
           </main>
         </div>
 
-        <TabBar onOpenMore={() => setMobileOpen(true)} unreadCount={unreadCount} />
-        <CommandPalette open={searchOpen} onOpenChange={setSearchOpen} />
+        <TabBar onOpenMore={() => setMobileOpen(true)} unreadCount={unreadCount} items={tabItems} />
+        {!staff && <CommandPalette open={searchOpen} onOpenChange={setSearchOpen} />}
       </div>
     </TooltipProvider>
   );

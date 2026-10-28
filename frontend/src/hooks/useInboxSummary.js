@@ -6,17 +6,18 @@ import { useRealtime } from "../services/realtime";
  * Unread chats for the sidebar badge and the notifications menu.
  * Loaded once, then kept current by realtime events.
  */
-export default function useInboxSummary() {
+export default function useInboxSummary({ enabled = true } = {}) {
   const [conversations, setConversations] = useState([]);
 
   const load = useCallback(async () => {
+    if (!enabled) return; // shop staff have no inbox
     try {
       const response = await fetchConversations();
       setConversations(response.data || []);
     } catch {
       // The badge is not worth an error toast; it refreshes on the next event
     }
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
     load();

@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import { ImagePlus, X } from "lucide-react";
 import { assetUrl } from "../../config/api.config";
-import { Alert, Button, cn, Input, Modal, Switch, Textarea } from "../../components/ui";
+import { Alert, Button, cn, Input, Modal, Select, Switch, Textarea } from "../../components/ui";
 
-const EMPTY = { name: "", description: "", price: "", comparePrice: "", stock: "", category: "", sku: "", isActive: true };
+const EMPTY = { name: "", description: "", price: "", comparePrice: "", stock: "", category: "", sku: "", isActive: true, hsn: "", gstRatePct: "18", serialized: false };
 const MAX_IMAGE_MB = 5;
 
 // Drop zone with preview; click or drag an image onto it
@@ -91,6 +91,9 @@ export default function ProductFormModal({ open, onOpenChange, product, categori
             description: product.description || "",
             category: product.category || "",
             sku: product.sku || "",
+            hsn: product.hsn || "",
+            gstRatePct: String(product.gstRatePct ?? 18),
+            serialized: Boolean(product.serialized),
           }
         : EMPTY
     );
@@ -136,6 +139,9 @@ export default function ProductFormModal({ open, onOpenChange, product, categori
     data.append("category", form.category.trim());
     data.append("sku", form.sku.trim());
     data.append("isActive", String(form.isActive));
+    data.append("hsn", form.hsn.trim());
+    data.append("gstRatePct", form.gstRatePct);
+    if (!product) data.append("serialized", String(form.serialized));
     if (image) data.append("image", image);
 
     setSaving(true);
@@ -181,7 +187,7 @@ export default function ProductFormModal({ open, onOpenChange, product, categori
           <div className="grid grid-cols-3 gap-3">
             <Input label="Price ₹" type="number" min={0} step="0.01" required value={form.price} onChange={set("price")} error={errors.price} />
             <Input label="Compare at ₹" type="number" min={0} step="0.01" value={form.comparePrice} onChange={set("comparePrice")} error={errors.comparePrice} />
-            <Input label="Stock" type="number" min={0} value={form.stock} onChange={set("stock")} error={errors.stock} />
+            <Input label="Stock" type="number" min={0} value={form.stock} onChange={set("stock")} error={errors.stock} disabled={form.serialized} hint={form.serialized ? "Counted by IMEI" : undefined} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Input label="Category" list="product-categories" value={form.category} onChange={set("category")} />
@@ -192,6 +198,24 @@ export default function ProductFormModal({ open, onOpenChange, product, categori
             </datalist>
             <Input label="SKU" value={form.sku} onChange={set("sku")} inputClassName="font-mono" />
           </div>
+          {/* Printed on GST invoices in EMI & billing */}
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="HSN code" value={form.hsn} onChange={set("hsn")} inputClassName="font-mono" hint="e.g. 8517 for mobile phones" />
+            <Select
+              label="GST rate"
+              value={form.gstRatePct}
+              onChange={set("gstRatePct")}
+              options={[0, 5, 12, 18, 28].map((r) => ({ value: String(r), label: `${r}%` }))}
+            />
+          </div>
+          {!product && (
+            <Switch
+              label="Sold by IMEI / serial number"
+              description="For phones: stock is counted from the IMEIs you receive in EMI & billing → Stock & IMEI."
+              checked={form.serialized}
+              onCheckedChange={(serialized) => setForm({ ...form, serialized })}
+            />
+          )}
           <Switch
             label="Available for sale"
             description="Hidden products can't be added to orders or sent in chat."

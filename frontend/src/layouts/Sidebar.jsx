@@ -13,7 +13,8 @@ import {
   DropdownSeparator,
   Tooltip,
 } from "../components/ui";
-import { NAV_GROUPS } from "./navigation";
+import { NAV_GROUPS, BILLING_GROUP } from "./navigation";
+import { useBilling } from "../features/billing/BillingContext";
 
 const PLAN_NAMES = { starter: "Starter", business: "Business", premium: "Premium", "one-time": "Lifetime" };
 
@@ -29,8 +30,13 @@ function planUsage(subscription) {
 
 function WorkspaceSwitcher({ collapsed }) {
   const { user, logout } = useAuth();
+  const { tenant, roles } = useBilling();
   const navigate = useNavigate();
-  const name = user?.businessInfo?.businessName || `${user?.name?.split(" ")[0] || "My"}'s shop`;
+  const staff = user?.role === "staff";
+  const name = staff
+    ? tenant?.name || "Shop"
+    : user?.businessInfo?.businessName || `${user?.name?.split(" ")[0] || "My"}'s shop`;
+  const subtitle = staff ? roles.map((r) => r.label).join(", ") || "Staff" : "ChatShop AI";
 
   return (
     <DropdownMenu>
@@ -47,7 +53,7 @@ function WorkspaceSwitcher({ collapsed }) {
             <>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-semibold text-fg">{name}</span>
-                <span className="block truncate text-xs text-fg-muted">ChatShop AI</span>
+                <span className="block truncate text-xs text-fg-muted">{subtitle}</span>
               </span>
               <ChevronsUpDown className="h-4 w-4 text-fg-subtle" aria-hidden="true" />
             </>
@@ -56,12 +62,16 @@ function WorkspaceSwitcher({ collapsed }) {
       </DropdownTrigger>
       <DropdownContent align="start" className="w-56">
         <DropdownLabel>{user?.email}</DropdownLabel>
-        <DropdownItem icon={Settings} onSelect={() => navigate("/dashboard/settings")}>
-          Workspace settings
-        </DropdownItem>
-        <DropdownItem icon={CreditCard} onSelect={() => navigate("/dashboard/settings?tab=billing")}>
-          Billing
-        </DropdownItem>
+        {!staff && (
+          <>
+            <DropdownItem icon={Settings} onSelect={() => navigate("/dashboard/settings")}>
+              Workspace settings
+            </DropdownItem>
+            <DropdownItem icon={CreditCard} onSelect={() => navigate("/dashboard/settings?tab=billing")}>
+              Billing
+            </DropdownItem>
+          </>
+        )}
         {user?.role === "admin" && (
           <DropdownItem icon={ShieldCheck} onSelect={() => navigate("/admin/dashboard")}>
             Admin panel
@@ -86,7 +96,7 @@ function PlanCard({ collapsed }) {
   const { user } = useAuth();
   const subscription = user?.subscription;
   const usage = planUsage(subscription);
-  if (collapsed) return null;
+  if (collapsed || user?.role === "staff") return null;
 
   // Admins don't need a plan; point them at the admin panel instead
   if (user?.role === "admin") {
@@ -140,13 +150,24 @@ function PlanCard({ collapsed }) {
   );
 }
 
+// Staff see only EMI & billing; owners get it as one more group
+function useNavGroups() {
+  const { user } = useAuth();
+  const billing = useBilling();
+  if (user?.role === "admin") return NAV_GROUPS;
+  const billingGroup = { ...BILLING_GROUP, items: BILLING_GROUP.items.filter((item) => billing.can(item.perm)) };
+  if (user?.role === "staff") return [billingGroup];
+  return [...NAV_GROUPS.slice(0, 3), billingGroup, ...NAV_GROUPS.slice(3)].filter((group) => group.items.length);
+}
+
 export default function Sidebar({ collapsed, onToggleCollapsed, unreadCount, onNavigate }) {
+  const groups = useNavGroups();
   return (
     <div className="flex h-full flex-col gap-2 p-3">
       <WorkspaceSwitcher collapsed={collapsed} />
 
       <nav className="mt-2 flex-1 overflow-y-auto scrollbar-none" aria-label="Main">
-        {NAV_GROUPS.map((group, index) => (
+        {groups.map((group, index) => (
           <div key={group.label || index} className="mb-4">
             {group.label && !collapsed && (
               <p className="mb-1 px-2.5 text-xs font-medium text-fg-muted">{group.label}</p>
