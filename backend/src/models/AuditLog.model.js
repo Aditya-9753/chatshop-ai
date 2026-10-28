@@ -9,6 +9,13 @@ const auditLogSchema = new mongoose.Schema(
     target: String, // what was acted on (an email, an id…)
     details: String,
     ip: String,
+    // EMI & billing actions: which shop, what changed and why
+    tenantId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    entity: String,
+    entityId: mongoose.Schema.Types.ObjectId,
+    before: mongoose.Schema.Types.Mixed,
+    after: mongoose.Schema.Types.Mixed,
+    reason: String,
   },
   { timestamps: { createdAt: true, updatedAt: false } }
 );

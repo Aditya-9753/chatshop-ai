@@ -1,6 +1,9 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User.model");
 
+// What a staff account may reach: EMI & billing, and its own profile
+const STAFF_PATHS = ["/api/emi", "/api/users/profile", "/api/users/password", "/api/users/announcements"];
+
 exports.protect = async (req, res, next) => {
   try {
     let token;
@@ -41,6 +44,14 @@ exports.protect = async (req, res, next) => {
         return res.status(401).json({
           success: false,
           message: "Password was changed. Please log in again.",
+        });
+      }
+
+      // Shop staff (cashier, accountant, agent…) only use EMI & billing
+      if (req.user.role === "staff" && !STAFF_PATHS.some((path) => req.originalUrl.startsWith(path))) {
+        return res.status(403).json({
+          success: false,
+          message: "Staff accounts can only use EMI & billing.",
         });
       }
 

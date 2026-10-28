@@ -60,6 +60,9 @@ class ProductService {
       stock,
       isActive,
       tags,
+      hsn,
+      gstRatePct,
+      serialized,
     } = productData;
 
     const product = await Product.create({
@@ -71,9 +74,13 @@ class ProductService {
       images,
       category,
       sku,
-      stock,
+      // Serialized products count their IMEIs in stock (added per store in EMI & billing)
+      stock: serialized ? 0 : stock,
       isActive,
       tags,
+      hsn,
+      gstRatePct: gstRatePct === undefined || gstRatePct === "" ? undefined : Number(gstRatePct),
+      serialized: serialized === true || serialized === "true",
     });
 
     return product;
@@ -101,6 +108,8 @@ class ProductService {
       stock,
       isActive,
       tags,
+      hsn,
+      gstRatePct,
     } = updateData;
 
     if (name) product.name = name;
@@ -110,9 +119,12 @@ class ProductService {
     if (images) product.images = images;
     if (category) product.category = category;
     if (sku) product.sku = sku;
-    if (stock !== undefined) product.stock = stock;
+    // A serialized product's stock is its IMEIs in stock, not typed in
+    if (stock !== undefined && !product.serialized) product.stock = stock;
     if (isActive !== undefined) product.isActive = isActive;
     if (tags) product.tags = tags;
+    if (hsn !== undefined) product.hsn = hsn;
+    if (gstRatePct !== undefined && gstRatePct !== "") product.gstRatePct = Number(gstRatePct);
 
     await product.save();
     return product;

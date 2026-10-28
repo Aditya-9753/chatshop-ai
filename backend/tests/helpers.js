@@ -8,7 +8,9 @@ const APP_SECRET = "test-app-secret";
 
 async function startApp(dbName) {
   process.env.NODE_ENV = "test";
-  process.env.MONGODB_URI = `mongodb://127.0.0.1:27017/${dbName}`;
+  // TEST_MONGODB_URL runs the suite elsewhere, e.g. on a replica set so the
+  // EMI transactions are exercised: mongodb://127.0.0.1:27018/{db}?replicaSet=rs0
+  process.env.MONGODB_URI = (process.env.TEST_MONGODB_URL || "mongodb://127.0.0.1:27017/{db}").replace("{db}", dbName);
   process.env.JWT_SECRET = "test-jwt-secret";
   process.env.META_APP_SECRET = APP_SECRET;
   process.env.META_WEBHOOK_SKIP_SIGNATURE = "false";

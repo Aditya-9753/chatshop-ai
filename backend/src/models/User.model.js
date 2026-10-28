@@ -29,9 +29,20 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ["user", "admin"],
+      enum: ["user", "admin", "staff"],
       default: "user",
     },
+    // Staff of a shop (cashier, accountant, agent…): they sign in like
+    // everyone else but only reach that shop's EMI & billing panel
+    tenantId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null, index: true },
+    emiRoles: [
+      {
+        _id: false,
+        role: { type: String, enum: ["STORE_ADMIN", "CASHIER", "ACCOUNTANT", "AGENT"], required: true },
+        storeId: { type: mongoose.Schema.Types.ObjectId, ref: "Store", default: null }, // null = every store
+      },
+    ],
+    staffActive: { type: Boolean, default: true },
     isVerified: {
       type: Boolean,
       default: false,

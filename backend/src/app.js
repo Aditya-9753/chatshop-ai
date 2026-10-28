@@ -70,6 +70,8 @@ app.use("/api/products", require("./routes/product.routes"));
 app.use("/api/orders", require("./routes/order.routes"));
 app.use("/api/analytics", require("./routes/analytics.routes"));
 app.use("/api/admin", require("./routes/admin.routes"));
+// EMI & billing: counter sales, GST invoices, Shop EMI, NBFC, accounts
+app.use("/api/emi", require("./emi/routes"));
 
 // Platform name and support contact, shown on public pages
 app.get("/api/settings/public", require("./controllers/adminTools.controller").publicSettings);

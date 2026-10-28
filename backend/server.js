@@ -9,6 +9,8 @@ const PORT = process.env.PORT || 3001;
 const server = http.createServer(app);
 realtime.init(server);
 
+require("./src/emi/jobs").startEmiJobs();
+
 server.listen(PORT, () => {
   console.log(`✅ Server running on http://localhost:${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV || "development"}`);

@@ -30,6 +30,10 @@ const productSchema = new mongoose.Schema(
       default: true,
     },
     tags: [String],
+    // GST invoice details; serialized products (phones) are sold by IMEI
+    hsn: { type: String, trim: true },
+    gstRatePct: { type: Number, enum: [0, 5, 12, 18, 28], default: 18 },
+    serialized: { type: Boolean, default: false },
   },
   {
     timestamps: true,

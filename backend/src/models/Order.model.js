@@ -19,7 +19,8 @@ const orderSchema = new mongoose.Schema(
     },
     platform: {
       type: String,
-      enum: ["whatsapp", "instagram", "facebook"],
+      // "store": a counter sale billed in EMI & billing
+      enum: ["whatsapp", "instagram", "facebook", "store"],
       required: true,
     },
     items: [
@@ -78,6 +79,7 @@ const orderSchema = new mongoose.Schema(
     notes: String,
     razorpayOrderId: String,
     razorpayPaymentId: String,
+    invoiceId: { type: mongoose.Schema.Types.ObjectId, ref: "Invoice" }, // store sale's GST invoice
   },
   {
     timestamps: true,
