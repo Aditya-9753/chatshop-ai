@@ -280,6 +280,45 @@ test("Shops are isolated; NBFC payout; invoice cancel puts stock back", async ()
   for (const account of ["1100", "1400"]) assert.equal(tb.rows.find((r) => r.account === account)?.balance || 0, 0);
 });
 
+test("Both admin panels see every shop's billing; only the Super Admin changes it", async () => {
+  const s = await setupShop();
+  const sale = await s.owner.post(`/stores/${s.store._id}/checkout`, caseB(s, "IMEI-003"), "admin-view");
+  assert.equal(sale.status, 201, JSON.stringify(sale.body));
+
+  // One admin email: main password = Super Admin, panel password = limited Admin
+  const admin = await registerUser(app, { name: "Platform Admin", email: `admin-${Date.now()}@example.com` });
+  await models.User.updateOne({ _id: admin.user.id }, { role: "admin" });
+  const set = await request(app).put("/api/admin/admin-panel").set("Authorization", `Bearer ${admin.token}`).send({ password: "Panel@789" });
+  assert.equal(set.status, 200, JSON.stringify(set.body));
+  const superAdmin = as(await login(admin.user.email, "Password123"));
+  const limited = as(await login(admin.user.email, "Panel@789"));
+
+  for (const panel of [superAdmin, limited]) {
+    const invoices = await panel.get(`/super/invoices?tenantId=${s.tenantId}`);
+    assert.equal(invoices.status, 200, JSON.stringify(invoices.body));
+    assert.equal(invoices.body.data.length, 1);
+    assert.equal(invoices.body.data[0].tenantName, "Bhopal Mobiles");
+    const detail = await panel.get(`/super/invoices/${sale.body.data.invoiceId}`);
+    assert.equal(detail.body.data.contract.emiAmount, L(45840));
+    const contracts = await panel.get(`/super/emi?tenantId=${s.tenantId}`);
+    assert.equal(contracts.body.data.length, 1);
+    const contract = await panel.get(`/super/emi/${contracts.body.data[0]._id}`);
+    assert.equal(contract.body.data.installments.length, 12);
+    assert.equal((await panel.get("/super/payments")).status, 200);
+    assert.equal((await panel.get("/super/dashboard")).status, 200);
+  }
+
+  // Changes and the audit log stay with the Super Admin
+  assert.equal((await limited.patch(`/super/tenants/${s.tenantId}`, { status: "SUSPENDED", reason: "test" })).status, 403);
+  assert.equal((await limited.get("/super/audit")).status, 403);
+  assert.equal((await limited.post("/super/jobs/overdue/run", {})).status, 403);
+  const suspend = await superAdmin.patch(`/super/tenants/${s.tenantId}`, { status: "SUSPENDED", reason: "KYC audit" });
+  assert.equal(suspend.status, 200);
+  assert.equal((await s.owner.get("/me")).status, 403, "a suspended shop is locked out");
+  await superAdmin.patch(`/super/tenants/${s.tenantId}`, { status: "ACTIVE" });
+  assert.equal((await s.owner.get("/me")).status, 200);
+});
+
 test("Gateway webhook needs a valid signature", async () => {
   process.env.EMI_WEBHOOK_SECRET = "hook-secret";
   const body = JSON.stringify({ event: "payment.settled", txnRef: "nothing" });

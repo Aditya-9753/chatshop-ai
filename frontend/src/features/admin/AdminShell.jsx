@@ -27,7 +27,7 @@ export const ADMIN_SECTIONS = [
   { value: "messages", label: "Messages", icon: MessageSquare },
   { value: "analytics", label: "Analytics", icon: BarChart3 },
   { value: "billing", label: "Billing", icon: CreditCard, superOnly: true },
-  { value: "emi", label: "EMI & Billing", icon: Landmark, superOnly: true },
+  { value: "emi", label: "EMI & Billing", icon: Landmark },
   { value: "settings", label: "Settings", icon: Settings, superOnly: true },
   { value: "security", label: "Security", icon: Lock, superOnly: true },
 ];

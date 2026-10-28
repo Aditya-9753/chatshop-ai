@@ -2,8 +2,9 @@ const User = require("../../models/User.model");
 const Customer = require("../../models/Customer.model");
 const AuditLog = require("../../models/AuditLog.model");
 const { Tenant, Store } = require("../models/platform");
-const { Invoice } = require("../models/sales");
-const { EmiContract, NbfcCase, NbfcPartner, Notification } = require("../models/finance");
+const { Invoice, Payment } = require("../models/sales");
+const { EmiContract, EmiInstallment, NbfcCase, NbfcPartner, Notification } = require("../models/finance");
+const { unpaidOf, totalOf } = require("../domain/emi");
 const { AppError, audit, today } = require("../utils/helpers");
 const { phoneDigits } = require("./bridge.service");
 const settingsService = require("./settings.service");
@@ -135,6 +136,119 @@ async function multiStoreCustomers() {
     .sort((a, b) => b.outstanding - a.outstanding);
 }
 
+// ---- Every shop's records (read only), newest first, ?tenantId= to narrow ----
+
+const isId = (id) => /^[a-f\d]{24}$/i.test(String(id || ""));
+const cap = (limit, max = 500) => Math.min(Number(limit) || 200, max);
+
+// Shop, store and customer names for a page of rows
+async function withNames(rows) {
+  const ids = (key) => [...new Set(rows.map((r) => r[key]).filter(Boolean).map(String))];
+  const [tenantRows, storeRows, customerRows] = await Promise.all([
+    Tenant.find({ _id: { $in: ids("tenantId") } }).select("name").lean(),
+    Store.find({ _id: { $in: ids("storeId") } }).setOptions(ALL).select("name invoicePrefix").lean(),
+    Customer.find({ _id: { $in: ids("customerId") } }).select("name phone").lean(),
+  ]);
+  const map = (list) => new Map(list.map((x) => [String(x._id), x]));
+  const [t, s, c] = [map(tenantRows), map(storeRows), map(customerRows)];
+  return rows.map((r) => ({
+    ...r,
+    tenantName: t.get(String(r.tenantId))?.name || "—",
+    storeName: s.get(String(r.storeId))?.name || "—",
+    customer: c.get(String(r.customerId)) || null,
+  }));
+}
+
+const escape = (text) => String(text).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+async function invoices({ tenantId, status, financeType, q, limit }) {
+  const filter = {};
+  if (isId(tenantId)) filter.tenantId = tenantId;
+  if (status) filter.status = status;
+  if (financeType) filter.financeType = financeType;
+  if (q) filter.$or = [{ invoiceNo: new RegExp(escape(q), "i") }, { "customer.name": new RegExp(escape(q), "i") }, { "customer.phone": new RegExp(escape(q)) }, { "lines.imei": new RegExp(escape(q)) }];
+  const rows = await Invoice.find(filter).setOptions(ALL).sort({ createdAt: -1 }).limit(cap(limit)).lean();
+  return withNames(rows);
+}
+
+async function invoiceDetail(id) {
+  if (!isId(id)) throw new AppError(400, "ID galat hai");
+  const invoice = await Invoice.findOne({ _id: id }).setOptions(ALL).lean();
+  if (!invoice) throw new AppError(404, "Invoice nahi mila");
+  const scope = { tenantId: invoice.tenantId };
+  const [payments, contract, nbfcCase] = await Promise.all([
+    Payment.find({ ...scope, invoiceId: invoice._id }).sort({ createdAt: 1 }).lean(),
+    invoice.emiContractId ? EmiContract.findOne({ ...scope, _id: invoice.emiContractId }).select("-followUps").lean() : null,
+    invoice.nbfcCaseId ? NbfcCase.findOne({ ...scope, _id: invoice.nbfcCaseId }).lean() : null,
+  ]);
+  const [named] = await withNames([invoice]);
+  return { invoice: named, payments, contract, nbfcCase };
+}
+
+const CONTRACT_VIEWS = {
+  active: { status: "ACTIVE" },
+  overdue: { status: "ACTIVE", currentDpd: { $gt: 0 } },
+  pending: { status: "PENDING_APPROVAL" },
+  closed: { status: { $in: ["CLOSED", "FORECLOSED", "CANCELLED"] } },
+  all: {},
+};
+
+async function contracts({ tenantId, view = "active", q, limit }) {
+  const filter = { ...(CONTRACT_VIEWS[view] || CONTRACT_VIEWS.active) };
+  if (isId(tenantId)) filter.tenantId = tenantId;
+  if (q) filter.contractNo = new RegExp(escape(q), "i");
+  const rows = await EmiContract.find(filter).setOptions(ALL).select("-followUps").sort({ currentDpd: -1, nextDueDate: 1 }).limit(cap(limit)).lean();
+  return (await withNames(rows)).map((c) => ({ ...c, outstandingPrincipal: c.principal - c.paidPrincipal }));
+}
+
+async function contractDetail(id) {
+  if (!isId(id)) throw new AppError(400, "ID galat hai");
+  const contract = await EmiContract.findOne({ _id: id }).setOptions(ALL).lean();
+  if (!contract) throw new AppError(404, "EMI contract nahi mila");
+  const scope = { tenantId: contract.tenantId };
+  const [installments, payments] = await Promise.all([
+    EmiInstallment.find({ ...scope, contractId: contract._id }).sort({ no: 1 }).lean(),
+    Payment.find({ ...scope, emiContractId: contract._id }).sort({ createdAt: -1 }).lean(),
+  ]);
+  const [named] = await withNames([contract]);
+  return {
+    contract: named,
+    installments: installments.map((i) => ({ ...i, unpaid: totalOf(unpaidOf(i)) })),
+    payments,
+  };
+}
+
+async function nbfcCases({ tenantId, status, limit }) {
+  const filter = {};
+  if (isId(tenantId)) filter.tenantId = tenantId;
+  if (status) filter.status = status;
+  return withNames(await NbfcCase.find(filter).setOptions(ALL).sort({ createdAt: -1 }).limit(cap(limit)).lean());
+}
+
+async function payments({ tenantId, status, purpose, limit }) {
+  const filter = {};
+  if (isId(tenantId)) filter.tenantId = tenantId;
+  if (status) filter.status = status;
+  if (purpose) filter.purpose = purpose;
+  return withNames(await Payment.find(filter).setOptions(ALL).select("-allocations").sort({ createdAt: -1 }).limit(cap(limit)).lean());
+}
+
 const auditLog = (limit = 200) => AuditLog.find({ tenantId: { $ne: null } }).sort({ createdAt: -1 }).limit(Math.min(Number(limit) || 200, 1000)).lean();
 
-module.exports = { dashboard, tenants, setTenantStatus, getSettings, saveSettings, partners, savePartner, multiStoreCustomers, auditLog };
+module.exports = {
+  dashboard,
+  tenants,
+  setTenantStatus,
+  getSettings,
+  saveSettings,
+  partners,
+  savePartner,
+  multiStoreCustomers,
+  auditLog,
+  invoices,
+  invoiceDetail,
+  contracts,
+  contractDetail,
+  nbfcCases,
+  payments,
+};

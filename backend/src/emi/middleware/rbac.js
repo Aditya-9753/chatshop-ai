@@ -139,8 +139,10 @@ const can = (req, perm, storeId) =>
 
 // Route guard. With a :storeId in the URL, the role must cover that store.
 const need = (perm) => (req, res, next) => {
+  // Platform screens: both admin panels may look (super.read); only the
+  // Super Admin may change anything (every other super.* permission)
   if (perm.startsWith("super.")) {
-    if (req.user?.role === "admin" && req.adminLevel !== "admin") return next();
+    if (req.user?.role === "admin" && (req.adminLevel !== "admin" || perm === "super.read")) return next();
     return next(new AppError(403, "Ye sirf Super Admin kar sakta hai"));
   }
   if (!can(req, perm, req.params.storeId)) {

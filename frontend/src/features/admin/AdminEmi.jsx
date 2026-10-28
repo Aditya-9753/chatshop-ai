@@ -20,6 +20,8 @@ import {
   Textarea,
 } from "../../components/ui";
 import { useToast } from "../../components/Toast";
+import { useAuth } from "../../context/AuthContext";
+import { Invoices, Contracts, NbfcCases, Payments } from "./AdminEmiRecords";
 import { formatDateTime } from "../../utils/format";
 import { ErrorList, StateBadge, useLoad } from "../billing/components";
 import { emiApi, fromPaise, inr, toPaise } from "../billing/api";
@@ -42,6 +44,7 @@ function Overview() {
 
 function Tenants() {
   const toast = useToast();
+  const { isSuperAdmin } = useAuth();
   const { data, loading, error, reload } = useLoad(() => emiApi.get(S("/tenants")), []);
   const [suspending, setSuspending] = useState(null);
   const [reason, setReason] = useState("");
@@ -85,7 +88,7 @@ function Tenants() {
           </Button>
         ),
     },
-  ];
+  ].filter((c) => isSuperAdmin || c.key !== "action");
 
   return (
     <>
@@ -110,6 +113,7 @@ function Tenants() {
 
 function PlatformRules() {
   const toast = useToast();
+  const canEdit = useAuth().isSuperAdmin;
   const { data, loading, error, reload } = useLoad(() => emiApi.get(S("/settings")), []);
   const [form, setForm] = useState(null);
   const [saveError, setSaveError] = useState(null);
@@ -166,10 +170,13 @@ function PlatformRules() {
 
   return (
     <div className="flex flex-col gap-4">
-      <Alert tone="warning" title="These apply to every shop">
-        Shops can change their own rate, tenures, limits, late fees and card fees only inside these ranges. Interest GST changes apply to new EMIs only.
+      <Alert tone={canEdit ? "warning" : "info"} title={canEdit ? "These apply to every shop" : "View only"}>
+        {canEdit
+          ? "Shops can change their own rate, tenures, limits, late fees and card fees only inside these ranges. Interest GST changes apply to new EMIs only."
+          : "Only the Super Admin can change platform rules."}
       </Alert>
-      <div className="grid gap-4 lg:grid-cols-2">
+      {/* A disabled fieldset makes every control inside read only */}
+      <fieldset disabled={!canEdit} className="grid min-w-0 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader title="GST on EMI interest" />
           <CardBody className="grid gap-3 sm:grid-cols-2">
@@ -196,13 +203,15 @@ function PlatformRules() {
             <Input label="Foreclosure charge %" value={form.foreclosure} onChange={set("foreclosure")} />
           </CardBody>
         </Card>
-      </div>
+      </fieldset>
       {saveError && <ErrorList error={saveError} />}
-      <div>
-        <Button loading={saving} onClick={save}>
-          Save platform rules
-        </Button>
-      </div>
+      {canEdit && (
+        <div>
+          <Button loading={saving} onClick={save}>
+            Save platform rules
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -239,6 +248,7 @@ function PartnerModal({ partner, onClose, onDone }) {
 }
 
 function Partners() {
+  const { isSuperAdmin } = useAuth();
   const { data, loading, error, reload } = useLoad(() => emiApi.get(S("/nbfc-partners")), []);
   const [editing, setEditing] = useState(null);
   const columns = [
@@ -247,14 +257,16 @@ function Partners() {
     { key: "settlementDays", header: "Payout days", align: "right", hideBelow: "sm" },
     { key: "active", header: "Status", cell: (r) => <Badge tone={r.active ? "success" : "neutral"} dot>{r.active ? "Active" : "Off"}</Badge> },
     { key: "edit", header: "", sortable: false, cell: (r) => <Button size="icon-sm" variant="ghost" icon={Pencil} aria-label={`Edit ${r.name}`} onClick={() => setEditing(r)} /> },
-  ];
+  ].filter((c) => isSuperAdmin || c.key !== "edit");
   return (
     <>
-      <div className="mb-3 flex justify-end">
-        <Button icon={Plus} onClick={() => setEditing("new")}>
-          Add partner
-        </Button>
-      </div>
+      {isSuperAdmin && (
+        <div className="mb-3 flex justify-end">
+          <Button icon={Plus} onClick={() => setEditing("new")}>
+            Add partner
+          </Button>
+        </div>
+      )}
       <DataTable columns={columns} rows={data || []} loading={loading && !data} error={error?.message} onRetry={reload} empty={{ icon: Landmark, title: "No NBFC partners", description: "Shops can sell on NBFC finance once a partner is added." }} />
       {editing && <PartnerModal partner={editing === "new" ? null : editing} onClose={() => setEditing(null)} onDone={reload} />}
     </>
@@ -354,23 +366,31 @@ function Jobs() {
   );
 }
 
+// Both admin panels see every tab except Audit and Jobs (Super Admin only,
+// like the rest of the admin panel); changes are Super Admin only too.
 const TABS = [
   { value: "overview", label: "Overview", component: Overview },
   { value: "tenants", label: "Shops", component: Tenants },
+  { value: "invoices", label: "Invoices", component: Invoices },
+  { value: "contracts", label: "EMI contracts", component: Contracts },
+  { value: "nbfc", label: "NBFC cases", component: NbfcCases },
+  { value: "payments", label: "Payments", component: Payments },
+  { value: "risk", label: "Risk", component: Risk },
   { value: "rules", label: "Platform rules", component: PlatformRules },
   { value: "partners", label: "NBFC partners", component: Partners },
-  { value: "risk", label: "Risk", component: Risk },
-  { value: "audit", label: "Audit", component: Audit },
-  { value: "jobs", label: "Jobs", component: Jobs },
+  { value: "audit", label: "Audit", component: Audit, superOnly: true },
+  { value: "jobs", label: "Jobs", component: Jobs, superOnly: true },
 ];
 
 export default function AdminEmi() {
+  const { isSuperAdmin } = useAuth();
+  const tabs = TABS.filter((t) => isSuperAdmin || !t.superOnly);
   const [tab, setTab] = useState("overview");
-  const Current = TABS.find((t) => t.value === tab).component;
+  const Current = (tabs.find((t) => t.value === tab) || tabs[0]).component;
   return (
     <>
-      <PageHeader title="EMI & Billing" description="Counter sales, Shop EMI and NBFC finance across every shop" />
-      <Tabs className="mb-5" tabs={TABS} value={tab} onChange={setTab} label="EMI sections" />
+      <PageHeader title="EMI & Billing" description={`Counter sales, Shop EMI and NBFC finance across every shop${isSuperAdmin ? "" : " (view only)"}`} />
+      <Tabs className="mb-5" tabs={tabs} value={tab} onChange={setTab} label="EMI sections" />
       <Current />
     </>
   );
