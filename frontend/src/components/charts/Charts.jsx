@@ -82,7 +82,9 @@ export function TimeSeriesChart({ data, series, format = (v) => v, yFormat = for
     <div>
       <Legend series={series} shape="line" />
       <div style={{ height }} role="img" aria-label={chartLabel(series)}>
-        <ResponsiveContainer width="100%" height="100%">
+        {/* A real starting size: before it measures its box, Recharts would
+            otherwise render at -1 × -1 and log a warning */}
+        <ResponsiveContainer width="100%" height="100%" minWidth={0} initialDimension={{ width: 1, height }}>
           <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
             <defs>
               {series.map((s) => (
@@ -146,7 +148,7 @@ export function BarSeriesChart({ data, series, format = (v) => v, yFormat = form
         </p>
       )}
       <div style={{ height }} role="img" aria-label={chartLabel(series)}>
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0} initialDimension={{ width: 1, height }}>
           <BarChart data={data} margin={{ top: 16, right: 8, bottom: 0, left: 0 }} barCategoryGap="20%">
             <CartesianGrid vertical={false} stroke="var(--line)" />
             <XAxis dataKey="date" tickFormatter={tickLabel(granularity)} tick={AXIS_TICK} axisLine={{ stroke: "var(--line)" }} tickLine={false} minTickGap={16} />

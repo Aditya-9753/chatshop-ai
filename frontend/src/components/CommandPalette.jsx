@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Command } from "cmdk";
+import * as Dialog from "@radix-ui/react-dialog";
 import { Moon, Plus, Search, ShoppingCart, Sun, User } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import customerService from "../services/customer.service";
@@ -26,7 +27,8 @@ export default function CommandPalette({ open, onOpenChange }) {
 
   useEffect(() => {
     const onKeyDown = (event) => {
-      if (event.key.toLowerCase() === "k" && (event.metaKey || event.ctrlKey)) {
+      // Browser autofill fires keydown events with no key
+      if (event.key?.toLowerCase() === "k" && (event.metaKey || event.ctrlKey)) {
         event.preventDefault();
         onOpenChange(!open);
       }
@@ -60,6 +62,9 @@ export default function CommandPalette({ open, onOpenChange }) {
       overlayClassName="fixed inset-0 z-50 bg-overlay animate-fade-in"
       contentClassName="fixed left-1/2 top-[12vh] z-50 w-[calc(100vw-2rem)] max-w-xl -translate-x-1/2 overflow-hidden rounded-2xl border border-line bg-surface shadow-popover animate-slide-up"
     >
+      {/* Names the dialog for screen readers (Radix requires both) */}
+      <Dialog.Title className="sr-only">Search</Dialog.Title>
+      <Dialog.Description className="sr-only">Jump to a page, a customer or an order, or run an action.</Dialog.Description>
       <div className="flex items-center gap-2 border-b border-line px-4">
         <Search className="h-4 w-4 text-fg-subtle" aria-hidden="true" />
         <Command.Input
