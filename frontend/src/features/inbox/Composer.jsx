@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { AlertTriangle, Mic, Package, Paperclip, Search, Send, Square, Trash2, Zap } from "lucide-react";
 import productService from "../../services/product.service";
 import { assetUrl } from "../../config/api.config";
@@ -84,7 +85,9 @@ function ProductPicker({ open, onOpenChange, onPick }) {
   );
 }
 
-export default function Composer({ conversation, lastIncomingAt, disabledReason, onSendText, onSendFile, onSendVoice, onSendProduct }) {
+const CHANNEL_NAMES = { whatsapp: "WhatsApp", instagram: "Instagram", facebook: "Facebook Messenger" };
+
+export default function Composer({ conversation, lastIncomingAt, disabledReason, channelOffline, onSendText, onSendFile, onSendVoice, onSendProduct }) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [productsOpen, setProductsOpen] = useState(false);
@@ -155,6 +158,19 @@ export default function Composer({ conversation, lastIncomingAt, disabledReason,
 
   return (
     <div className="shrink-0 border-t border-line bg-surface px-3 pb-3 pt-2 sm:px-4">
+      {/* Say so before sending: a reply on a channel that isn't connected is saved but never reaches the customer */}
+      {channelOffline && (
+        <p className="mb-2 flex items-start gap-1.5 text-xs text-warning-fg">
+          <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <span>
+            {CHANNEL_NAMES[conversation.platform] || "This channel"} isn't connected, so replies won't reach this customer.{" "}
+            <Link to="/dashboard/settings?tab=channels" className="font-medium underline underline-offset-2">
+              Connect it in Settings → Channels
+            </Link>
+            , then use Retry on unsent messages.
+          </span>
+        </p>
+      )}
       {outsideWindow && (
         <p className="mb-2 flex items-start gap-1.5 text-xs text-warning-fg">
           <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />

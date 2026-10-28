@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { MessageSquare } from "lucide-react";
 import * as messageService from "../services/message.service";
 import customerService from "../services/customer.service";
+import api from "../services/api.service";
 import { useRealtime } from "../services/realtime";
 import { useToast } from "../components/Toast";
 import { cn, Drawer, EmptyState } from "../components/ui";
@@ -45,6 +46,18 @@ const Messages = () => {
   const [broadcastOpen, setBroadcastOpen] = useState(() => new URLSearchParams(window.location.search).get("broadcast") === "1");
   // A customer opened from elsewhere who has no conversation yet
   const [draftConversation, setDraftConversation] = useState(null);
+  // Which channels can actually deliver a reply (connected, with a token)
+  const [channels, setChannels] = useState(null);
+
+  useEffect(() => {
+    api
+      .get("/users/profile")
+      .then((res) => {
+        const ready = (config) => Boolean(config?.isConnected && config?.hasAccessToken);
+        setChannels({ whatsapp: ready(res.data?.whatsappConfig), instagram: ready(res.data?.instagramConfig), facebook: ready(res.data?.facebookConfig) });
+      })
+      .catch(() => {});
+  }, []);
 
   const selectedCustomerId = params.get("customer");
   const existing = useMemo(
@@ -280,6 +293,7 @@ const Messages = () => {
             <Composer
               conversation={selected}
               lastIncomingAt={lastIncomingAt}
+              channelOffline={channels ? !channels[selected.platform] : false}
               onSendText={(text) => sendReporting({ type: "text", content: { text } })}
               onSendFile={sendFile}
               onSendVoice={sendVoice}

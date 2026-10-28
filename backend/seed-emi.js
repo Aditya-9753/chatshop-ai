@@ -15,8 +15,10 @@ const User = require("./src/models/User.model");
 const Customer = require("./src/models/Customer.model");
 const Product = require("./src/models/Product.model");
 const { Tenant, Store } = require("./src/emi/models/platform");
-const { InventoryItem } = require("./src/emi/models/sales");
-const { NbfcPartner } = require("./src/emi/models/finance");
+const { InventoryItem, Invoice } = require("./src/emi/models/sales");
+const { NbfcPartner, EmiContract } = require("./src/emi/models/finance");
+const { createSale } = require("./src/emi/services/checkout.service");
+const { collectEmi } = require("./src/emi/services/emi.service");
 
 const PASSWORD = "Password@123";
 const uri = process.env.MONGODB_URI || "";
@@ -37,9 +39,13 @@ async function run() {
   await Promise.all([Tenant, Store, InventoryItem, NbfcPartner, Customer, Product, User].map((m) => m.syncIndexes()));
   const log = (what, created) => console.log(`${created ? "➕" : "✔️ "} ${what}`);
 
-  // Super Admin (ChatShop admin) and the shop owner
-  const [, superCreated] = await user("super@crm.local", { name: "Super Admin", role: "admin" });
-  log("super@crm.local (Super Admin panel)", superCreated);
+  // A Super Admin only for a database that has none yet
+  if (await User.exists({ role: "admin", email: { $ne: "super@crm.local" } })) {
+    console.log("✔️  Super Admin: using the existing admin account");
+  } else {
+    const [, superCreated] = await user("super@crm.local", { name: "Super Admin", role: "admin" });
+    log("super@crm.local (Super Admin panel)", superCreated);
+  }
 
   const yearOut = new Date(Date.now() + 365 * 86400000);
   const [owner, ownerCreated] = await user("owner@crm.local", {
@@ -132,8 +138,48 @@ async function run() {
   );
   log(`NBFC partner ${partner.name} (3% subvention)`, false);
 
+  // Three demo sales through the real checkout, so invoices, EMI, NBFC,
+  // payments, journals and the matching orders all exist. Each has a fixed
+  // Idempotency-Key, so a re-run finds it instead of selling again.
+  const req = {
+    user: owner,
+    ip: "seed",
+    emi: { tenantId: owner._id, tenant, roles: [{ role: "OWNER", storeId: null }], isOwner: true, storeIds: null },
+  };
+  const [samsung, iphone] = await Promise.all(phones.map((p) => Product.findOne({ userId: owner._id, name: p.name })));
+  const freeImei = async (product) => (await InventoryItem.findOne({ tenantId: owner._id, storeId: store._id, productId: product._id, status: "IN_STOCK" }))?.imei;
+  const rupee = (r) => Math.round(r * 100);
+  const sales = [
+    { key: "seed-sale-full", label: "full payment (UPI)", product: samsung, body: { payments: [{ method: "UPI", amount: rupee(79999), txnRef: "UPI-SEED-1" }] } },
+    { key: "seed-sale-emi", label: "Shop EMI, 12 months", product: iphone, body: { payments: [{ method: "UPI", amount: rupee(30000), txnRef: "UPI-SEED-2" }], finance: { type: "SHOP_EMI", principal: rupee(104900), annualRatePct: 18, tenureMonths: 12 } } },
+    { key: "seed-sale-nbfc", label: "NBFC finance", product: samsung, body: { payments: [{ method: "CASH", amount: rupee(19999) }], finance: { type: "NBFC", partnerId: String(partner._id), loanAmount: rupee(60000), tenureMonths: 12 } } },
+  ];
+  let emiSale = null;
+  for (const sale of sales) {
+    let result = await Invoice.findOne({ tenantId: owner._id, idempotencyKey: sale.key });
+    if (!result) {
+      const imei = await freeImei(sale.product);
+      if (!imei) {
+        console.log(`⚠️  ${sale.label}: no ${sale.product.name} IMEI left in stock, skipped`);
+        continue;
+      }
+      result = await createSale(req, store._id, { customerId: String(customer._id), items: [{ productId: String(sale.product._id), imei }], ...sale.body }, sale.key);
+      log(`sale ${result.invoiceNo}: ${sale.label}`, true);
+    } else {
+      log(`sale ${result.invoiceNo}: ${sale.label}`, false);
+    }
+    if (sale.key === "seed-sale-emi") emiSale = result;
+  }
+
+  // First EMI collected on the EMI sale
+  if (emiSale?.emiContractId) {
+    const contract = await EmiContract.findOne({ tenantId: owner._id, _id: emiSale.emiContractId });
+    const res = await collectEmi(req, contract._id, { method: "CASH", amount: contract.emiAmount }, "seed-emi-collect-1");
+    log(`EMI receipt ${res.payment.receiptNo} on ${contract.contractNo}`, !res.duplicate);
+  }
+
   console.log(`\n✅ EMI demo ready. Every login above uses the password ${PASSWORD}.`);
-  console.log("   Shop owner and staff sign in at /login; super@crm.local signs in at /admin/login.");
+  console.log("   Shop owner and staff sign in at /login; the Super Admin at /admin/login.");
   await mongoose.disconnect();
 }
 
