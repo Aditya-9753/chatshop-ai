@@ -13,6 +13,15 @@ mongoose
   .then(() => console.log("✅ Connected to MongoDB"))
   .catch((err) => console.error("❌ MongoDB connection error:", err));
 
+// Returns [doc, created]: the existing doc matching `keys`, or a newly created one.
+// Never updates or deletes anything, so the script is safe to re-run.
+const findOrCreate = async (Model, keys, data) => {
+  const filter = Object.fromEntries(keys.map((k) => [k, data[k]]));
+  const existing = await Model.findOne(filter);
+  if (existing) return [existing, false];
+  return [await Model.create(data), true];
+};
+
 // Seed messages for Raj Kumar account
 const seedMessages = async () => {
   try {
@@ -27,15 +36,12 @@ const seedMessages = async () => {
 
     console.log(`✅ Found Raj Kumar: ${rajKumar.name} (${rajKumar._id})`);
 
-    // Clear existing messages and conversations for Raj Kumar
-    console.log("🗑️  Clearing existing messages and conversations...");
-    await Message.deleteMany({ userId: rajKumar._id });
-    await Conversation.deleteMany({ userId: rajKumar._id });
+    // Nothing is deleted: existing records are kept and only missing ones are added.
 
     // Create test customers with different platforms
     console.log("👥 Creating test customers...");
 
-    const customers = await Customer.insertMany([
+    const customerData = [
       {
         name: "Arjun Mehta",
         phone: "+91 98765 44444",
@@ -84,16 +90,23 @@ const seedMessages = async () => {
         tags: ["Premium"],
         lastMessageDate: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1 day ago
       },
-    ]);
+    ];
 
-    console.log(`✅ Created ${customers.length} test customers`);
+    const customers = [];
+    for (const data of customerData) {
+      const [customer] = await findOrCreate(Customer, ["userId", "name", "phone"], data);
+      customers.push(customer);
+    }
 
-    // Create conversations
+    console.log(`✅ ${customers.length} test customers ready`);
+
+    // Create conversations (existing ones are kept, and get no new messages)
     console.log("💬 Creating conversations...");
     const conversations = [];
+    const newConversationIds = new Set();
 
     for (const customer of customers) {
-      const conversation = await Conversation.create({
+      const [conversation, isNew] = await findOrCreate(Conversation, ["userId", "customerId", "platform"], {
         userId: rajKumar._id,
         customerId: customer._id,
         platform: customer.platform,
@@ -106,9 +119,12 @@ const seedMessages = async () => {
         unreadCount: Math.floor(Math.random() * 3), // Random unread count 0-2
       });
       conversations.push(conversation);
+      if (isNew) newConversationIds.add(conversation._id.toString());
     }
 
-    console.log(`✅ Created ${conversations.length} conversations`);
+    console.log(
+      `✅ ${conversations.length} conversations ready (${newConversationIds.size} new)`,
+    );
 
     // Create diverse messages for each customer
     console.log("📨 Creating test messages...");
@@ -481,13 +497,19 @@ const seedMessages = async () => {
       ...rahulMessages,
     );
 
-    // Insert all messages
-    await Message.insertMany(allMessages);
-    console.log(`✅ Created ${allMessages.length} test messages`);
+    // Insert messages only for newly created conversations, to avoid duplicates
+    const newMessages = allMessages.filter((msg) =>
+      newConversationIds.has(msg.conversationId.toString()),
+    );
+    if (newMessages.length) await Message.insertMany(newMessages);
+    console.log(
+      `✅ Added ${newMessages.length} test messages (${allMessages.length - newMessages.length} skipped, already existed)`,
+    );
 
-    // Update conversation last messages
+    // Update last message only on the newly created conversations
     console.log("🔄 Updating conversation last messages...");
     for (let i = 0; i < conversations.length; i++) {
+      if (!newConversationIds.has(conversations[i]._id.toString())) continue;
       const conversationMessages = allMessages.filter(
         (msg) =>
           msg.conversationId.toString() === conversations[i]._id.toString(),
@@ -517,7 +539,7 @@ const seedMessages = async () => {
     console.log(`   • User: ${rajKumar.name}`);
     console.log(`   • Customers: ${customers.length}`);
     console.log(`   • Conversations: ${conversations.length}`);
-    console.log(`   • Messages: ${allMessages.length}`);
+    console.log(`   • Messages added: ${newMessages.length}`);
     console.log(
       `   • Platforms: WhatsApp (${customers.filter((c) => c.platform === "whatsapp").length}), Instagram (${customers.filter((c) => c.platform === "instagram").length}), Facebook (${customers.filter((c) => c.platform === "facebook").length})`,
     );

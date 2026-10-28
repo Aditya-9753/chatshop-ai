@@ -16,36 +16,40 @@ mongoose
   .then(() => console.log("✅ Connected to MongoDB"))
   .catch((err) => console.error("❌ MongoDB connection error:", err));
 
+// Returns [doc, created]: the existing doc matching `keys`, or a newly created one.
+// Never updates or deletes anything, so the script is safe to re-run.
+const findOrCreate = async (Model, keys, data) => {
+  const filter = Object.fromEntries(keys.map((k) => [k, data[k]]));
+  const existing = await Model.findOne(filter);
+  if (existing) return [existing, false];
+  return [await Model.create(data), true];
+};
+
+const findOrCreateMany = async (Model, keys, list) => {
+  const docs = [];
+  let created = 0;
+  for (const data of list) {
+    const [doc, isNew] = await findOrCreate(Model, keys, data);
+    docs.push(doc);
+    if (isNew) created++;
+  }
+  console.log(`   ${Model.modelName}: ${created} added, ${docs.length - created} already existed`);
+  return docs;
+};
+
 // Test data
 const seedData = async () => {
   try {
     console.log("🌱 Starting to seed database...");
 
-    // Clear existing test data
-    console.log("🗑️  Clearing existing test data...");
-    await User.deleteMany({
-      email: {
-        $in: [
-          "raj@example.com",
-          "priya@example.com",
-          "amit@example.com",
-          "neha@example.com",
-        ],
-      },
-    });
-    await Customer.deleteMany({});
-    await Product.deleteMany({});
-    await Order.deleteMany({});
-    await Message.deleteMany({});
-    await Conversation.deleteMany({}); // ✅ NEW CLEANUP
-    console.log("✅ Cleared old test data");
+    // Nothing is deleted: existing records are kept and only missing ones are added.
 
     // 1. Create Premium Users
     console.log("👥 Creating premium users...");
 
     const hashedPassword = await bcrypt.hash("Test@12345", 10);
 
-    const premiumUser1 = await User.create({
+    const [premiumUser1] = await findOrCreate(User, ["email"], {
       name: "Raj Kumar",
       email: "raj@example.com",
       password: hashedPassword,
@@ -60,7 +64,7 @@ const seedData = async () => {
       },
     });
 
-    const premiumUser2 = await User.create({
+    const [premiumUser2] = await findOrCreate(User, ["email"], {
       name: "Priya Sharma",
       email: "priya@example.com",
       password: hashedPassword,
@@ -75,7 +79,7 @@ const seedData = async () => {
       },
     });
 
-    const starterUser = await User.create({
+    const [starterUser] = await findOrCreate(User, ["email"], {
       name: "Amit Patel",
       email: "amit@example.com",
       password: hashedPassword,
@@ -90,7 +94,7 @@ const seedData = async () => {
       },
     });
 
-    const businessUser = await User.create({
+    const [businessUser] = await findOrCreate(User, ["email"], {
       name: "Neha Shah",
       email: "neha@example.com",
       password: hashedPassword,
@@ -105,12 +109,12 @@ const seedData = async () => {
       },
     });
 
-    console.log("✅ Created 4 test users (2 premium, 1 business, 1 starter)");
+    console.log("✅ 4 test users ready (2 premium, 1 business, 1 starter)");
 
     // 2. Create Customers for premium user 1
     console.log("👤 Creating customers...");
 
-    const customers = await Customer.insertMany([
+    const customers = await findOrCreateMany(Customer, ["userId", "name", "phone"], [
       {
         name: "Rahul Verma",
         phone: "+91 98765 44444",
@@ -161,7 +165,7 @@ const seedData = async () => {
     // 3. Create Products
     console.log("📦 Creating products...");
 
-    const products = await Product.insertMany([
+    const products = await findOrCreateMany(Product, ["userId", "name"], [
       {
         name: "MacBook Pro M3",
         description: "Latest MacBook Pro with M3 chip, 16GB RAM",
@@ -233,7 +237,8 @@ const seedData = async () => {
     // 4. Create Orders
     console.log("🛒 Creating orders...");
 
-    const orders = await Order.insertMany([
+    // orderNumber changes every run, so match an existing order by customer + total instead
+    const orders = await findOrCreateMany(Order, ["userId", "customerId", "total"], [
       {
         orderNumber: `ORD-${Date.now()}-1`,
         customerId: customers[0]._id,
@@ -355,7 +360,7 @@ const seedData = async () => {
     // CONVERSATION 1: Rahul Verma (WhatsApp)
     // ----------------------------------------------------
     // ✅ NEW: Create the Conversation wrapper first
-    const conv1 = await Conversation.create({
+    const [conv1, conv1New] = await findOrCreate(Conversation, ["userId", "customerId", "platform"], {
         userId: premiumUser1._id,
         customerId: customers[0]._id,
         platform: "whatsapp",
@@ -368,7 +373,8 @@ const seedData = async () => {
         }
     });
 
-    const messages1 = await Message.insertMany([
+    // Messages are only added for a newly created conversation, to avoid duplicates
+    const messages1 = conv1New ? await Message.insertMany([
       {
         conversationId: conv1._id, // ✅ NEW: Linked to Conversation
         customerId: customers[0]._id,
@@ -429,12 +435,12 @@ const seedData = async () => {
         createdAt: new Date(now - 1 * 60 * 60 * 1000 + 30 * 1000),
         status: "delivered",
       },
-    ]);
+    ]) : [];
 
     // ----------------------------------------------------
     // CONVERSATION 2: Sneha Reddy (WhatsApp)
     // ----------------------------------------------------
-    const conv2 = await Conversation.create({
+    const [conv2, conv2New] = await findOrCreate(Conversation, ["userId", "customerId", "platform"], {
         userId: premiumUser1._id,
         customerId: customers[1]._id,
         platform: "whatsapp",
@@ -447,7 +453,8 @@ const seedData = async () => {
         }
     });
 
-    const messages2 = await Message.insertMany([
+    // Messages are only added for a newly created conversation, to avoid duplicates
+    const messages2 = conv2New ? await Message.insertMany([
       {
         conversationId: conv2._id,
         customerId: customers[1]._id,
@@ -491,12 +498,12 @@ const seedData = async () => {
         createdAt: new Date(now - 23 * 60 * 60 * 1000 + 2 * 60 * 1000),
         status: "delivered",
       },
-    ]);
+    ]) : [];
 
     // ----------------------------------------------------
     // CONVERSATION 3: Vikas Singh (Instagram)
     // ----------------------------------------------------
-    const conv3 = await Conversation.create({
+    const [conv3, conv3New] = await findOrCreate(Conversation, ["userId", "customerId", "platform"], {
         userId: premiumUser1._id,
         customerId: customers[2]._id,
         platform: "instagram",
@@ -509,7 +516,8 @@ const seedData = async () => {
         }
     });
 
-    const messages3 = await Message.insertMany([
+    // Messages are only added for a newly created conversation, to avoid duplicates
+    const messages3 = conv3New ? await Message.insertMany([
       {
         conversationId: conv3._id,
         customerId: customers[2]._id,
@@ -570,12 +578,12 @@ const seedData = async () => {
         createdAt: new Date(now - 18 * 60 * 1000),
         status: "delivered", // Not read yet
       },
-    ]);
+    ]) : [];
 
     // ----------------------------------------------------
     // CONVERSATION 4: Anjali Gupta (WhatsApp)
     // ----------------------------------------------------
-    const conv4 = await Conversation.create({
+    const [conv4, conv4New] = await findOrCreate(Conversation, ["userId", "customerId", "platform"], {
         userId: premiumUser1._id,
         customerId: customers[3]._id,
         platform: "whatsapp",
@@ -589,7 +597,7 @@ const seedData = async () => {
     });
 
     // Create a parent message first to demonstrate 'replyTo'
-    const parentMsg = await Message.create({
+    const parentMsg = conv4New ? await Message.create({
         conversationId: conv4._id,
         customerId: customers[3]._id,
         userId: premiumUser1._id,
@@ -598,9 +606,10 @@ const seedData = async () => {
         platform: "whatsapp",
         createdAt: new Date(now - 2 * 24 * 60 * 60 * 1000 + 3 * 60 * 1000),
         status: "read"
-    });
+    }) : null;
 
-    const messages4 = await Message.insertMany([
+    // Messages are only added for a newly created conversation, to avoid duplicates
+    const messages4 = conv4New ? await Message.insertMany([
       {
         conversationId: conv4._id,
         customerId: customers[3]._id,
@@ -633,12 +642,12 @@ const seedData = async () => {
         createdAt: new Date(now - 2 * 24 * 60 * 60 * 1000 + 12 * 60 * 1000),
         status: "read",
       },
-    ]);
+    ]) : [];
 
     // ----------------------------------------------------
     // CONVERSATION 5: Karan Mehta (Instagram)
     // ----------------------------------------------------
-    const conv5 = await Conversation.create({
+    const [conv5, conv5New] = await findOrCreate(Conversation, ["userId", "customerId", "platform"], {
         userId: premiumUser1._id,
         customerId: customers[4]._id,
         platform: "instagram",
@@ -651,7 +660,8 @@ const seedData = async () => {
         }
     });
 
-    const messages5 = await Message.insertMany([
+    // Messages are only added for a newly created conversation, to avoid duplicates
+    const messages5 = conv5New ? await Message.insertMany([
       {
         conversationId: conv5._id,
         customerId: customers[4]._id,
@@ -706,9 +716,9 @@ const seedData = async () => {
         createdAt: new Date(now - 3 * 24 * 60 * 60 * 1000 + 17 * 60 * 1000),
         status: "read",
       },
-    ]);
+    ]) : [];
 
-    console.log(`✅ Created messages and conversations`);
+    console.log(`✅ Conversations & messages ready (existing ones were kept as-is)`);
 
     console.log("\n🎉 Database seeded successfully!");
     console.log("\n📝 Test Accounts:");
