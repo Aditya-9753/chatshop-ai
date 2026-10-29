@@ -43,6 +43,12 @@ const userSchema = new mongoose.Schema(
       },
     ],
     staffActive: { type: Boolean, default: true },
+    // New staff wait for the Super Admin before they can sign in
+    approvalStatus: { type: String, enum: ["PENDING", "APPROVED", "REJECTED"], default: "APPROVED" },
+    approvalNote: String,
+    // Admin accounts: "super" (Super Admin, the default) or "admin" (an
+    // Admin with their own login, name and the limited Admin panel)
+    adminLevel: { type: String, enum: ["super", "admin"] },
     isVerified: {
       type: Boolean,
       default: false,

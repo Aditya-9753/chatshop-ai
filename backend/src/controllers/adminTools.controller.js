@@ -96,3 +96,24 @@ exports.twoFactorDisable = handle(async (req, res) => {
   await audit(req, "2fa.disable");
   return ResponseHandler.success(res, { enabled: false }, "Two-factor login is off");
 });
+
+// Admins with their own login (Super Admin only)
+exports.listAdmins = handle(async (req, res) => ResponseHandler.success(res, await adminTools.listAdmins()));
+
+exports.createAdmin = handle(async (req, res) => {
+  const admin = await adminTools.createAdmin(req.body);
+  await audit(req, "admin.create", { target: admin.email });
+  return ResponseHandler.created(res, admin, "Admin added");
+});
+
+exports.updateAdmin = handle(async (req, res) => {
+  const admin = await adminTools.updateAdmin(req.params.id, req.body);
+  await audit(req, "admin.update", { target: admin.email, details: req.body.password ? "Password reset" : undefined });
+  return ResponseHandler.success(res, admin, "Admin saved");
+});
+
+exports.removeAdmin = handle(async (req, res) => {
+  await adminTools.removeAdmin(req.params.id);
+  await audit(req, "admin.remove", { target: req.params.id });
+  return ResponseHandler.success(res, { removed: true }, "Admin removed");
+});

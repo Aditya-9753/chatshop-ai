@@ -158,7 +158,7 @@ function StaffModal({ member, onClose, onDone }) {
         member
           ? emiApi.patch(`/users/${member._id}`, { name: form.name, phone: form.phone || undefined, roles, ...(form.password ? { password: form.password } : {}) })
           : emiApi.post("/users", { ...form, phone: form.phone || undefined, roles }),
-      member ? "Staff updated" : "Staff added. Share the email and password with them."
+      member ? "Staff updated" : "Staff added. They can sign in once the Super Admin approves them."
     );
     if (res) {
       onClose();
@@ -167,7 +167,7 @@ function StaffModal({ member, onClose, onDone }) {
   };
   const storeOptions = [...(isOwner ? [{ value: "", label: "All stores" }] : []), ...allStores.map((s) => ({ value: s._id, label: s.name }))];
   return (
-    <Modal open onOpenChange={(open) => !open && onClose()} title={member ? `Edit ${member.name}` : "Add staff"} description="Staff sign in at the normal login page and only see EMI & billing." footer={<Button loading={saver.saving} onClick={submit}>{member ? "Save" : "Add staff"}</Button>}>
+    <Modal open onOpenChange={(open) => !open && onClose()} title={member ? `Edit ${member.name}` : "Add staff"} description={member ? "Staff sign in at the normal login page and only see EMI & billing." : "The Super Admin approves new staff; after that they sign in at the normal login page and only see EMI & billing."} footer={<Button loading={saver.saving} onClick={submit}>{member ? "Save" : "Add staff"}</Button>}>
       <div className="grid gap-3 sm:grid-cols-2">
         <Input label="Name" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
         <Input label="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
@@ -227,6 +227,16 @@ function StaffTab() {
         ))}
       </span>
     ) },
+    {
+      key: "approvalStatus",
+      header: "Approval",
+      cell: (r) => (
+        <span>
+          <StateBadge status={r.approvalStatus || "APPROVED"} label={{ PENDING: "Waiting for Super Admin", APPROVED: "Approved", REJECTED: "Not approved" }[r.approvalStatus || "APPROVED"]} />
+          {r.approvalStatus === "REJECTED" && r.approvalNote && <span className="mt-0.5 block text-xs text-fg-muted">{r.approvalNote}</span>}
+        </span>
+      ),
+    },
     { key: "staffActive", header: "Sign-in", cell: (r) => (can("user.manage") ? <Switch checked={r.staffActive} onCheckedChange={() => toggle(r)} label={r.staffActive ? "On" : "Off"} /> : r.staffActive ? "On" : "Off") },
     { key: "edit", header: "", sortable: false, cell: (r) => can("user.manage") && <Button size="icon-sm" variant="ghost" icon={Pencil} aria-label={`Edit ${r.name}`} onClick={() => setEditing(r)} /> },
   ];

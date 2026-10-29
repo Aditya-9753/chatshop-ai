@@ -22,6 +22,7 @@ import {
 import { useToast } from "../../components/Toast";
 import { useAuth } from "../../context/AuthContext";
 import { Invoices, Contracts, NbfcCases, Payments } from "./AdminEmiRecords";
+import { Requests, Staff } from "./AdminEmiAccess";
 import { formatDateTime } from "../../utils/format";
 import { ErrorList, StateBadge, useLoad } from "../billing/components";
 import { emiApi, fromPaise, inr, toPaise } from "../billing/api";
@@ -33,12 +34,19 @@ function Overview() {
   if (error) return <ErrorState description={error.message} onRetry={reload} />;
   const d = data;
   return (
+    <>
+    {d?.pendingRequests > 0 && (
+      <Alert tone="warning" className="mb-4" title={`${d.pendingRequests} request${d.pendingRequests === 1 ? "" : "s"} waiting for approval`}>
+        Shops asking for EMI & billing and new staff are in the Requests tab.
+      </Alert>
+    )}
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       <StatCard label="Shops using billing" loading={loading} value={d ? d.tenants.active : "—"} deltaNote={d && `${d.tenants.suspended} suspended · ${d.stores} store${d.stores === 1 ? "" : "s"}`} />
       <StatCard label="Billed, last 30 days" loading={loading} value={d ? inr(d.gmv30d.gross, { whole: true }) : "—"} deltaNote={d && `${d.gmv30d.invoices} invoices`} />
       <StatCard label="EMI book outstanding" loading={loading} value={d ? inr(d.emiBook.outstanding, { whole: true }) : "—"} deltaNote={d && `${d.emiBook.contracts} contracts · ${d.emiBook.overduePct}% overdue`} />
       <StatCard label="NBFC payouts pending" loading={loading} value={d ? inr(d.nbfcPending.payout, { whole: true }) : "—"} deltaNote={d && `${d.nbfcPending.count} cases · ${d.failedReminders} failed reminders`} />
     </div>
+    </>
   );
 }
 
@@ -83,8 +91,8 @@ function Tenants() {
             Suspend
           </Button>
         ) : (
-          <Button size="sm" variant="secondary" onClick={() => setStatus(r, "ACTIVE")}>
-            Reactivate
+          <Button size="sm" variant={r.status === "SUSPENDED" ? "secondary" : "primary"} onClick={() => setStatus(r, "ACTIVE")}>
+            {r.status === "SUSPENDED" ? "Reactivate" : "Approve"}
           </Button>
         ),
     },
@@ -370,7 +378,9 @@ function Jobs() {
 // like the rest of the admin panel); changes are Super Admin only too.
 const TABS = [
   { value: "overview", label: "Overview", component: Overview },
+  { value: "requests", label: "Requests", component: Requests },
   { value: "tenants", label: "Shops", component: Tenants },
+  { value: "staff", label: "Staff", component: Staff },
   { value: "invoices", label: "Invoices", component: Invoices },
   { value: "contracts", label: "EMI contracts", component: Contracts },
   { value: "nbfc", label: "NBFC cases", component: NbfcCases },

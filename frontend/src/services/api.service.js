@@ -67,6 +67,7 @@ api.interceptors.response.use(
         status,
         message: data?.message || "Something went wrong",
         errors: data?.errors,
+        code: data?.code,
       });
     } else if (error.request) {
       // Request made but no response

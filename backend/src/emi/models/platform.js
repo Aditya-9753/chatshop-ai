@@ -15,8 +15,11 @@ const tenantSchema = new mongoose.Schema(
     address: String,
     phone: String,
     plan: { type: String, default: "standard" },
-    status: { type: String, enum: ["ACTIVE", "SUSPENDED"], default: "ACTIVE" },
-    suspendedReason: String,
+    // A shop starts PENDING until the Super Admin approves EMI & billing for it
+    status: { type: String, enum: ["PENDING", "ACTIVE", "SUSPENDED", "REJECTED"], default: "PENDING" },
+    suspendedReason: String, // reason for SUSPENDED or REJECTED, shown to the shop
+    decidedBy: { type: ObjectId, ref: "User" },
+    decidedAt: Date,
   },
   { timestamps: true }
 );

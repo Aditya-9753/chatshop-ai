@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Lock, Store } from "lucide-react";
-import { Badge, EmptyState, ErrorState, PageLoader, Select, cn } from "../../components/ui";
+import { Clock, Lock, RotateCw, ShieldX, Store } from "lucide-react";
+import { Badge, Button, EmptyState, ErrorState, PageLoader, Select, cn } from "../../components/ui";
 import { useBilling } from "./BillingContext";
 import { inr } from "./api";
 
@@ -108,12 +108,37 @@ export function StoreSwitcher({ className }) {
  * the module is unavailable (plan, suspension), and hides pages a role
  * cannot use.
  */
+// Why billing is closed, when the Super Admin hasn't opened it (yet)
+const ACCESS_STATES = {
+  TENANT_PENDING: { icon: Clock, title: "Waiting for Super Admin approval" },
+  STAFF_PENDING: { icon: Clock, title: "Waiting for Super Admin approval" },
+  TENANT_REJECTED: { icon: ShieldX, title: "EMI & billing was not approved" },
+  TENANT_SUSPENDED: { icon: ShieldX, title: "EMI & billing is suspended" },
+};
+
+export function BillingBlocked({ error, onRetry }) {
+  const state = ACCESS_STATES[error?.code];
+  if (!state) return <ErrorState title="EMI & billing is unavailable" description={error?.message} onRetry={onRetry} />;
+  return (
+    <EmptyState
+      icon={state.icon}
+      title={state.title}
+      description={error.message}
+      action={
+        onRetry && (
+          <Button variant="secondary" size="sm" icon={RotateCw} onClick={onRetry}>
+            Check again
+          </Button>
+        )
+      }
+    />
+  );
+}
+
 export function BillingGate({ perm, children }) {
   const billing = useBilling();
   if (billing.loading && !billing.me) return <PageLoader />;
-  if (billing.error) {
-    return <ErrorState title="EMI & billing is unavailable" description={billing.error.message} onRetry={billing.reload} />;
-  }
+  if (billing.error) return <BillingBlocked error={billing.error} onRetry={billing.reload} />;
   if (perm && !billing.can(perm)) {
     return <EmptyState icon={Lock} title="Not available for your role" description="Ask the shop owner if you need access to this page." />;
   }

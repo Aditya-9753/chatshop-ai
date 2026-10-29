@@ -155,7 +155,11 @@ function useNavGroups() {
   const { user } = useAuth();
   const billing = useBilling();
   if (user?.role === "admin") return NAV_GROUPS;
-  const billingGroup = { ...BILLING_GROUP, items: BILLING_GROUP.items.filter((item) => billing.can(item.perm)) };
+  // An owner whose billing isn't open yet (waiting for approval) still gets
+  // the overview, which says why
+  const items =
+    billing.error && user?.role === "user" ? BILLING_GROUP.items.slice(0, 1) : BILLING_GROUP.items.filter((item) => billing.can(item.perm));
+  const billingGroup = { ...BILLING_GROUP, items };
   if (user?.role === "staff") return [billingGroup];
   return [...NAV_GROUPS.slice(0, 3), billingGroup, ...NAV_GROUPS.slice(3)].filter((group) => group.items.length);
 }

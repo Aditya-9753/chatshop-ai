@@ -140,7 +140,9 @@ const StaffPatch = z.object({
 });
 
 const SettingsIn = z.record(z.any());
-const TenantStatusIn = z.object({ status: z.enum(["ACTIVE", "SUSPENDED"]), reason: z.string().trim().max(300).optional() });
+const TenantStatusIn = z.object({ status: z.enum(["ACTIVE", "SUSPENDED", "REJECTED"]), reason: z.string().trim().max(300).optional() });
+const StaffDecideIn = z.object({ decision: z.enum(["APPROVED", "REJECTED"]), note: z.string().trim().max(300).optional() });
+const SuperStaffIn = StaffIn.extend({ tenantId: id });
 const PartnerIn = z.object({
   name: z.string().trim().min(1).max(80),
   subventionPct: z.number().min(0).max(20),
@@ -173,6 +175,8 @@ module.exports = {
   StaffPatch,
   SettingsIn,
   TenantStatusIn,
+  StaffDecideIn,
+  SuperStaffIn,
   PartnerIn,
   PartnerPatch: PartnerIn.partial(),
   JobIn,

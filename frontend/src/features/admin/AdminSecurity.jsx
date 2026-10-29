@@ -9,6 +9,7 @@ import { useToast } from "../../components/Toast";
 import { Alert, Badge, Button, Card, CardBody, CardHeader, DataTable, Input, Modal, PageHeader } from "../../components/ui";
 import { SecuritySettings } from "../settings/AccountSettings";
 import { formatDateTime } from "../../utils/format";
+import AdminAccountsCard from "./AdminAccounts";
 
 const ACTION_LABELS = {
   "auth.login": "Logged in",
@@ -264,7 +265,7 @@ export default function AdminSecurity() {
 
   return (
     <div>
-      <PageHeader title="Security" description="Your Super Admin password, two-factor login, the Admin panel password and the audit log." />
+      <PageHeader title="Security" description="Your Super Admin password, two-factor login, admin accounts, the shared Admin panel password and the audit log." />
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <SecuritySettings profile={profile || user || {}} allowDelete={false} />
         <div className="flex flex-col gap-6">
@@ -272,6 +273,7 @@ export default function AdminSecurity() {
             enabled={!!profile?.twoFactor?.enabled}
             onChange={(enabled) => setProfile((p) => ({ ...p, twoFactor: { ...(p?.twoFactor || {}), enabled } }))}
           />
+          <AdminAccountsCard />
           <AdminPanelPasswordCard />
         </div>
       </div>

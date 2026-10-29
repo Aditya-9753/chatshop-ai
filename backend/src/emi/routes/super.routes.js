@@ -20,6 +20,13 @@ r.get("/dashboard", ah(async (req, res) => ok(res, await superService.dashboard(
 r.get("/tenants", ah(async (req, res) => ok(res, await superService.tenants())));
 r.patch("/tenants/:id", manage, checkId, s.validate(s.TenantStatusIn), ah(async (req, res) => ok(res, await superService.setTenantStatus(req, req.params.id, req.body))));
 
+// Approvals: shops waiting for EMI & billing, staff waiting to sign in
+r.get("/requests", ah(async (req, res) => ok(res, await superService.requests())));
+r.get("/staff", ah(async (req, res) => ok(res, await superService.staff(req.query))));
+r.post("/staff", manage, s.validate(s.SuperStaffIn), ah(async (req, res) => ok(res, await superService.createStaffFor(req, req.body), 201)));
+r.patch("/staff/:id", manage, checkId, s.validate(s.StaffPatch), ah(async (req, res) => ok(res, await superService.updateStaffFor(req, req.params.id, req.body))));
+r.post("/staff/:id/decide", manage, checkId, s.validate(s.StaffDecideIn), ah(async (req, res) => ok(res, await superService.decideStaff(req, req.params.id, req.body))));
+
 // Every shop's records
 r.get("/invoices", ah(async (req, res) => ok(res, await superService.invoices(req.query))));
 r.get("/invoices/:id", checkId, ah(async (req, res) => ok(res, await superService.invoiceDetail(req.params.id))));

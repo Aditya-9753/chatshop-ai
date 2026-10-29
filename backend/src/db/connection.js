@@ -19,7 +19,8 @@ const createDefaultAdmin = async () => {
     const User = require("../models/User.model");
     const bcrypt = require("bcryptjs");
 
-    let admin = await User.findOne({ role: "admin" }).select("+adminPanel.password");
+    // The Super Admin account (Admins with their own login don't count)
+    let admin = await User.findOne({ role: "admin", adminLevel: { $ne: "admin" } }).select("+adminPanel.password");
 
     if (!admin) {
       const hashedPassword = await bcrypt.hash(

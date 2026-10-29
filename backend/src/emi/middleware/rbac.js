@@ -65,7 +65,8 @@ const permissionsOf = (roles) => [...new Set(roles.flatMap((r) => PERMISSIONS[r.
 
 const stateFromGstin = (gstin) => (/^\d{2}[A-Z0-9]{13}$/i.test(gstin || "") ? gstin.slice(0, 2) : null);
 
-// First use by a shop owner: create their tenant and a first store
+// First use by a shop owner: create their tenant (PENDING until the Super
+// Admin approves it) and a first store
 async function bootstrapTenant(owner) {
   const existing = await Tenant.findById(owner._id);
   if (existing) return existing;
@@ -101,6 +102,9 @@ const emiContext = async (req, res, next) => {
     let roles;
     if (user.role === "staff") {
       if (!user.tenantId || user.staffActive === false) throw new AppError(403, "Aapka staff account band hai");
+      if (user.approvalStatus && user.approvalStatus !== "APPROVED") {
+        throw new AppError(403, "Aapka account Super Admin ke approval ka intezaar kar raha hai", undefined, "STAFF_PENDING");
+      }
       owner = await User.findById(user.tenantId).select("name role subscription businessInfo phone");
       if (!owner) throw new AppError(403, "Dukaan nahi mili");
       roles = (user.emiRoles || []).map((r) => ({ role: r.role, storeId: r.storeId || null }));
@@ -114,8 +118,19 @@ const emiContext = async (req, res, next) => {
     }
 
     const tenant = await bootstrapTenant(owner);
+    if (tenant.status === "PENDING") {
+      throw new AppError(
+        403,
+        "EMI & Billing ki request Super Admin ko bhej di gayi hai. Approve hote hi ye panel khul jayega.",
+        undefined,
+        "TENANT_PENDING"
+      );
+    }
+    if (tenant.status === "REJECTED") {
+      throw new AppError(403, `EMI & Billing ki request approve nahi hui${tenant.suspendedReason ? `: ${tenant.suspendedReason}` : ""}`, undefined, "TENANT_REJECTED");
+    }
     if (tenant.status === "SUSPENDED") {
-      throw new AppError(403, `Dukaan suspended hai${tenant.suspendedReason ? `: ${tenant.suspendedReason}` : ""}`);
+      throw new AppError(403, `Dukaan suspended hai${tenant.suspendedReason ? `: ${tenant.suspendedReason}` : ""}`, undefined, "TENANT_SUSPENDED");
     }
 
     const allStores = roles.some((r) => !r.storeId);

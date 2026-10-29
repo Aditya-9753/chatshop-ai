@@ -141,7 +141,7 @@ class AdminService {
       status,
     } = filters;
 
-    const query = { role: { $ne: "admin" } }; // Exclude admin users
+    const query = { role: "user" }; // Shops only: no admins, no shop staff
 
     if (search) {
       query.$or = [
@@ -219,7 +219,7 @@ class AdminService {
     const day = { $dateToString: { format: "%Y-%m-%d", date: "$createdAt", timezone: tz } };
 
     const [signups, orders, messages, top] = await Promise.all([
-      User.aggregate([{ $match: { role: { $ne: "admin" }, ...range } }, { $group: { _id: day, signups: { $sum: 1 } } }]),
+      User.aggregate([{ $match: { role: "user", ...range } }, { $group: { _id: day, signups: { $sum: 1 } } }]),
       Order.aggregate([
         { $match: { ...range, ...ORDER_MATCH } },
         {

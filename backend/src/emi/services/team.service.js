@@ -4,7 +4,7 @@ const { Store, Tenant } = require("../models/platform");
 const { AppError, audit, isOid } = require("../utils/helpers");
 const { can } = require("../middleware/rbac");
 
-const STAFF_FIELDS = "name email phone role emiRoles staffActive createdAt";
+const STAFF_FIELDS = "name email phone role tenantId emiRoles staffActive approvalStatus approvalNote createdAt";
 
 async function listStores(req) {
   const filter = { tenantId: req.emi.tenantId };
@@ -75,7 +75,9 @@ async function listStaff(req) {
   return staff.filter((u) => u.emiRoles.some((r) => r.storeId && mine.includes(String(r.storeId))));
 }
 
-async function createStaff(req, { name, email, phone, password, roles }) {
+// Staff added by a shop wait for the Super Admin (`approved` is only true
+// when the Super Admin adds them)
+async function createStaff(req, { name, email, phone, password, roles }, { approved = false } = {}) {
   const emiRoles = await checkRoles(req, roles);
   if (!password || password.length < 8) throw new AppError(422, "Password kam se kam 8 characters ka ho");
   if (await User.exists({ email: String(email).toLowerCase() })) throw new AppError(409, "Is email se account pehle se hai");
@@ -87,9 +89,10 @@ async function createStaff(req, { name, email, phone, password, roles }) {
     role: "staff",
     tenantId: req.emi.tenantId,
     emiRoles,
+    approvalStatus: approved ? "APPROVED" : "PENDING",
     isVerified: true,
   });
-  await audit(req, "staff.create", { entity: "User", entityId: user._id, after: { email: user.email, roles: emiRoles } });
+  await audit(req, "staff.create", { entity: "User", entityId: user._id, after: { email: user.email, roles: emiRoles, approvalStatus: user.approvalStatus } });
   return User.findById(user._id).select(STAFF_FIELDS).lean();
 }
 

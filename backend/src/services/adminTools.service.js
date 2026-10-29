@@ -128,7 +128,7 @@ class AdminToolsService {
       const now = Date.now();
       const monthAgo = new Date(now - 30 * DAY_MS);
       const twoMonthsAgo = new Date(now - 60 * DAY_MS);
-      const shops = { role: { $ne: "admin" } };
+      const shops = { role: "user" };
 
       const [usersNow, usersBefore, subsNow, subsBefore, activeNow, activeBefore, revenue] = await Promise.all([
         User.countDocuments(shops),
@@ -180,7 +180,7 @@ class AdminToolsService {
     if (!title?.trim() || !message?.trim()) throw new Error("Write a title and a message");
 
     const ids = recipients.filter((id) => mongoose.isValidObjectId(id));
-    const users = await User.find(ids.length ? { _id: { $in: ids } } : { role: { $ne: "admin" } }).select("name email");
+    const users = await User.find(ids.length ? { _id: { $in: ids } } : { role: "user" }).select("name email");
     if (!users.length) throw new Error("No shops to send to");
 
     const announcement = await Announcement.create({
@@ -267,7 +267,7 @@ class AdminToolsService {
 
     switch (kind) {
       case "shops": {
-        const users = await User.find({ role: { $ne: "admin" } }).sort({ createdAt: -1 }).lean();
+        const users = await User.find({ role: "user" }).sort({ createdAt: -1 }).lean();
         return toCsv(
           ["Name", "Business", "Email", "Phone", "Plan", "Status", "Joined"],
           users.map((u) => [u.name, u.businessInfo?.businessName, u.email, u.phone, u.subscription?.plan, u.subscription?.status, date(u.createdAt)])
@@ -355,6 +355,49 @@ class AdminToolsService {
     user.adminPanel = { password: await bcrypt.hash(password, 10), changedAt: new Date(Date.now() - 1000) };
     await user.save();
     return this.adminPanelStatus(userId);
+  }
+
+  // ---- Admins with their own login (limited Admin panel, own name) ----
+
+  async listAdmins() {
+    return User.find({ role: "admin", adminLevel: "admin" }).select("name email phone createdAt lastLogin").sort({ createdAt: 1 }).lean();
+  }
+
+  async createAdmin({ name, email, phone, password }) {
+    if (!name?.trim() || !email?.trim()) throw new Error("Name and email are required");
+    if (!password || String(password).length < 8) throw new Error("Use at least 8 characters for the password");
+    const normalized = email.trim().toLowerCase();
+    if (await User.exists({ email: normalized })) throw new Error("An account with this email already exists");
+    const admin = await User.create({
+      name: name.trim(),
+      email: normalized,
+      phone: phone?.trim() || "-",
+      password: await bcrypt.hash(password, 10),
+      role: "admin",
+      adminLevel: "admin",
+      isVerified: true,
+    });
+    return { _id: admin._id, name: admin.name, email: admin.email, phone: admin.phone, createdAt: admin.createdAt };
+  }
+
+  async updateAdmin(id, { name, phone, password }) {
+    const admin = await User.findOne({ _id: id, role: "admin", adminLevel: "admin" });
+    if (!admin) throw new Error("Admin not found");
+    if (name?.trim()) admin.name = name.trim();
+    if (phone !== undefined) admin.phone = phone?.trim() || "-";
+    if (password) {
+      if (String(password).length < 8) throw new Error("Use at least 8 characters for the password");
+      admin.password = await bcrypt.hash(password, 10);
+      admin.passwordChangedAt = new Date(Date.now() - 1000); // signs them out everywhere
+    }
+    await admin.save();
+    return { _id: admin._id, name: admin.name, email: admin.email, phone: admin.phone, createdAt: admin.createdAt };
+  }
+
+  async removeAdmin(id) {
+    const result = await User.deleteOne({ _id: id, role: "admin", adminLevel: "admin" });
+    if (!result.deletedCount) throw new Error("Admin not found");
+    return { removed: true };
   }
 }
 

@@ -69,9 +69,11 @@ exports.protect = async (req, res, next) => {
       }
 
       // Admins: "super" (Super Admin) or "admin" (limited admin panel)
+      // An Admin account of its own is always the limited panel, whatever the token says
       if (req.user.role === "admin") {
-        req.adminLevel = decoded.adminLevel === "admin" ? "admin" : "super";
-        if (req.adminLevel === "admin" && req.user.changedAdminPanelPasswordAfter(decoded.iat)) {
+        const ownAdmin = req.user.adminLevel === "admin";
+        req.adminLevel = ownAdmin || decoded.adminLevel === "admin" ? "admin" : "super";
+        if (!ownAdmin && req.adminLevel === "admin" && req.user.changedAdminPanelPasswordAfter(decoded.iat)) {
           return res.status(401).json({
             success: false,
             message: "Password was changed. Please log in again.",

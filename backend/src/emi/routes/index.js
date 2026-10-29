@@ -58,9 +58,11 @@ router.use((err, req, res, next) => {
   let status = 500;
   let message = err.message || "Kuch galat ho gaya";
   let errors = [message];
+  let code;
   if (err instanceof AppError) {
     status = err.status;
     errors = err.errors;
+    code = err.code;
   } else if (err instanceof DomainError) {
     status = 422;
   } else if (err.code === 11000) {
@@ -80,7 +82,7 @@ router.use((err, req, res, next) => {
     message = "Server me galti hui; dobara koshish karo";
     errors = [message];
   }
-  res.status(status).json({ success: false, message, errors });
+  res.status(status).json({ success: false, message, errors, ...(code && { code }) });
 });
 
 module.exports = router;

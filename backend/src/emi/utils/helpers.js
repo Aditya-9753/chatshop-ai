@@ -5,10 +5,12 @@ const AuditLog = require("../../models/AuditLog.model");
 
 // Error with an HTTP status and a message the cashier can read
 class AppError extends Error {
-  constructor(status, message, errors) {
+  // `code` lets the screen react to a known case (e.g. TENANT_PENDING)
+  constructor(status, message, errors, code) {
     super(message);
     this.status = status;
     this.errors = errors || [message];
+    this.code = code;
   }
 }
 

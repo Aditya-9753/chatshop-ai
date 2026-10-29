@@ -75,3 +75,39 @@ test("one admin email, two passwords: Super Admin and the limited Admin panel", 
   assert.equal((await request(app).get("/api/admin/users").set("Authorization", `Bearer ${superToken}`)).status, 200);
   assert.equal((await login("root@example.com", "Panel@456")).body.data.user.adminLevel, "admin");
 });
+
+test("Admins with their own login see their own name and only the Admin panel", async () => {
+  const asSuper = (method, path) => request(app)[method](path).set("Authorization", `Bearer ${superToken}`);
+
+  // The shared panel password no longer shows the Super Admin's name
+  const shared = await login("root@example.com", "Panel@456");
+  assert.equal(shared.body.data.user.name, "Admin");
+
+  const created = await asSuper("post", "/api/admin/admins").send({ name: "Meera Shah", email: "meera@example.com", password: "Meera@1234" });
+  assert.equal(created.status, 201, JSON.stringify(created.body));
+  assert.equal((await asSuper("post", "/api/admin/admins").send({ name: "Copy", email: "meera@example.com", password: "Meera@1234" })).status, 400);
+
+  // Her own login: her name, the limited panel, whatever password she uses
+  const meera = await login("meera@example.com", "Meera@1234");
+  assert.equal(meera.status, 200);
+  assert.equal(meera.body.data.user.name, "Meera Shah");
+  assert.equal(meera.body.data.user.adminLevel, "admin");
+  const asMeera = (method, path) => request(app)[method](path).set("Authorization", `Bearer ${meera.body.data.token}`);
+  assert.equal((await asMeera("get", "/api/admin/users")).status, 200);
+  assert.equal((await asMeera("put", "/api/admin/settings").send({ platformName: "X" })).status, 403);
+  assert.equal((await asMeera("post", "/api/admin/admins").send({ name: "Me2", email: "x@example.com", password: "Password@1" })).status, 403);
+
+  // Not counted as a shop, listed for the Super Admin only
+  const shops = await asSuper("get", "/api/admin/users");
+  assert.ok(!JSON.stringify(shops.body).includes("meera@example.com"));
+  const admins = await asSuper("get", "/api/admin/admins");
+  assert.deepEqual(admins.body.data.map((a) => a.email), ["meera@example.com"]);
+
+  // Super Admin resets her password (her sessions end) and can remove her
+  await new Promise((resolve) => setTimeout(resolve, 1100));
+  await asSuper("put", `/api/admin/admins/${created.body.data._id}`).send({ password: "Fresh@12345" });
+  assert.equal((await asMeera("get", "/api/admin/users")).status, 401);
+  assert.equal((await login("meera@example.com", "Fresh@12345")).status, 200);
+  assert.equal((await asSuper("delete", `/api/admin/admins/${created.body.data._id}`)).status, 200);
+  assert.equal((await login("meera@example.com", "Fresh@12345")).status, 401);
+});

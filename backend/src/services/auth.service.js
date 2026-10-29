@@ -32,9 +32,12 @@ class AuthService {
 
   // The user fields the frontend keeps in localStorage
   toSessionUser(user, adminLevel) {
+    // The shared Admin panel password signs in to the Super Admin's account;
+    // don't show that session under the Super Admin's own name
+    const sharedPanel = user.role === "admin" && adminLevel === "admin" && user.adminLevel !== "admin";
     return {
       id: user._id,
-      name: user.name,
+      name: sharedPanel ? "Admin" : user.name,
       email: user.email,
       phone: user.phone,
       role: user.role,
@@ -122,6 +125,16 @@ class AuthService {
         throw new Error("Invalid email or password");
       }
       adminLevel = "admin";
+    }
+    // An Admin with an account of their own always opens the limited panel
+    if (user.role === "admin" && user.adminLevel === "admin") adminLevel = "admin";
+
+    // Shop staff sign in only once the Super Admin has approved them
+    if (user.role === "staff" && user.approvalStatus === "PENDING") {
+      throw new Error("Your account is waiting for Super Admin approval. Ask your shop owner to follow up.");
+    }
+    if (user.role === "staff" && user.approvalStatus === "REJECTED") {
+      throw new Error(`Your account was not approved${user.approvalNote ? `: ${user.approvalNote}` : ""}. Contact your shop owner.`);
     }
 
     // With two-factor login on, the password only earns a short challenge

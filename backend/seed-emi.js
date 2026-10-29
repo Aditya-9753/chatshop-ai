@@ -57,7 +57,11 @@ async function run() {
 
   let tenant = await Tenant.findById(owner._id);
   if (!tenant) {
-    tenant = await Tenant.create({ _id: owner._id, name: "Bhopal Mobiles", legalName: "Bhopal Mobiles Pvt Ltd", gstin: "23ABCDE1234F1Z5", stateCode: "23", address: "MP Nagar, Bhopal 462011", phone: "+919000000001" });
+    tenant = await Tenant.create({ _id: owner._id, name: "Bhopal Mobiles", legalName: "Bhopal Mobiles Pvt Ltd", gstin: "23ABCDE1234F1Z5", stateCode: "23", address: "MP Nagar, Bhopal 462011", phone: "+919000000001", status: "ACTIVE" });
+  } else if (tenant.status === "PENDING") {
+    // The demo shop is approved for EMI & billing (real shops wait for the Super Admin)
+    tenant.status = "ACTIVE";
+    await tenant.save();
   }
   let store = await Store.findOne({ tenantId: owner._id, invoicePrefix: "BPL" });
   if (!store) {

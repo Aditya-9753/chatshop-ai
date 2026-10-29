@@ -8,6 +8,7 @@ const { unpaidOf, totalOf } = require("../domain/emi");
 const { AppError, audit, today } = require("../utils/helpers");
 const { phoneDigits } = require("./bridge.service");
 const settingsService = require("./settings.service");
+const team = require("./team.service");
 
 const ALL = { allTenants: true };
 const addDays = (date, days) => new Date(Date.parse(`${date}T00:00:00Z`) + days * 86400000).toISOString().slice(0, 10);
@@ -25,8 +26,10 @@ async function dashboard() {
   ]);
   const count = (s) => tenants.find((t) => t._id === s)?.count || 0;
   const active = book[0]?.count || 0;
+  const pendingStaff = await User.countDocuments({ role: "staff", approvalStatus: "PENDING" });
   return {
-    tenants: { active: count("ACTIVE"), suspended: count("SUSPENDED") },
+    tenants: { active: count("ACTIVE"), suspended: count("SUSPENDED"), pending: count("PENDING") },
+    pendingRequests: count("PENDING") + pendingStaff,
     stores,
     gmv30d: { gross: gmv[0]?.gross || 0, invoices: gmv[0]?.count || 0 },
     emiBook: { contracts: active, outstanding: book[0]?.outstanding || 0, overdueContracts: overdue, overduePct: active ? Math.round((overdue / active) * 1000) / 10 : 0 },
@@ -64,16 +67,95 @@ async function tenants() {
   });
 }
 
+// Approve (ACTIVE), reject, suspend or reactivate a shop's EMI & billing
 async function setTenantStatus(req, tenantId, { status, reason }) {
   const tenant = await Tenant.findById(tenantId);
   if (!tenant) throw new AppError(404, "Tenant nahi mila");
-  if (status === "SUSPENDED" && !reason) throw new AppError(422, "Suspend karne ka kaaran likho");
+  if (["SUSPENDED", "REJECTED"].includes(status) && !reason) throw new AppError(422, "Kaaran likho; ye shop ko dikhega");
   const before = { status: tenant.status };
   tenant.status = status;
-  tenant.suspendedReason = status === "SUSPENDED" ? reason : undefined;
+  tenant.suspendedReason = ["SUSPENDED", "REJECTED"].includes(status) ? reason : undefined;
+  tenant.decidedBy = req.user._id;
+  tenant.decidedAt = new Date();
   await tenant.save();
-  await audit(req, `tenant.${status.toLowerCase()}`, { tenantId: tenant._id, entity: "Tenant", entityId: tenant._id, before, after: { status }, reason });
+  const action = before.status === "PENDING" ? (status === "ACTIVE" ? "tenant.approve" : "tenant.reject") : `tenant.${status.toLowerCase()}`;
+  await audit(req, action, { tenantId: tenant._id, entity: "Tenant", entityId: tenant._id, before, after: { status }, reason });
   return tenant;
+}
+
+// ---- Staff accounts across shops ----
+
+// The request acting as the shop's owner, for the shop's own staff rules
+const asOwnerOf = (req, tenantId) => {
+  const ownerReq = Object.create(req);
+  ownerReq.emi = { tenantId, isOwner: true, roles: [{ role: "OWNER", storeId: null }], storeIds: null };
+  return ownerReq;
+};
+
+const STAFF_FIELDS = "name email phone tenantId emiRoles staffActive approvalStatus approvalNote createdAt";
+
+async function staffWithNames(rows) {
+  const storeIds = [...new Set(rows.flatMap((u) => (u.emiRoles || []).map((r) => r.storeId).filter(Boolean).map(String)))];
+  const [tenantRows, storeRows] = await Promise.all([
+    Tenant.find({ _id: { $in: [...new Set(rows.map((u) => String(u.tenantId)))] } }).select("name").lean(),
+    Store.find({ _id: { $in: storeIds } }).setOptions(ALL).select("name").lean(),
+  ]);
+  const tenantName = new Map(tenantRows.map((t) => [String(t._id), t.name]));
+  const storeName = new Map(storeRows.map((s) => [String(s._id), s.name]));
+  return rows.map((u) => ({
+    ...u,
+    tenantName: tenantName.get(String(u.tenantId)) || "—",
+    emiRoles: (u.emiRoles || []).map((r) => ({ ...r, storeName: r.storeId ? storeName.get(String(r.storeId)) || "Store" : "All stores" })),
+  }));
+}
+
+async function staff({ tenantId, status }) {
+  const filter = { role: "staff" };
+  if (isId(tenantId)) filter.tenantId = tenantId;
+  if (status) filter.approvalStatus = status;
+  return staffWithNames(await User.find(filter).select(STAFF_FIELDS).sort({ createdAt: -1 }).limit(500).lean());
+}
+
+// Everything waiting for the Super Admin: shops and staff
+async function requests() {
+  const [pendingShops, pendingStaff] = await Promise.all([
+    Tenant.find({ status: "PENDING" }).sort({ createdAt: 1 }).lean(),
+    User.find({ role: "staff", approvalStatus: "PENDING" }).select(STAFF_FIELDS).sort({ createdAt: 1 }).lean(),
+  ]);
+  const owners = await User.find({ _id: { $in: pendingShops.map((t) => t._id) } }).select("name email phone").lean();
+  const ownerOf = new Map(owners.map((o) => [String(o._id), o]));
+  return {
+    shops: pendingShops.map((t) => ({ ...t, owner: ownerOf.get(String(t._id)) || null })),
+    staff: await staffWithNames(pendingStaff),
+  };
+}
+
+async function decideStaff(req, id, { decision, note }) {
+  if (!isId(id)) throw new AppError(400, "ID galat hai");
+  const user = await User.findOne({ _id: id, role: "staff" });
+  if (!user) throw new AppError(404, "Staff nahi mila");
+  if (decision === "REJECTED" && !note) throw new AppError(422, "Reject karne ka kaaran likho");
+  const before = { approvalStatus: user.approvalStatus };
+  user.approvalStatus = decision;
+  user.approvalNote = note;
+  if (decision === "REJECTED") user.passwordChangedAt = new Date(); // ends any session
+  await user.save();
+  await audit(req, `staff.${decision === "APPROVED" ? "approve" : "reject"}`, { tenantId: user.tenantId, entity: "User", entityId: user._id, before, after: { approvalStatus: decision, email: user.email }, reason: note });
+  const [named] = await staffWithNames([user.toObject()]);
+  return named;
+}
+
+// The Super Admin adds staff to a shop directly: approved from the start
+async function createStaffFor(req, { tenantId, ...body }) {
+  if (!isId(tenantId) || !(await Tenant.exists({ _id: tenantId }))) throw new AppError(404, "Shop nahi mili");
+  return team.createStaff(asOwnerOf(req, tenantId), body, { approved: true });
+}
+
+async function updateStaffFor(req, id, body) {
+  if (!isId(id)) throw new AppError(400, "ID galat hai");
+  const user = await User.findOne({ _id: id, role: "staff" }).select("tenantId");
+  if (!user) throw new AppError(404, "Staff nahi mila");
+  return team.updateStaff(asOwnerOf(req, user.tenantId), id, body);
 }
 
 async function getSettings() {
@@ -251,4 +333,9 @@ module.exports = {
   contractDetail,
   nbfcCases,
   payments,
+  staff,
+  requests,
+  decideStaff,
+  createStaffFor,
+  updateStaffFor,
 };
