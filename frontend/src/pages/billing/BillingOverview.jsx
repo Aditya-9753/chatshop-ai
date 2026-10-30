@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, ArrowRight, CalendarClock, CheckSquare, IndianRupee, Landmark, Plus, Receipt, Wallet } from "lucide-react";
+import { AlertTriangle, ArrowRight, CalendarClock, CheckSquare, IndianRupee, Plus, Receipt, Wallet } from "lucide-react";
 import { Button, Card, CardBody, CardHeader, ErrorState, PageHeader, Skeleton, StatCard } from "../../components/ui";
 import { ChartCard } from "../../components/charts/Charts";
 import { BillingGate, BucketBadge, useLoad } from "../../features/billing/components";
@@ -36,7 +36,6 @@ function Overview() {
     ? [
         d.overdue.count > 0 && { icon: AlertTriangle, tone: "bg-danger-soft text-danger-fg", title: `${d.overdue.count} overdue installment${d.overdue.count === 1 ? "" : "s"}`, detail: `${inr(d.overdue.amount)} to collect`, to: `${B}/emi?view=overdue` },
         d.pendingApprovals > 0 && { icon: CheckSquare, tone: "bg-warning-soft text-warning-fg", title: `${d.pendingApprovals} approval${d.pendingApprovals === 1 ? "" : "s"} waiting`, detail: "High EMI, waivers, foreclosures, cancellations", to: `${B}/approvals` },
-        d.nbfcPending.count > 0 && { icon: Landmark, tone: "bg-accent-soft text-accent-soft-fg", title: `${d.nbfcPending.count} NBFC payout${d.nbfcPending.count === 1 ? "" : "s"} pending`, detail: `${inr(d.nbfcPending.payout)} expected`, to: `${B}/nbfc` },
       ].filter(Boolean)
     : [];
 

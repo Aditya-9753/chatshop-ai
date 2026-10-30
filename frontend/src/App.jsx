@@ -32,11 +32,9 @@ const Invoices = lazy(() => import("./pages/billing/Invoices"));
 const InvoiceDetail = lazy(() => import("./pages/billing/InvoiceDetail"));
 const EmiList = lazy(() => import("./pages/billing/EmiList"));
 const EmiDetail = lazy(() => import("./pages/billing/EmiDetail"));
-const BillingCustomers = lazy(() => import("./pages/billing/BillingCustomers"));
 const Stock = lazy(() => import("./pages/billing/Stock"));
 const Approvals = lazy(() => import("./pages/billing/Approvals"));
 const Payments = lazy(() => import("./pages/billing/Payments"));
-const NbfcCases = lazy(() => import("./pages/billing/NbfcCases"));
 const Accounts = lazy(() => import("./pages/billing/Accounts"));
 const BillingSettings = lazy(() => import("./pages/billing/BillingSettings"));
 
@@ -102,13 +100,13 @@ function App() {
                           <Route path="invoices/:id" element={<InvoiceDetail />} />
                           <Route path="emi" element={<EmiList />} />
                           <Route path="emi/:id" element={<EmiDetail />} />
-                          <Route path="customers" element={<BillingCustomers />} />
                           <Route path="stock" element={<Stock />} />
                           <Route path="approvals" element={<Approvals />} />
                           <Route path="payments" element={<Payments />} />
-                          <Route path="nbfc" element={<NbfcCases />} />
                           <Route path="accounts" element={<Accounts />} />
                           <Route path="settings" element={<BillingSettings />} />
+                          {/* Old or mistyped billing links (e.g. the removed NBFC and KYC pages) */}
+                          <Route path="*" element={<Navigate to="/dashboard/billing/start" replace />} />
                         </Route>
                       </Route>
                     </Route>

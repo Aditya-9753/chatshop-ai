@@ -151,7 +151,7 @@ function CustomerStep({ customer, setCustomer }) {
           </div>
           {customer.kycStatus !== "VERIFIED" && (
             <div className="mt-4 rounded-lg border border-line bg-surface-2 p-3">
-              <p className="text-caption text-fg-muted">EMI, NBFC finance and sales above ₹2,00,000 need a verified KYC.</p>
+              <p className="text-caption text-fg-muted">EMI and sales above ₹2,00,000 need a verified KYC.</p>
               {can("customer.kyc") && (
                 <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-end">
                   <Input label="PAN" placeholder="ABCDE1234F" value={pan} onChange={(e) => setPan(e.target.value.toUpperCase())} maxLength={10} className="sm:w-48" />
@@ -362,7 +362,7 @@ function ItemsStep({ store, stock, lines, setLines, canDiscount }) {
 
 // ---------- Step 3: payment & finance ----------
 
-function PaymentStep({ total, rules, finance, setFinance, payments, setPayments, emi, setEmi, nbfc, setNbfc, partners, paid }) {
+function PaymentStep({ total, rules, finance, setFinance, payments, setPayments, emi, setEmi, paid }) {
   const financed = finance === "NONE" ? 0 : Math.max(0, total - paid);
   const [schedule, setSchedule] = useState({ data: null, error: null, loading: false });
 
@@ -400,7 +400,6 @@ function PaymentStep({ total, rules, finance, setFinance, payments, setPayments,
             tabs={[
               { value: "NONE", label: "Full payment" },
               { value: "SHOP_EMI", label: "Shop EMI" },
-              { value: "NBFC", label: "NBFC finance" },
             ]}
           />
 
@@ -500,21 +499,6 @@ function PaymentStep({ total, rules, finance, setFinance, payments, setPayments,
           </CardBody>
         </Card>
       )}
-
-      {finance === "NBFC" && (
-        <Card>
-          <CardHeader title="NBFC finance" description={`Loan: ${inr(financed)}. The NBFC pays the shop after its subvention.`} />
-          <CardBody className="grid gap-3 sm:grid-cols-2">
-            <Select
-              label="NBFC partner"
-              value={nbfc.partnerId}
-              onChange={(e) => setNbfc({ ...nbfc, partnerId: e.target.value })}
-              options={[{ value: "", label: partners.length ? "Choose partner" : "No partner set up" }, ...partners.map((p) => ({ value: p._id, label: `${p.name} · ${p.subventionPct}% subvention` }))]}
-            />
-            <Input label="Loan tenure (months)" inputMode="numeric" value={nbfc.tenureMonths} onChange={(e) => setNbfc({ ...nbfc, tenureMonths: e.target.value.replace(/\D/g, "") })} />
-          </CardBody>
-        </Card>
-      )}
     </div>
   );
 }
@@ -599,11 +583,6 @@ function Review({ preview, customer }) {
             Total interest {inr(preview.emi.totalInterest)}. {preview.needsApproval ? "This EMI is above the approval limit: a Store Admin must approve it before it starts." : "Starts right away."}
           </Alert>
         )}
-        {preview.nbfc && (
-          <Alert tone="info" title={`NBFC pays ${inr(preview.nbfc.expectedPayout)}`}>
-            Subvention {inr(preview.nbfc.subvention)} + GST {inr(preview.nbfc.subventionGst)} on a loan of {inr(preview.nbfc.loanAmount)}.
-          </Alert>
-        )}
         {preview.payments.some((p) => p.mdr.mdr > 0) && (
           <p className="text-xs text-fg-muted">
             Card fees: {preview.payments.filter((p) => p.mdr.mdr > 0).map((p) => `${inr(p.mdr.mdr)} + GST ${inr(p.mdr.gstOnMdr)}`).join(", ")}. Booked when the money settles.
@@ -656,7 +635,6 @@ function Sale() {
   const [finance, setFinance] = useState("NONE");
   const [payments, setPayments] = useState([]);
   const [emi, setEmi] = useState({ tenureMonths: "", annualRatePct: "" });
-  const [nbfc, setNbfc] = useState({ partnerId: "", tenureMonths: "12" });
   const [preview, setPreview] = useState(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
@@ -665,7 +643,6 @@ function Sale() {
 
   const stock = useLoad(() => emiApi.get(`/stores/${store._id}/stock`), [store._id]);
   const rules = useLoad(() => emiApi.get(`/stores/${store._id}/sale-rules`), [store._id]);
-  const partners = useLoad(() => emiApi.get("/nbfc-partners"), []);
 
   const total = lines.reduce((s, l) => s + l.price * l.qty, 0);
   const paid = payments.reduce((s, p) => s + toPaise(p.amount), 0);
@@ -680,11 +657,9 @@ function Sale() {
       finance:
         finance === "SHOP_EMI"
           ? { type: "SHOP_EMI", principal: financed, tenureMonths: Number(emi.tenureMonths) || undefined, annualRatePct: emi.annualRatePct === "" ? undefined : Number(emi.annualRatePct) }
-          : finance === "NBFC"
-            ? { type: "NBFC", partnerId: nbfc.partnerId || undefined, loanAmount: financed, tenureMonths: Number(nbfc.tenureMonths) || undefined }
-            : { type: "NONE" },
+          : { type: "NONE" },
     }),
-    [customer, lines, payments, finance, financed, emi, nbfc]
+    [customer, lines, payments, finance, financed, emi]
   );
 
   // Any change after review is a different sale: a new idempotency key
@@ -752,11 +727,11 @@ function Sale() {
   const canNext =
     (step === 1 && customer) ||
     (step === 2 && lines.length > 0) ||
-    (step === 3 && balance === 0 && (finance !== "SHOP_EMI" || (emi.tenureMonths && financed > 0)) && (finance !== "NBFC" || (nbfc.partnerId && financed > 0)));
+    (step === 3 && balance === 0 && (finance !== "SHOP_EMI" || (emi.tenureMonths && financed > 0)));
 
   return (
     <>
-      <PageHeader title="New sale" description="GST invoice with full payment, Shop EMI or NBFC finance" actions={<StoreSwitcher />} />
+      <PageHeader title="New sale" description="GST invoice with full payment or Shop EMI" actions={<StoreSwitcher />} />
       <Steps step={step} />
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -773,9 +748,6 @@ function Sale() {
               setPayments={setPayments}
               emi={emi}
               setEmi={setEmi}
-              nbfc={nbfc}
-              setNbfc={setNbfc}
-              partners={partners.data || []}
               paid={paid}
             />
           )}
@@ -806,7 +778,7 @@ function Sale() {
                 </div>
                 {finance !== "NONE" && (
                   <div className="flex justify-between">
-                    <dt className="text-fg-muted">{finance === "NBFC" ? "NBFC loan" : "Shop EMI"}</dt>
+                    <dt className="text-fg-muted">Shop EMI</dt>
                     <dd className="tabular-nums">{inr(financed)}</dd>
                   </div>
                 )}

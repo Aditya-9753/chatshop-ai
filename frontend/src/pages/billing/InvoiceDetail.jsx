@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Ban, CalendarClock, Landmark, Printer } from "lucide-react";
+import { ArrowLeft, Ban, CalendarClock, Printer } from "lucide-react";
 import { Alert, Button, Card, CardBody, CardHeader, DetailRow, ErrorState, Modal, PageHeader, PageLoader, Textarea } from "../../components/ui";
 import { useToast } from "../../components/Toast";
 import { formatDateTime } from "../../utils/format";
@@ -214,7 +214,7 @@ function Detail() {
 
           {nbfcCase && (
             <Card>
-              <CardHeader title="NBFC finance" action={<Button as={Link} size="sm" variant="secondary" icon={Landmark} to={`${B}/nbfc`}>Cases</Button>} />
+              <CardHeader title="NBFC finance" />
               <CardBody>
                 <dl className="divide-y divide-line">
                   <DetailRow label="Partner">{nbfcCase.partnerName}</DetailRow>

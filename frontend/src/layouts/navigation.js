@@ -1,10 +1,8 @@
 import {
   BarChart3,
-  BadgeCheck,
   Boxes,
   CheckSquare,
   FileText,
-  Landmark,
   LayoutDashboard,
   MessageSquare,
   Package,
@@ -48,7 +46,7 @@ export const NAV_GROUPS = [
   },
 ];
 
-// EMI & billing: counter sales, GST invoices, Shop EMI, NBFC and accounts.
+// EMI & billing: counter sales, GST invoices, Shop EMI and accounts.
 // `perm` hides an item from roles that cannot use it.
 export const BILLING_BASE = "/dashboard/billing";
 export const BILLING_ITEMS = [
@@ -56,11 +54,9 @@ export const BILLING_ITEMS = [
   { name: "New sale", short: "Sale", href: `${BILLING_BASE}/sale`, icon: ShoppingCart, perm: "invoice.create" },
   { name: "Invoices", href: `${BILLING_BASE}/invoices`, icon: FileText, perm: "invoice.read" },
   { name: "EMI collections", short: "EMI", href: `${BILLING_BASE}/emi`, icon: CalendarClock, perm: "emi.read" },
-  { name: "Customer KYC", short: "KYC", href: `${BILLING_BASE}/customers`, icon: BadgeCheck, perm: "customer.read" },
-  { name: "Stock & IMEI", href: `${BILLING_BASE}/stock`, icon: Boxes, perm: "product.read" },
+  { name: "Stock & IMEI", short: "Stock", href: `${BILLING_BASE}/stock`, icon: Boxes, perm: "product.read" },
   { name: "Approvals", href: `${BILLING_BASE}/approvals`, icon: CheckSquare, perm: "approval.read" },
   { name: "Payments", href: `${BILLING_BASE}/payments`, icon: Wallet, perm: "payment.read" },
-  { name: "NBFC cases", href: `${BILLING_BASE}/nbfc`, icon: Landmark, perm: "nbfc.read" },
   { name: "Accounts & GST", href: `${BILLING_BASE}/accounts`, icon: ScrollText, perm: "ledger.read" },
   { name: "Billing settings", href: `${BILLING_BASE}/settings`, icon: SlidersHorizontal, perm: "settings.read" },
 ];
@@ -73,6 +69,6 @@ export const NAV_ITEMS = NAV_GROUPS.flatMap((group) => group.items);
 export const TAB_BAR_ITEMS = ["Overview", "Messages", "Orders", "Customers"].map((name) =>
   NAV_ITEMS.find((item) => item.name === name)
 );
-export const STAFF_TAB_BAR_ITEMS = ["New sale", "Invoices", "EMI collections", "Customer KYC"].map((name) =>
+export const STAFF_TAB_BAR_ITEMS = ["New sale", "Invoices", "EMI collections", "Stock & IMEI"].map((name) =>
   BILLING_ITEMS.find((item) => item.name === name)
 );
