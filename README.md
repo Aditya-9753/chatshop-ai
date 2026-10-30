@@ -319,14 +319,15 @@ Demo product photos: `npm run seed:images` in `backend` (credits in `backend/see
 
 ## 🧾 EMI & Billing
 
-Counter sales for phone shops: GST tax invoices, Shop EMI, NBFC finance, collections and double-entry accounts. It lives inside ChatShop (sidebar → **EMI & Billing**, API under `/api/emi`):
+Counter sales for phone shops: GST tax invoices, Shop EMI, collections and double-entry accounts. It lives inside ChatShop (sidebar → **EMI & Billing**, API under `/api/emi`):
 
 - The shop owner is the tenant. Customers and products are ChatShop's own, with KYC (PAN, documents, risk grade) and GST fields (HSN, rate, sold by IMEI) added.
 - Every sale is also a ChatShop order (`platform: "store"`), so Orders, Dashboard, Analytics and customer totals include it.
 - A walk-in customer's mobile is their WhatsApp contact: when they message the shop it lands on the same customer, and EMI reminders go out from the shop's WhatsApp and show in the inbox.
-- Staff (Store Admin, Cashier, Accountant, Collection agent) get their own logins from Billing settings → Staff and only ever see EMI & billing. Maker-checker approvals cover high EMIs, late fee waivers, foreclosures and invoice cancellations.
+- Staff (Store Admin, Cashier, Accountant, Collection agent) get their own logins from EMI & Billing → **Staff** and only ever see EMI & billing. Maker-checker approvals cover high EMIs, late fee waivers, foreclosures and invoice cancellations.
 - **The Super Admin approves who uses it.** A shop's EMI & billing opens only after the Super Admin approves it (the request is made the first time the owner opens it; until then the owner sees "Waiting for Super Admin approval"). Staff a shop adds can sign in only after the Super Admin approves them; a rejection shows its reason. Staff the Super Admin adds (EMI & Billing → Staff → Add staff to a shop) are approved straight away. Everything waiting is in EMI & Billing → **Requests**.
-- Admin panel → **EMI & Billing**, in both the Super Admin and the limited Admin panel: overview, requests, shops, staff of every shop, every shop's invoices (with the GST invoice), EMI contracts (schedule and receipts), NBFC cases and payments with a shop filter, multi-store borrower risk, platform rules and NBFC partners. Only the Super Admin can change anything (approve, reject, suspend or reactivate a shop; approve, add or switch off staff; platform rules, NBFC partners) and sees the audit log and the overdue/reminder jobs; the limited Admin panel is view only.
+- Admin panel → **EMI & Billing**, in both the Super Admin and the limited Admin panel: overview, requests, shops, staff of every shop, every shop's invoices (with the GST invoice), EMI contracts (schedule and receipts) and payments with a shop filter, multi-store borrower risk and platform rules. Only the Super Admin can change anything (approve, reject, suspend or reactivate a shop; approve, add or switch off staff; platform rules) and sees the audit log and the overdue/reminder jobs; the limited Admin panel is view only.
+- NBFC finance and the Customer KYC page are not in the shop or admin panels (KYC is verified in New sale). The NBFC code is still in the server and its tests, and older NBFC invoices keep showing their NBFC status.
 
 Code: `backend/src/emi/` (`domain/` pure money maths in integer paise, `models/`, `services/`, `routes/`), screens in `frontend/src/pages/billing/`. Rules that keep the money right: amounts are integer paise; every money write runs in one transaction; checkout and EMI payments need an `Idempotency-Key`; journals are insert-only (mistakes are reversed); every query carries `tenantId`; prices come from the catalog, never the client.
 

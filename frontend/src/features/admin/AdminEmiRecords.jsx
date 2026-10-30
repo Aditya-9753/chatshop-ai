@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { CalendarClock, FileText, Landmark, Printer, Wallet } from "lucide-react";
+import { CalendarClock, FileText, Printer, Wallet } from "lucide-react";
 import { Button, DataTable, DetailRow, Drawer, SectionLabel, Select, Skeleton, Tabs } from "../../components/ui";
 import { formatDateTime } from "../../utils/format";
 import { BucketBadge, FINANCE_LABELS, METHOD_LABELS, Money, StateBadge, useLoad } from "../billing/components";
@@ -253,23 +253,6 @@ export function Contracts() {
       />
       <ContractDrawer id={openId} onClose={() => setOpenId(null)} />
     </>
-  );
-}
-
-export function NbfcCases() {
-  const [shop, setShop] = useState("");
-  const { data, loading, error, reload } = useLoad(() => emiApi.get(S("/nbfc"), { tenantId: shop || undefined }), [shop]);
-  const columns = [
-    { key: "partnerName", header: "NBFC", cell: (r) => <span className="font-medium text-fg">{r.partnerName}</span> },
-    { key: "tenantName", header: "Shop / store", cell: shopCell },
-    { key: "customer", header: "Customer", hideBelow: "sm", sortValue: (r) => r.customer?.name, cell: (r) => r.customer?.name },
-    { key: "loanAmount", header: "Loan", align: "right", cell: (r) => <Money value={r.loanAmount} whole /> },
-    { key: "expectedPayout", header: "Payout", align: "right", hideBelow: "md", cell: (r) => <Money value={r.receivedAmount || r.expectedPayout} whole /> },
-    { key: "doNumber", header: "DO", hideBelow: "lg", cell: (r) => r.doNumber || "—" },
-    { key: "status", header: "Status", cell: (r) => <StateBadge status={r.status} /> },
-  ];
-  return (
-    <DataTable columns={columns} rows={data || []} loading={loading && !data} error={error?.message} onRetry={reload} searchable searchText={(r) => [r.partnerName, r.tenantName, r.customer?.name, r.doNumber].join(" ")} toolbar={<ShopFilter value={shop} onChange={setShop} />} empty={{ icon: Landmark, title: "No NBFC cases" }} pageSize={15} />
   );
 }
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { AlertTriangle, Building2, Landmark, Pencil, Play, Plus, Send, ShieldAlert } from "lucide-react";
+import { AlertTriangle, Building2, Play, Send, ShieldAlert } from "lucide-react";
 import {
   Alert,
   Badge,
@@ -15,13 +15,12 @@ import {
   Select,
   Skeleton,
   StatCard,
-  Switch,
   Tabs,
   Textarea,
 } from "../../components/ui";
 import { useToast } from "../../components/Toast";
 import { useAuth } from "../../context/AuthContext";
-import { Invoices, Contracts, NbfcCases, Payments } from "./AdminEmiRecords";
+import { Invoices, Contracts, Payments } from "./AdminEmiRecords";
 import { Requests, Staff } from "./AdminEmiAccess";
 import { formatDateTime } from "../../utils/format";
 import { ErrorList, StateBadge, useLoad } from "../billing/components";
@@ -44,7 +43,7 @@ function Overview() {
       <StatCard label="Shops using billing" loading={loading} value={d ? d.tenants.active : "—"} deltaNote={d && `${d.tenants.suspended} suspended · ${d.stores} store${d.stores === 1 ? "" : "s"}`} />
       <StatCard label="Billed, last 30 days" loading={loading} value={d ? inr(d.gmv30d.gross, { whole: true }) : "—"} deltaNote={d && `${d.gmv30d.invoices} invoices`} />
       <StatCard label="EMI book outstanding" loading={loading} value={d ? inr(d.emiBook.outstanding, { whole: true }) : "—"} deltaNote={d && `${d.emiBook.contracts} contracts · ${d.emiBook.overduePct}% overdue`} />
-      <StatCard label="NBFC payouts pending" loading={loading} value={d ? inr(d.nbfcPending.payout, { whole: true }) : "—"} deltaNote={d && `${d.nbfcPending.count} cases · ${d.failedReminders} failed reminders`} />
+      <StatCard label="Overdue EMI contracts" loading={loading} value={d ? d.emiBook.overdueContracts : "—"} deltaNote={d && `${d.failedReminders} failed reminder${d.failedReminders === 1 ? "" : "s"}`} />
     </div>
     </>
   );
@@ -224,63 +223,6 @@ function PlatformRules() {
   );
 }
 
-function PartnerModal({ partner, onClose, onDone }) {
-  const toast = useToast();
-  const [form, setForm] = useState({ name: partner?.name || "", subventionPct: String(partner?.subventionPct ?? ""), settlementDays: String(partner?.settlementDays ?? 7), contact: partner?.contact || "", active: partner?.active !== false });
-  const [error, setError] = useState(null);
-  const submit = async () => {
-    setError(null);
-    const body = { name: form.name, subventionPct: Number(form.subventionPct), settlementDays: Number(form.settlementDays), contact: form.contact || undefined, active: form.active };
-    try {
-      if (partner) await emiApi.put(S(`/nbfc-partners/${partner._id}`), body);
-      else await emiApi.post(S("/nbfc-partners"), body);
-      toast.success("NBFC partner saved");
-      onClose();
-      onDone();
-    } catch (e) {
-      setError(e);
-    }
-  };
-  return (
-    <Modal open onOpenChange={(open) => !open && onClose()} title={partner ? `Edit ${partner.name}` : "Add NBFC partner"} footer={<Button onClick={submit}>Save</Button>}>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Input label="Name" required className="sm:col-span-2" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-        <Input label="Subvention %" value={form.subventionPct} onChange={(e) => setForm({ ...form, subventionPct: e.target.value })} hint="Kept by the NBFC from the loan, plus 18% GST" />
-        <Input label="Payout in (days)" value={form.settlementDays} onChange={(e) => setForm({ ...form, settlementDays: e.target.value })} />
-        <Input label="Contact" className="sm:col-span-2" value={form.contact} onChange={(e) => setForm({ ...form, contact: e.target.value })} />
-        <Switch checked={form.active} onCheckedChange={(v) => setForm({ ...form, active: v })} label="Shops can use this partner" />
-        {error && <ErrorList error={error} className="sm:col-span-2" />}
-      </div>
-    </Modal>
-  );
-}
-
-function Partners() {
-  const { isSuperAdmin } = useAuth();
-  const { data, loading, error, reload } = useLoad(() => emiApi.get(S("/nbfc-partners")), []);
-  const [editing, setEditing] = useState(null);
-  const columns = [
-    { key: "name", header: "Partner", cell: (r) => <span className="font-medium text-fg">{r.name}</span> },
-    { key: "subventionPct", header: "Subvention", align: "right", cell: (r) => `${r.subventionPct}%` },
-    { key: "settlementDays", header: "Payout days", align: "right", hideBelow: "sm" },
-    { key: "active", header: "Status", cell: (r) => <Badge tone={r.active ? "success" : "neutral"} dot>{r.active ? "Active" : "Off"}</Badge> },
-    { key: "edit", header: "", sortable: false, cell: (r) => <Button size="icon-sm" variant="ghost" icon={Pencil} aria-label={`Edit ${r.name}`} onClick={() => setEditing(r)} /> },
-  ].filter((c) => isSuperAdmin || c.key !== "edit");
-  return (
-    <>
-      {isSuperAdmin && (
-        <div className="mb-3 flex justify-end">
-          <Button icon={Plus} onClick={() => setEditing("new")}>
-            Add partner
-          </Button>
-        </div>
-      )}
-      <DataTable columns={columns} rows={data || []} loading={loading && !data} error={error?.message} onRetry={reload} empty={{ icon: Landmark, title: "No NBFC partners", description: "Shops can sell on NBFC finance once a partner is added." }} />
-      {editing && <PartnerModal partner={editing === "new" ? null : editing} onClose={() => setEditing(null)} onDone={reload} />}
-    </>
-  );
-}
-
 function Risk() {
   const { data, loading, error, reload } = useLoad(() => emiApi.get(S("/risk/multi-store-customers")), []);
   if (error) return <ErrorState description={error.message} onRetry={reload} />;
@@ -383,11 +325,9 @@ const TABS = [
   { value: "staff", label: "Staff", component: Staff },
   { value: "invoices", label: "Invoices", component: Invoices },
   { value: "contracts", label: "EMI contracts", component: Contracts },
-  { value: "nbfc", label: "NBFC cases", component: NbfcCases },
   { value: "payments", label: "Payments", component: Payments },
   { value: "risk", label: "Risk", component: Risk },
   { value: "rules", label: "Platform rules", component: PlatformRules },
-  { value: "partners", label: "NBFC partners", component: Partners },
   { value: "audit", label: "Audit", component: Audit, superOnly: true },
   { value: "jobs", label: "Jobs", component: Jobs, superOnly: true },
 ];
@@ -399,7 +339,7 @@ export default function AdminEmi() {
   const Current = (tabs.find((t) => t.value === tab) || tabs[0]).component;
   return (
     <>
-      <PageHeader title="EMI & Billing" description={`Counter sales, Shop EMI and NBFC finance across every shop${isSuperAdmin ? "" : " (view only)"}`} />
+      <PageHeader title="EMI & Billing" description={`Counter sales and Shop EMI across every shop${isSuperAdmin ? "" : " (view only)"}`} />
       <Tabs className="mb-5" tabs={tabs} value={tab} onChange={setTab} label="EMI sections" />
       <Current />
     </>
