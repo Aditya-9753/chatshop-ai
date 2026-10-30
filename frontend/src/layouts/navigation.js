@@ -58,6 +58,7 @@ export const BILLING_ITEMS = [
   { name: "Approvals", href: `${BILLING_BASE}/approvals`, icon: CheckSquare, perm: "approval.read" },
   { name: "Payments", href: `${BILLING_BASE}/payments`, icon: Wallet, perm: "payment.read" },
   { name: "Accounts & GST", href: `${BILLING_BASE}/accounts`, icon: ScrollText, perm: "ledger.read" },
+  { name: "Staff", href: `${BILLING_BASE}/staff`, icon: Users, perm: "user.read" },
   { name: "Billing settings", href: `${BILLING_BASE}/settings`, icon: SlidersHorizontal, perm: "settings.read" },
 ];
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Bell, KeyRound, Pencil, Plus, Store as StoreIcon, UserPlus, Users } from "lucide-react";
+import { Bell, KeyRound, Pencil, Plus, Store as StoreIcon } from "lucide-react";
 import {
   Alert,
   Badge,
@@ -26,14 +26,6 @@ import { formatDateTime } from "../../utils/format";
 import { useBilling } from "../../features/billing/BillingContext";
 import { BillingGate, ErrorList, StateBadge, useLoad } from "../../features/billing/components";
 import { emiApi, fromPaise, inr, toPaise } from "../../features/billing/api";
-
-const ROLE_OPTIONS = [
-  { value: "STORE_ADMIN", label: "Store Admin" },
-  { value: "CASHIER", label: "Cashier" },
-  { value: "ACCOUNTANT", label: "Accountant" },
-  { value: "AGENT", label: "Collection agent" },
-];
-const roleLabel = (r) => ROLE_OPTIONS.find((o) => o.value === r)?.label || r;
 
 function useSaver() {
   const toast = useToast();
@@ -136,123 +128,6 @@ function StoresTab() {
       </ul>
       {editing && <StoreModal store={editing === "new" ? null : editing} onClose={() => setEditing(null)} onDone={reload} />}
     </Card>
-  );
-}
-
-// ---------- Staff ----------
-
-function StaffModal({ member, onClose, onDone }) {
-  const { allStores, isOwner } = useBilling();
-  const [form, setForm] = useState({
-    name: member?.name || "",
-    email: member?.email || "",
-    phone: member?.phone || "",
-    password: "",
-    roles: member?.emiRoles?.length ? member.emiRoles.map((r) => ({ role: r.role, storeId: r.storeId || "" })) : [{ role: "CASHIER", storeId: allStores[0]?._id || "" }],
-  });
-  const saver = useSaver();
-  const roles = form.roles.map((r) => ({ role: r.role, storeId: r.storeId || null }));
-  const submit = async () => {
-    const res = await saver.run(
-      () =>
-        member
-          ? emiApi.patch(`/users/${member._id}`, { name: form.name, phone: form.phone || undefined, roles, ...(form.password ? { password: form.password } : {}) })
-          : emiApi.post("/users", { ...form, phone: form.phone || undefined, roles }),
-      member ? "Staff updated" : "Staff added. They can sign in once the Super Admin approves them."
-    );
-    if (res) {
-      onClose();
-      onDone();
-    }
-  };
-  const storeOptions = [...(isOwner ? [{ value: "", label: "All stores" }] : []), ...allStores.map((s) => ({ value: s._id, label: s.name }))];
-  return (
-    <Modal open onOpenChange={(open) => !open && onClose()} title={member ? `Edit ${member.name}` : "Add staff"} description={member ? "Staff sign in at the normal login page and only see EMI & billing." : "The Super Admin approves new staff; after that they sign in at the normal login page and only see EMI & billing."} footer={<Button loading={saver.saving} onClick={submit}>{member ? "Save" : "Add staff"}</Button>}>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Input label="Name" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-        <Input label="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-        <Input label="Email (login)" required type="email" disabled={Boolean(member)} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-        <Input label={member ? "New password (optional)" : "Password"} required={!member} type="password" hint="At least 8 characters" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
-        <div className="sm:col-span-2">
-          <p className="mb-1.5 text-caption font-medium text-fg">Roles</p>
-          {form.roles.map((r, i) => (
-            <div key={i} className="mb-2 grid grid-cols-[1fr_1fr_auto] gap-2">
-              <Select aria-label="Role" value={r.role} onChange={(e) => setForm({ ...form, roles: form.roles.map((x, j) => (j === i ? { ...x, role: e.target.value } : x)) })} options={ROLE_OPTIONS.filter((o) => isOwner || o.value !== "STORE_ADMIN")} />
-              <Select aria-label="Store" value={r.storeId} onChange={(e) => setForm({ ...form, roles: form.roles.map((x, j) => (j === i ? { ...x, storeId: e.target.value } : x)) })} options={storeOptions} />
-              <Button size="icon" variant="ghost" aria-label="Remove role" disabled={form.roles.length === 1} onClick={() => setForm({ ...form, roles: form.roles.filter((_, j) => j !== i) })}>
-                ×
-              </Button>
-            </div>
-          ))}
-          <Button size="sm" variant="ghost" icon={Plus} onClick={() => setForm({ ...form, roles: [...form.roles, { role: "CASHIER", storeId: allStores[0]?._id || "" }] })}>
-            Add role
-          </Button>
-        </div>
-        {saver.error && <ErrorList error={saver.error} className="sm:col-span-2" />}
-      </div>
-    </Modal>
-  );
-}
-
-function StaffTab() {
-  const { can, allStores } = useBilling();
-  const toast = useToast();
-  const { data, loading, error, reload } = useLoad(() => emiApi.get("/users"), []);
-  const [editing, setEditing] = useState(null);
-  const storeName = (id) => (id ? allStores.find((s) => s._id === id)?.name || "Store" : "All stores");
-
-  const toggle = async (m) => {
-    try {
-      await emiApi.patch(`/users/${m._id}`, { staffActive: !m.staffActive });
-      toast.success(m.staffActive ? `${m.name} switched off and signed out` : `${m.name} can sign in again`);
-      reload();
-    } catch (e) {
-      toast.error(e.message);
-    }
-  };
-
-  const columns = [
-    { key: "name", header: "Name", cell: (r) => (
-      <span>
-        <span className="block font-medium text-fg">{r.name}</span>
-        <span className="block text-xs text-fg-muted">{r.email}</span>
-      </span>
-    ) },
-    { key: "roles", header: "Roles", sortable: false, cell: (r) => (
-      <span className="flex flex-wrap gap-1">
-        {r.emiRoles.map((role, i) => (
-          <Badge key={i} tone="neutral">
-            {roleLabel(role.role)} · {storeName(role.storeId)}
-          </Badge>
-        ))}
-      </span>
-    ) },
-    {
-      key: "approvalStatus",
-      header: "Approval",
-      cell: (r) => (
-        <span>
-          <StateBadge status={r.approvalStatus || "APPROVED"} label={{ PENDING: "Waiting for Super Admin", APPROVED: "Approved", REJECTED: "Not approved" }[r.approvalStatus || "APPROVED"]} />
-          {r.approvalStatus === "REJECTED" && r.approvalNote && <span className="mt-0.5 block text-xs text-fg-muted">{r.approvalNote}</span>}
-        </span>
-      ),
-    },
-    { key: "staffActive", header: "Sign-in", cell: (r) => (can("user.manage") ? <Switch checked={r.staffActive} onCheckedChange={() => toggle(r)} label={r.staffActive ? "On" : "Off"} /> : r.staffActive ? "On" : "Off") },
-    { key: "edit", header: "", sortable: false, cell: (r) => can("user.manage") && <Button size="icon-sm" variant="ghost" icon={Pencil} aria-label={`Edit ${r.name}`} onClick={() => setEditing(r)} /> },
-  ];
-
-  return (
-    <>
-      <div className="mb-3 flex justify-end">
-        {can("user.manage") && (
-          <Button icon={UserPlus} onClick={() => setEditing("new")}>
-            Add staff
-          </Button>
-        )}
-      </div>
-      <DataTable columns={columns} rows={data || []} loading={loading && !data} error={error?.message} onRetry={reload} empty={{ icon: Users, title: "No staff yet", description: "Add cashiers, accountants and collection agents. Each gets their own login." }} />
-      {editing && <StaffModal member={editing === "new" ? null : editing} onClose={() => setEditing(null)} onDone={reload} />}
-    </>
   );
 }
 
@@ -445,7 +320,6 @@ function Page() {
   const tabs = [
     can("settings.read") && { value: "shop", label: "Shop" },
     can("store.read") && { value: "stores", label: "Stores" },
-    can("user.read") && { value: "staff", label: "Staff" },
     can("settings.read") && { value: "rules", label: "EMI rules" },
     can("report.store") && { value: "reminders", label: "Reminders" },
     user?.role === "staff" && { value: "account", label: "My account" },
@@ -454,11 +328,10 @@ function Page() {
 
   return (
     <>
-      <PageHeader title="Billing settings" description="Shop details, stores, staff and the EMI rules" />
+      <PageHeader title="Billing settings" description="Shop details, stores and the EMI rules" />
       <Tabs className="mb-5" tabs={tabs} value={tab} onChange={(v) => setParams({ tab: v }, { replace: true })} label="Settings sections" />
       {tab === "shop" && <ShopTab />}
       {tab === "stores" && <StoresTab />}
-      {tab === "staff" && <StaffTab />}
       {tab === "rules" && <RulesTab />}
       {tab === "reminders" && <RemindersTab />}
       {tab === "account" && <AccountTab />}

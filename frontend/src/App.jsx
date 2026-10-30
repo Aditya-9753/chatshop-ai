@@ -37,6 +37,7 @@ const Approvals = lazy(() => import("./pages/billing/Approvals"));
 const Payments = lazy(() => import("./pages/billing/Payments"));
 const Accounts = lazy(() => import("./pages/billing/Accounts"));
 const BillingSettings = lazy(() => import("./pages/billing/BillingSettings"));
+const BillingStaff = lazy(() => import("./pages/billing/Staff"));
 
 // Admin Pages
 const AdminLogin = lazy(() => import("./pages/AdminLogin"));
@@ -104,6 +105,7 @@ function App() {
                           <Route path="approvals" element={<Approvals />} />
                           <Route path="payments" element={<Payments />} />
                           <Route path="accounts" element={<Accounts />} />
+                          <Route path="staff" element={<BillingStaff />} />
                           <Route path="settings" element={<BillingSettings />} />
                           {/* Old or mistyped billing links (e.g. the removed NBFC and KYC pages) */}
                           <Route path="*" element={<Navigate to="/dashboard/billing/start" replace />} />
