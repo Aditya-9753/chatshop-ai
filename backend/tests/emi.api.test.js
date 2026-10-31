@@ -439,6 +439,51 @@ test("The shop owner makes up a role: own name, own choice of work", async () =>
   assert.equal((await s.owner.get("/roles")).body.data.roles.length, 0);
 });
 
+test("An order taken in chat can be paid on Shop EMI", async () => {
+  const s = await setupShop();
+  const body = {
+    ...caseB(s, "IMEI-002"),
+    order: { platform: "whatsapp", shippingAddress: { name: "Ravi Kumar", phone: "9876543210", address: "12 MG Road", city: "Bhopal", state: "MP", pincode: "462001" }, notes: "Deliver after 6 pm" },
+  };
+  const sale = await s.owner.post(`/stores/${s.store._id}/checkout`, body, "chat-emi-1");
+  assert.equal(sale.status, 201, JSON.stringify(sale.body));
+  assert.ok(sale.body.data.orderId && sale.body.data.emiContractId);
+
+  // The order keeps its channel, address and notes, shows EMI, and waits to be shipped
+  const order = await models.Order.findById(sale.body.data.orderId);
+  assert.equal(order.platform, "whatsapp");
+  assert.equal(order.paymentMethod, "emi");
+  assert.equal(order.status, "confirmed");
+  assert.equal(order.shippingAddress.city, "Bhopal");
+  assert.match(order.notes, /^Deliver after 6 pm · Invoice .* · Shop EMI$/);
+  assert.equal(order.taxRate, 18);
+  assert.equal(order.total, 1000000);
+
+  // A counter sale on EMI is still a delivered store order
+  const counter = await s.owner.post(`/stores/${s.store._id}/checkout`, caseB(s, "IMEI-003"), "chat-emi-2");
+  const counterOrder = await models.Order.findById(counter.body.data.orderId);
+  assert.equal(counterOrder.platform, "store");
+  assert.equal(counterOrder.status, "delivered");
+  assert.equal(counterOrder.paymentMethod, "emi");
+
+  // Only known channels are accepted
+  const bad = await s.owner.post(`/stores/${s.store._id}/checkout`, { ...caseB(s, "IMEI-004"), order: { platform: "store" } }, "chat-emi-3");
+  assert.equal(bad.status, 400);
+
+  // The shop ships it from Orders, but cancelling or deleting goes through the invoice
+  const orders = (method, url, body) => request(app)[method](`/api/orders${url}`).set("Authorization", `Bearer ${s.token}`).send(body);
+  assert.equal((await orders("put", `/${order._id}/status`, { status: "shipped" })).status, 200);
+  const cancel = await orders("put", `/${order._id}/status`, { status: "cancelled" });
+  assert.equal(cancel.status, 400);
+  assert.match(cancel.body.message, /cancel it from EMI & billing/);
+  assert.equal((await orders("delete", `/${order._id}`)).status, 404);
+  assert.ok(await models.Order.exists({ _id: order._id }));
+
+  // A plain order can't claim to be on EMI
+  const plain = await orders("post", "", { customerId: s.customer._id, items: [{ name: "Cover", price: 100, quantity: 1 }], paymentMethod: "emi" });
+  assert.equal(plain.status, 400);
+});
+
 test("Gateway webhook needs a valid signature", async () => {
   process.env.EMI_WEBHOOK_SECRET = "hook-secret";
   const body = JSON.stringify({ event: "payment.settled", txnRef: "nothing" });

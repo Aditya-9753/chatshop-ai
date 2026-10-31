@@ -46,6 +46,15 @@ const CheckoutIn = z.object({
     })
     .default({ type: "NONE" }),
   note: z.string().max(500).optional(),
+  // A sale made from an order taken in chat: the order keeps its channel,
+  // delivery address and notes
+  order: z
+    .object({
+      platform: z.enum(["whatsapp", "instagram", "facebook"]).optional(),
+      shippingAddress: z.record(z.string().max(300)).optional(),
+      notes: z.string().max(500).optional(),
+    })
+    .optional(),
 });
 
 const EmiPreviewIn = z.object({

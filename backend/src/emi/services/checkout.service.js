@@ -18,6 +18,7 @@ const saleSummary = (invoice, extra = {}) => ({
   status: invoice.status,
   grossTotal: invoice.grossTotal,
   financeType: invoice.financeType,
+  orderId: invoice.orderId,
   emiContractId: invoice.emiContractId,
   nbfcCaseId: invoice.nbfcCaseId,
   needsApproval: invoice.status === "PENDING_APPROVAL",
@@ -213,7 +214,7 @@ async function saveSale(req, ctx, body, idempotencyKey, session) {
       });
     }
 
-    const order = await bridge.createOrderForInvoice(invoiceDoc, payments, session);
+    const order = await bridge.createOrderForInvoice(invoiceDoc, payments, session, body.order);
     undo.push(() => bridge.removeOrder(invoiceDoc, order));
     invoiceDoc.orderId = order._id;
 

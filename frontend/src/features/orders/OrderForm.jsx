@@ -4,6 +4,8 @@ import customerService from "../../services/customer.service";
 import productService from "../../services/product.service";
 import { Alert, Button, DetailRow, Drawer, Input, SectionLabel, Select, Textarea } from "../../components/ui";
 import { formatCurrency } from "../../utils/format";
+import { fromPaise } from "../billing/api";
+import EmiPayment from "./EmiPayment";
 
 const EMPTY_ADDRESS = { name: "", phone: "", address: "", city: "", state: "", pincode: "" };
 
@@ -25,12 +27,14 @@ const PAYMENT_METHODS = [
   { value: "cod", label: "Cash on delivery" },
   { value: "upi", label: "UPI" },
   { value: "razorpay", label: "Razorpay" },
+  { value: "emi", label: "EMI (Shop EMI)" },
   { value: "other", label: "Other" },
 ];
 
 /**
  * Create an order in a side drawer. Totals shown here are a preview; the
- * server recomputes them from the items.
+ * server recomputes them from the items. Paid on EMI, the order is billed
+ * through EMI & billing: GST invoice, EMI contract and this order together.
  */
 export default function OrderForm({ open, onOpenChange, initialCustomerId, onCreate }) {
   const [customers, setCustomers] = useState([]);
@@ -48,6 +52,8 @@ export default function OrderForm({ open, onOpenChange, initialCustomerId, onCre
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [emiSale, setEmiSale] = useState(null);
+  const onEmi = paymentMethod === "emi";
 
   useEffect(() => {
     if (!open) return;
@@ -62,6 +68,7 @@ export default function OrderForm({ open, onOpenChange, initialCustomerId, onCre
     setAddress(EMPTY_ADDRESS);
     setNotes("");
     setError("");
+    setPaymentMethod("cod");
   }, [open, initialCustomerId]);
 
   // Prefill the shipping contact from the customer
@@ -97,9 +104,16 @@ export default function OrderForm({ open, onOpenChange, initialCustomerId, onCre
     e.preventDefault();
     if (!customerId) return setError("Choose a customer");
     if (items.length === 0) return setError("Add at least one item");
+    if (onEmi && !emiSale?.ready) return setError("Fill in the EMI details until the monthly EMI shows");
     setSaving(true);
     setError("");
     try {
+      if (onEmi) {
+        const chat = { platform: platform || customer?.platform || undefined, shippingAddress: address, notes: notes.trim() || undefined };
+        await onCreate({ emiSale: { storeId: emiSale.storeId, key: emiSale.key, body: { ...emiSale.body, order: chat } } });
+        onOpenChange(false);
+        return;
+      }
       await onCreate({
         customerId,
         items: items.map(({ productId, name, price, quantity }) => ({ productId, name, price, quantity })),
@@ -121,6 +135,8 @@ export default function OrderForm({ open, onOpenChange, initialCustomerId, onCre
   };
 
   const setField = (field) => (e) => setAddress({ ...address, [field]: e.target.value });
+  const total = onEmi ? fromPaise(emiSale?.total || 0) : totals.total;
+  const updateCustomer = (updated) => setCustomers((list) => list.map((c) => (c._id === updated._id ? { ...c, ...updated } : c)));
 
   return (
     <Drawer
@@ -133,8 +149,8 @@ export default function OrderForm({ open, onOpenChange, initialCustomerId, onCre
           <Button variant="secondary" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button type="submit" form="order-form" loading={saving}>
-            Create order · {formatCurrency(totals.total)}
+          <Button type="submit" form="order-form" loading={saving} disabled={onEmi && !emiSale?.ready}>
+            {onEmi ? "Create order on EMI" : "Create order"} · {formatCurrency(total)}
           </Button>
         </>
       }
@@ -206,30 +222,38 @@ export default function OrderForm({ open, onOpenChange, initialCustomerId, onCre
         </section>
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <Select label="Tax type" value={taxType} onChange={(e) => setTaxType(e.target.value)} options={TAX_TYPES} />
-          <Input label="Tax %" type="number" min={0} step="0.01" value={taxType === "none" ? 0 : taxPercent} disabled={taxType === "none"} onChange={(e) => setTaxPercent(e.target.value)} />
-          <Input label="Discount ₹" type="number" min={0} value={discount} onChange={(e) => setDiscount(e.target.value)} />
-          <Input label="Shipping ₹" type="number" min={0} value={shipping} onChange={(e) => setShipping(e.target.value)} />
           <Select label="Payment" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} options={PAYMENT_METHODS} />
           <Select label="Channel" value={platform} onChange={(e) => setPlatform(e.target.value)} options={PLATFORMS} />
+          {!onEmi && (
+            <>
+              <Select label="Tax type" value={taxType} onChange={(e) => setTaxType(e.target.value)} options={TAX_TYPES} />
+              <Input label="Tax %" type="number" min={0} step="0.01" value={taxType === "none" ? 0 : taxPercent} disabled={taxType === "none"} onChange={(e) => setTaxPercent(e.target.value)} />
+              <Input label="Discount ₹" type="number" min={0} value={discount} onChange={(e) => setDiscount(e.target.value)} />
+              <Input label="Shipping ₹" type="number" min={0} value={shipping} onChange={(e) => setShipping(e.target.value)} />
+            </>
+          )}
         </div>
 
-        <dl className="rounded-lg bg-surface-2 px-3 py-1">
-          <DetailRow label="Subtotal">{formatCurrency(totals.subtotal)}</DetailRow>
-          {totals.discount > 0 && <DetailRow label="Discount">− {formatCurrency(totals.discount)}</DetailRow>}
-          {taxType === "cgst_sgst" ? (
-            <>
-              <DetailRow label={`CGST (${rate / 2}%)`}>{formatCurrency(totals.tax / 2, { precise: true })}</DetailRow>
-              <DetailRow label={`SGST (${rate / 2}%)`}>{formatCurrency(totals.tax / 2, { precise: true })}</DetailRow>
-            </>
-          ) : (
-            <DetailRow label={taxType === "none" ? "Tax" : `${taxType === "gst" ? "GST" : "Tax"} (${rate}%)`}>{formatCurrency(totals.tax, { precise: true })}</DetailRow>
-          )}
-          <DetailRow label="Shipping">{formatCurrency(totals.shipping)}</DetailRow>
-          <DetailRow label={<span className="font-medium text-fg">Total</span>}>
-            <span className="font-semibold tabular-nums">{formatCurrency(totals.total, { precise: true })}</span>
-          </DetailRow>
-        </dl>
+        {onEmi ? (
+          <EmiPayment customer={customer} items={items} products={products} onCustomerChange={updateCustomer} onChange={setEmiSale} />
+        ) : (
+          <dl className="rounded-lg bg-surface-2 px-3 py-1">
+            <DetailRow label="Subtotal">{formatCurrency(totals.subtotal)}</DetailRow>
+            {totals.discount > 0 && <DetailRow label="Discount">− {formatCurrency(totals.discount)}</DetailRow>}
+            {taxType === "cgst_sgst" ? (
+              <>
+                <DetailRow label={`CGST (${rate / 2}%)`}>{formatCurrency(totals.tax / 2, { precise: true })}</DetailRow>
+                <DetailRow label={`SGST (${rate / 2}%)`}>{formatCurrency(totals.tax / 2, { precise: true })}</DetailRow>
+              </>
+            ) : (
+              <DetailRow label={taxType === "none" ? "Tax" : `${taxType === "gst" ? "GST" : "Tax"} (${rate}%)`}>{formatCurrency(totals.tax, { precise: true })}</DetailRow>
+            )}
+            <DetailRow label="Shipping">{formatCurrency(totals.shipping)}</DetailRow>
+            <DetailRow label={<span className="font-medium text-fg">Total</span>}>
+              <span className="font-semibold tabular-nums">{formatCurrency(totals.total, { precise: true })}</span>
+            </DetailRow>
+          </dl>
+        )}
 
         <section className="flex flex-col gap-3">
           <SectionLabel>Shipping address</SectionLabel>

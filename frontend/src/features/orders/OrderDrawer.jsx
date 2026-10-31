@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { Check, MessageSquare, Printer, Trash2 } from "lucide-react";
+import { Check, FileText, MessageSquare, Printer, Trash2 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../components/Toast";
 import { Button, ChannelBadge, cn, ConfirmDialog, DetailRow, Drawer, SectionLabel, Select, StatusPill } from "../../components/ui";
@@ -68,9 +68,14 @@ export default function OrderDrawer({ order, open, onOpenChange, onUpdate, onDel
         description={`Placed ${formatDateTime(order.createdAt)}`}
         footer={
           <>
-            <Button variant="danger-ghost" icon={Trash2} onClick={() => setConfirmDelete(true)} className="mr-auto">
-              Delete
-            </Button>
+            {/* A billed order goes away only by cancelling its invoice */}
+            {order.invoiceId ? (
+              <span className="mr-auto" />
+            ) : (
+              <Button variant="danger-ghost" icon={Trash2} onClick={() => setConfirmDelete(true)} className="mr-auto">
+                Delete
+              </Button>
+            )}
             <Button
               variant="secondary"
               icon={Printer}
@@ -139,8 +144,16 @@ export default function OrderDrawer({ order, open, onOpenChange, onUpdate, onDel
               <DetailRow label={<span className="font-medium text-fg">Total</span>}>
                 <span className="font-semibold tabular-nums">{formatCurrency(order.total)}</span>
               </DetailRow>
-              <DetailRow label="Payment method">{(order.paymentMethod || "cod").toUpperCase()}</DetailRow>
+              <DetailRow label="Payment method">{order.paymentMethod === "emi" ? "Shop EMI" : (order.paymentMethod || "cod").toUpperCase()}</DetailRow>
             </dl>
+            {order.invoiceId && (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <Button as={Link} to={`/dashboard/billing/invoices/${order.invoiceId}`} variant="secondary" size="sm" icon={FileText}>
+                  {order.paymentMethod === "emi" ? "GST invoice & EMI" : "GST invoice"}
+                </Button>
+                <span className="text-caption text-fg-muted">Cancel or refund from the invoice.</span>
+              </div>
+            )}
           </section>
 
           <section>

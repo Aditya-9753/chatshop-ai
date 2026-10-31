@@ -82,6 +82,11 @@ class OrderService {
     if (!Array.isArray(items) || items.length === 0) {
       throw new Error("Add at least one item");
     }
+    // An EMI order needs its EMI contract and GST invoice: it is made through
+    // EMI & billing's checkout, never as a plain order
+    if (paymentMethod === "emi") {
+      throw new Error("Orders on EMI are made with EMI & billing turned on; pick EMI in New order");
+    }
 
     const lines = items.map((item) => {
       const quantity = Number(item.quantity);
@@ -152,6 +157,12 @@ class OrderService {
 
     const { status, paymentStatus } = statusData;
 
+    // A billed order (counter sale or EMI) is cancelled or refunded from its
+    // invoice, so stock, the EMI and the accounts are put back too
+    if (order.invoiceId && ((status === "cancelled" && order.status !== "cancelled") || (paymentStatus && paymentStatus !== order.paymentStatus))) {
+      throw new Error("This order has a GST invoice: cancel it from EMI & billing → Invoices");
+    }
+
     if (status) order.status = status;
     if (paymentStatus) order.paymentStatus = paymentStatus;
 
@@ -161,6 +172,10 @@ class OrderService {
 
   // Delete order
   async deleteOrder(userId, orderId) {
+    const billed = await Order.exists({ _id: orderId, userId, invoiceId: { $ne: null } });
+    if (billed) {
+      throw new Error("This order has a GST invoice and can't be deleted; cancel it from EMI & billing → Invoices");
+    }
     const order = await Order.findOneAndDelete({
       _id: orderId,
       userId,

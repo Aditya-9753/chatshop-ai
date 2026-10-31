@@ -21,17 +21,27 @@ const ORDER_STATES = {
 
 const FINANCE_LABELS = { NONE: "", SHOP_EMI: "Shop EMI", NBFC: "NBFC finance" };
 
-async function createOrderForInvoice(invoice, payments, session) {
-  const [status, paymentStatus] = ORDER_STATES[invoice.status];
+// An order taken in chat still has to be shipped: once billed it is
+// "confirmed", and the shop moves it on to shipped and delivered
+const chatStatus = (status) => (status === "delivered" ? "confirmed" : status);
+
+/**
+ * `chat` is set when the sale comes from an order taken in chat (New order
+ * with EMI): the order keeps that channel, the delivery address and notes.
+ */
+async function createOrderForInvoice(invoice, payments, session, chat) {
+  const [counterStatus, paymentStatus] = ORDER_STATES[invoice.status];
+  const status = chat ? chatStatus(counterStatus) : counterStatus;
   const methods = [...new Set(payments.map((p) => p.method))];
-  const paymentMethod = methods.length === 1 && methods[0] === "UPI" && invoice.financeType === "NONE" ? "upi" : "other";
+  const paymentMethod =
+    invoice.financeType === "SHOP_EMI" ? "emi" : methods.length === 1 && methods[0] === "UPI" && invoice.financeType === "NONE" ? "upi" : "other";
   const [order] = await Order.create(
     [
       {
         userId: invoice.tenantId,
         customerId: invoice.customerId,
         orderNumber: `${invoice.invoiceNo}-${String(invoice.tenantId).slice(-6).toUpperCase()}`,
-        platform: "store",
+        platform: chat?.platform || "store",
         items: invoice.lines.map((l) => ({
           productId: l.productId,
           name: l.imei ? `${l.name} (IMEI ${l.imei})` : l.name,
@@ -42,13 +52,16 @@ async function createOrderForInvoice(invoice, payments, session) {
         subtotal: toRupees(invoice.taxable),
         tax: toRupees(invoice.cgst + invoice.sgst + invoice.igst),
         taxType: invoice.interState ? "gst" : "cgst_sgst",
+        // One GST rate across the lines shows as that %; mixed rates show none
+        taxRate: new Set(invoice.lines.map((l) => l.gstRatePct)).size === 1 ? invoice.lines[0].gstRatePct : undefined,
         discount: toRupees(invoice.discount),
         total: toRupees(invoice.grossTotal),
         status,
         paymentStatus,
         paymentMethod,
         invoiceId: invoice._id,
-        notes: ["Counter sale", `Invoice ${invoice.invoiceNo}`, FINANCE_LABELS[invoice.financeType]].filter(Boolean).join(" · "),
+        shippingAddress: chat?.shippingAddress,
+        notes: [chat ? chat.notes : "Counter sale", `Invoice ${invoice.invoiceNo}`, FINANCE_LABELS[invoice.financeType]].filter(Boolean).join(" · "),
       },
     ],
     { session }
@@ -68,7 +81,12 @@ const takeBackStats = async (invoice, session) => {
 // Keep the order in step when the invoice changes state
 async function syncOrder(invoice, session) {
   if (!invoice.orderId) return;
-  const [status, paymentStatus] = ORDER_STATES[invoice.status];
+  const [counterStatus, paymentStatus] = ORDER_STATES[invoice.status];
+  const order = await Order.findById(invoice.orderId).select("platform status").session(session || null);
+  if (!order) return;
+  // A chat order already on its way keeps its delivery status
+  let status = counterStatus;
+  if (order.platform !== "store" && counterStatus !== "cancelled") status = order.status === "pending" ? chatStatus(counterStatus) : order.status;
   await Order.updateOne({ _id: invoice.orderId }, { status, paymentStatus }, { session });
   if (invoice.status === "CANCELLED") await takeBackStats(invoice, session);
 }

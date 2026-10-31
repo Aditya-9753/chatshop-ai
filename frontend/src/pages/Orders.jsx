@@ -8,6 +8,7 @@ import { Avatar, Button, ChannelBadge, ConfirmDialog, DataTable, PageHeader, Sta
 import OrderDrawer from "../features/orders/OrderDrawer";
 import OrderForm from "../features/orders/OrderForm";
 import { exportOrdersCsv, printInvoice } from "../features/orders/invoice";
+import { emiApi } from "../features/billing/api";
 import { formatCurrency, formatDate } from "../utils/format";
 
 // Tabs filter by order status, except "Paid" which filters by payment
@@ -115,6 +116,19 @@ const Orders = () => {
   };
 
   const create = async (data) => {
+    // On EMI the sale is billed in EMI & billing, which also makes the order
+    if (data.emiSale) {
+      const { storeId, body, key } = data.emiSale;
+      const sale = await emiApi.post(`/stores/${storeId}/checkout`, body, key);
+      const order = (await orderService.getOrder(sale.data.orderId)).data;
+      setOrders((list) => [order, ...list]);
+      toast.success(
+        sale.data.needsApproval
+          ? `Order ${order.orderNumber} created; its EMI starts once a Store Admin approves it`
+          : `Order ${order.orderNumber} created on EMI · invoice ${sale.data.invoiceNo}`
+      );
+      return;
+    }
     const response = await orderService.createOrder(data);
     setOrders((list) => [response.data, ...list]);
     toast.success(`Order ${response.data.orderNumber} created`);
