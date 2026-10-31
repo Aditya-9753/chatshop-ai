@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, ArrowRight, Boxes, CalendarClock, FileText, IndianRupee, Plus, Receipt, ScrollText, Users, Wallet } from "lucide-react";
+import { AlertTriangle, ArrowRight, Boxes, CalendarClock, IndianRupee, Plus, Receipt, ScrollText, Users, Wallet } from "lucide-react";
 import { Badge, Button, Card, CardBody, CardHeader, ErrorState, PageHeader, Skeleton, StatCard } from "../../components/ui";
 import { useAuth } from "../../context/AuthContext";
 import { useBilling } from "../../features/billing/BillingContext";
@@ -73,12 +73,12 @@ function CounterWork({ d, loading }) {
   );
 }
 
-// Collection agent: the customers assigned to me
+// EMI work: an agent's assigned customers, or every contract of the store
 function AgentWork({ a, loading }) {
   return (
     <section className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Assigned to me" icon={Users} loading={loading} value={a ? a.assigned : "—"} deltaNote="active EMI contracts" />
+        <StatCard label={a?.scope === "store" ? "Active EMI contracts" : "Assigned to me"} icon={Users} loading={loading} value={a ? a.assigned : "—"} deltaNote={a?.scope === "store" ? "in your stores" : "active EMI contracts"} />
         <StatCard label="Due today" icon={CalendarClock} loading={loading} value={a ? a.dueToday.length : "—"} deltaNote="customers to visit" />
         <StatCard label="Overdue" icon={AlertTriangle} loading={loading} value={a ? inr(a.overdueAmount, { whole: true }) : "—"} deltaNote={a && plural(a.overdue.length, "customer")} />
         <StatCard label="I collected today" icon={Wallet} loading={loading} value={a ? inr(a.collectedToday.amount, { whole: true }) : "—"} deltaNote={a && plural(a.collectedToday.count, "receipt")} />
@@ -103,40 +103,49 @@ function AgentWork({ a, loading }) {
   );
 }
 
-// Accountant: settlement and this month's GST
+// Accounts work: settlement, and this month's GST when the role covers it
 function AccountsWork({ x, loading }) {
+  const gst = loading || x?.gst;
   return (
     <section className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className={`grid grid-cols-2 gap-3 ${gst ? "lg:grid-cols-4" : ""}`}>
         <StatCard label="Waiting to settle" icon={Wallet} loading={loading} value={x ? inr(x.awaitingSettlement.amount, { whole: true }) : "—"} deltaNote={x && plural(x.awaitingSettlement.count, "payment")} />
         <StatCard label="Collected today" icon={IndianRupee} loading={loading} value={x ? inr(x.collectedToday.amount, { whole: true }) : "—"} deltaNote={x && plural(x.collectedToday.count, "payment")} />
-        <StatCard label="GST collected" icon={Receipt} loading={loading} value={x ? inr(x.gst.output, { whole: true }) : "—"} deltaNote={x && `Output GST, ${x.gst.month}`} />
-        <StatCard label="Net GST payable" icon={ScrollText} loading={loading} value={x ? inr(x.gst.netPayable, { whole: true }) : "—"} deltaNote="after input credit" />
-      </div>
-      <div className="flex flex-wrap gap-2">
-        <Button as={Link} to={`${B}/payments`} variant="secondary" icon={Wallet}>
-          Settle payments
-        </Button>
-        <Button as={Link} to={`${B}/accounts`} variant="secondary" icon={ScrollText}>
-          GST & books
-        </Button>
-        <Button as={Link} to={`${B}/invoices`} variant="secondary" icon={FileText}>
-          Invoices
-        </Button>
+        {gst && (
+          <>
+            <StatCard label="GST collected" icon={Receipt} loading={loading} value={x?.gst ? inr(x.gst.output, { whole: true }) : "—"} deltaNote={x?.gst && `Output GST, ${x.gst.month}`} />
+            <StatCard label="Net GST payable" icon={ScrollText} loading={loading} value={x?.gst ? inr(x.gst.netPayable, { whole: true }) : "—"} deltaNote="after input credit" />
+          </>
+        )}
       </div>
     </section>
   );
 }
 
+// Every page this person works in, one tap away
+function PageLinks({ items }) {
+  if (!items.length) return null;
+  return (
+    <div className="flex flex-wrap gap-2">
+      {items.map((item) => (
+        <Button key={item.key} as={Link} to={item.href} variant="secondary" icon={item.icon}>
+          {item.name}
+        </Button>
+      ))}
+    </div>
+  );
+}
+
+const SECTION_TITLES = { counter: "Counter", agent: "Collections", accounts: "Accounts" };
+
 function Work() {
   const { user } = useAuth();
-  const { roles, store, can } = useBilling();
+  const { roles, store, can, items } = useBilling();
   const { data: d, loading, error, reload } = useLoad(() => emiApi.get("/reports/my"), [store?._id]);
   if (error) return <ErrorState description={error.message} onRetry={reload} />;
-  const has = (role) => roles.some((r) => r.role === role);
-  const counter = has("CASHIER") || has("STORE_ADMIN");
-  const waiting = loading && !d;
-  const sections = [counter && "counter", has("AGENT") && "agent", has("ACCOUNTANT") && "accounts"].filter(Boolean);
+  // Which work shows comes from the server, which knows each role's work
+  const sections = d ? [d.sales && "counter", d.agent && "agent", d.accounts && "accounts"].filter(Boolean) : [];
+  const pages = items.filter((item) => !["home", "account"].includes(item.key));
 
   return (
     <>
@@ -152,14 +161,21 @@ function Work() {
         }
       />
       <div className="flex flex-col gap-8">
+        {loading && !d && <Skeleton className="h-48 w-full" />}
         {sections.map((key) => (
           <div key={key}>
-            {sections.length > 1 && <h2 className="mb-3 text-sm font-semibold text-fg-muted">{{ counter: "Counter", agent: "Collections", accounts: "Accounts" }[key]}</h2>}
-            {key === "counter" && <CounterWork d={d?.sales && d} loading={waiting} />}
-            {key === "agent" && <AgentWork a={d?.agent} loading={waiting} />}
-            {key === "accounts" && <AccountsWork x={d?.accounts} loading={waiting} />}
+            {sections.length > 1 && <h2 className="mb-3 text-sm font-semibold text-fg-muted">{SECTION_TITLES[key]}</h2>}
+            {key === "counter" && <CounterWork d={d} loading={false} />}
+            {key === "agent" && <AgentWork a={d.agent} loading={false} />}
+            {key === "accounts" && <AccountsWork x={d.accounts} loading={false} />}
           </div>
         ))}
+        {d && (
+          <div>
+            <h2 className="mb-3 text-sm font-semibold text-fg-muted">Your pages</h2>
+            <PageLinks items={pages} />
+          </div>
+        )}
       </div>
     </>
   );

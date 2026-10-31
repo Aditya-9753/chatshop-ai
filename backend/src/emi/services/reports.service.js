@@ -6,7 +6,7 @@ const { trialBalance, ACC, ACCOUNT_NAMES } = require("../domain/ledger");
 const { unpaidOf, totalOf, addMonths } = require("../domain/emi");
 const { BUCKETS } = require("../domain/overdue");
 const { scoped, today, AppError } = require("../utils/helpers");
-const { agentOnly } = require("../middleware/rbac");
+const { agentOnly, can } = require("../middleware/rbac");
 
 const LIVE_INVOICE = { status: { $ne: "CANCELLED" } };
 
@@ -163,8 +163,12 @@ async function myWork(req) {
   const me = req.user._id;
   const day = today();
   const out = { date: day, roles: [...roles] };
+  // What a role the owner made up may do decides which of its work shows
+  const custom = { emi: { roles: req.emi.roles.filter((r) => r.role === "CUSTOM") } };
+  const customCan = (perm) => can(custom, perm);
+  const seesGst = roles.has("ACCOUNTANT") || customCan("ledger.read");
 
-  if (roles.has("CASHIER") || roles.has("STORE_ADMIN") || roles.has("OWNER")) {
+  if (roles.has("CASHIER") || roles.has("STORE_ADMIN") || roles.has("OWNER") || customCan("invoice.create")) {
     const [mySales, myInvoices, myCollections] = await Promise.all([
       Invoice.aggregate([{ $match: { ...base, createdBy: me, date: day, ...LIVE_INVOICE } }, { $group: { _id: null, count: { $sum: 1 }, gross: { $sum: "$grossTotal" } } }]),
       Invoice.find({ ...base, createdBy: me }).sort({ createdAt: -1 }).limit(8).select("invoiceNo date grossTotal status financeType customer.name").lean(),
@@ -189,8 +193,11 @@ async function myWork(req) {
       .sort((a, b) => a.available - b.available);
   }
 
-  if (roles.has("AGENT")) {
-    const contracts = await EmiContract.find({ ...base, assignedAgentId: me, status: "ACTIVE" }).select("contractNo customerId emiAmount nextDueDate currentDpd bucket principal paidPrincipal").lean();
+  // Agents get the contracts assigned to them; a custom role with EMI work
+  // gets every active contract of its stores
+  const agentWork = roles.has("AGENT");
+  if (agentWork || customCan("emi.followup")) {
+    const contracts = await EmiContract.find({ ...base, ...(agentWork && { assignedAgentId: me }), status: "ACTIVE" }).select("contractNo customerId emiAmount nextDueDate currentDpd bucket principal paidPrincipal").lean();
     const customers = await Customer.find({ _id: { $in: contracts.map((c) => c.customerId) } }).select("name phone").lean();
     const who = new Map(customers.map((c) => [String(c._id), c]));
     const due = await EmiInstallment.find({ tenantId: base.tenantId, contractId: { $in: contracts.map((c) => c._id) }, status: { $in: ["DUE", "OVERDUE", "UPCOMING"] }, dueDate: { $lte: day } }).lean();
@@ -202,6 +209,7 @@ async function myWork(req) {
       { $group: { _id: null, count: { $sum: 1 }, amount: { $sum: "$amount" } } },
     ]);
     out.agent = {
+      scope: agentWork ? "mine" : "store",
       assigned: rows.length,
       dueToday: rows.filter((c) => c.nextDueDate === day),
       overdue: rows.filter((c) => c.currentDpd > 0).sort((a, b) => b.currentDpd - a.currentDpd),
@@ -210,17 +218,17 @@ async function myWork(req) {
     };
   }
 
-  if (roles.has("ACCOUNTANT")) {
+  if (roles.has("ACCOUNTANT") || customCan("payment.reconcile") || seesGst) {
     const month = day.slice(0, 7);
     const [awaiting, collectedToday, gst] = await Promise.all([
       Payment.aggregate([{ $match: { ...base, status: "CAPTURED" } }, { $group: { _id: null, count: { $sum: 1 }, amount: { $sum: "$amount" } } }]),
       Payment.aggregate([{ $match: { ...base, date: day, status: { $ne: "REVERSED" } } }, { $group: { _id: null, count: { $sum: 1 }, amount: { $sum: "$amount" } } }]),
-      gstSummary(req, month),
+      seesGst ? gstSummary(req, month) : null,
     ]);
     out.accounts = {
       awaitingSettlement: { count: awaiting[0]?.count || 0, amount: awaiting[0]?.amount || 0 },
       collectedToday: { count: collectedToday[0]?.count || 0, amount: collectedToday[0]?.amount || 0 },
-      gst: { month, output: gst.totalOutput, input: gst.inputGst, netPayable: gst.netPayable },
+      gst: gst && { month, output: gst.totalOutput, input: gst.inputGst, netPayable: gst.netPayable },
     };
   }
   return out;

@@ -1,7 +1,7 @@
 const User = require("../../models/User.model");
 const Customer = require("../../models/Customer.model");
 const AuditLog = require("../../models/AuditLog.model");
-const { Tenant, Store } = require("../models/platform");
+const { Tenant, Store, CustomRole } = require("../models/platform");
 const { Invoice, Payment } = require("../models/sales");
 const { EmiContract, EmiInstallment, NbfcCase, NbfcPartner, Notification } = require("../models/finance");
 const { unpaidOf, totalOf } = require("../domain/emi");
@@ -95,16 +95,23 @@ const STAFF_FIELDS = "name email phone tenantId emiRoles staffActive approvalSta
 
 async function staffWithNames(rows) {
   const storeIds = [...new Set(rows.flatMap((u) => (u.emiRoles || []).map((r) => r.storeId).filter(Boolean).map(String)))];
-  const [tenantRows, storeRows] = await Promise.all([
+  const customIds = rows.flatMap((u) => (u.emiRoles || []).filter((r) => r.customRoleId).map((r) => r.customRoleId));
+  const [tenantRows, storeRows, customRows] = await Promise.all([
     Tenant.find({ _id: { $in: [...new Set(rows.map((u) => String(u.tenantId)))] } }).select("name").lean(),
     Store.find({ _id: { $in: storeIds } }).setOptions(ALL).select("name").lean(),
+    CustomRole.find({ _id: { $in: customIds } }).setOptions(ALL).select("name").lean(),
   ]);
   const tenantName = new Map(tenantRows.map((t) => [String(t._id), t.name]));
   const storeName = new Map(storeRows.map((s) => [String(s._id), s.name]));
+  const roleName = new Map(customRows.map((c) => [String(c._id), c.name]));
   return rows.map((u) => ({
     ...u,
     tenantName: tenantName.get(String(u.tenantId)) || "—",
-    emiRoles: (u.emiRoles || []).map((r) => ({ ...r, storeName: r.storeId ? storeName.get(String(r.storeId)) || "Store" : "All stores" })),
+    emiRoles: (u.emiRoles || []).map((r) => ({
+      ...r,
+      ...(r.customRoleId && { roleName: roleName.get(String(r.customRoleId)) || "Custom role" }),
+      storeName: r.storeId ? storeName.get(String(r.storeId)) || "Store" : "All stores",
+    })),
   }));
 }
 

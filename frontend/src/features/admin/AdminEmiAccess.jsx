@@ -15,7 +15,7 @@ import { ShopFilter } from "./AdminEmiRecords";
 const S = (path) => `/super${path}`;
 const ROLE_LABELS = { STORE_ADMIN: "Store Admin", CASHIER: "Cashier", ACCOUNTANT: "Accountant", AGENT: "Collection agent" };
 
-const rolesText = (u) => (u.emiRoles || []).map((r) => `${ROLE_LABELS[r.role] || r.role} · ${r.storeName}`).join(", ");
+const rolesText = (u) => (u.emiRoles || []).map((r) => `${r.roleName || ROLE_LABELS[r.role] || r.role} · ${r.storeName}`).join(", ");
 
 // Approve right away; a rejection asks for the reason the shop will see
 function DecideModal({ target, onClose, onDone }) {

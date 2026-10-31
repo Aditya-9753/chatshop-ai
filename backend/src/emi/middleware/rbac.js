@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 const User = require("../../models/User.model");
-const { Tenant, Store } = require("../models/platform");
+const { Tenant, Store, CustomRole } = require("../models/platform");
 const { AppError } = require("../utils/helpers");
 
 // Role -> permissions. "x.*" grants every x permission, "*.read" every read,
@@ -50,6 +50,7 @@ const ROLE_LABELS = {
   ACCOUNTANT: "Accountant",
   AGENT: "Collection agent",
   SUPER_ADMIN: "Super Admin",
+  CUSTOM: "Custom role",
 };
 
 const grants = (granted, perm) => {
@@ -60,9 +61,31 @@ const grants = (granted, perm) => {
   return false;
 };
 
+// The work a shop owner can pick for a role of their own. Managing staff,
+// stores and settings stay with the owner and Store Admins.
+const CUSTOM_ABILITIES = {
+  overview: { label: "Billing overview", detail: "Sales, EMI book and overdue for the store", perms: ["report.store"] },
+  sale: { label: "New sale", detail: "Invoices and Shop EMI sales at list price; also opens Invoices and EMI", perms: ["invoice.create", "invoice.read", "customer.*", "product.read", "emi.create", "emi.read", "approval.create", "payment.collect"] },
+  invoices: { label: "See invoices", detail: "Open and print invoices", perms: ["invoice.read", "customer.read"] },
+  emi: { label: "EMI collections", detail: "Collect EMI and add follow-ups", perms: ["emi.read", "emi.followup", "payment.collect", "customer.read"] },
+  stock: { label: "See stock", detail: "Stock summary and IMEI list", perms: ["product.read"] },
+  stockManage: { label: "Receive stock", detail: "Add IMEIs, edit HSN and GST", perms: ["product.read", "product.manage"] },
+  approvals: { label: "Approve requests", detail: "High EMI, waivers, foreclosures, cancellations", perms: ["approval.read", "approval.decide"] },
+  payments: { label: "Payments", detail: "See payments and settle card/UPI", perms: ["payment.read", "payment.reconcile"] },
+  accounts: { label: "Accounts & GST", detail: "GST summary, trial balance, journal", perms: ["ledger.read"] },
+};
+
+const customPerms = (abilities = []) => [
+  "store.read",
+  ...new Set(abilities.flatMap((a) => CUSTOM_ABILITIES[a]?.perms || [])),
+];
+
+// A role entry is a built-in role, or a custom one carrying its own perms
+const permsOf = (r) => r.perms || PERMISSIONS[r.role] || [];
+
 const roleCan = (role, perm) => (PERMISSIONS[role] || []).some((g) => grants(g, perm));
 
-const permissionsOf = (roles) => [...new Set(roles.flatMap((r) => PERMISSIONS[r.role] || []))];
+const permissionsOf = (roles) => [...new Set(roles.flatMap(permsOf))];
 
 const stateFromGstin = (gstin) => (/^\d{2}[A-Z0-9]{13}$/i.test(gstin || "") ? gstin.slice(0, 2) : null);
 
@@ -83,6 +106,19 @@ async function bootstrapTenant(owner) {
     if (error.code === 11000) return Tenant.findById(owner._id); // a parallel request created it
     throw error;
   }
+}
+
+// A staff member's roles, with each custom role's name and current work
+// (a deleted custom role simply drops out)
+async function resolveRoles(tenantId, emiRoles) {
+  const ids = emiRoles.filter((r) => r.role === "CUSTOM").map((r) => r.customRoleId);
+  const custom = ids.length ? await CustomRole.find({ tenantId, _id: { $in: ids } }).lean() : [];
+  const byId = new Map(custom.map((c) => [String(c._id), c]));
+  return emiRoles.flatMap((r) => {
+    if (r.role !== "CUSTOM") return [{ role: r.role, storeId: r.storeId || null }];
+    const c = byId.get(String(r.customRoleId));
+    return c ? [{ role: "CUSTOM", storeId: r.storeId || null, customRoleId: c._id, name: c.name, abilities: c.abilities, perms: customPerms(c.abilities) }] : [];
+  });
 }
 
 /**
@@ -108,7 +144,7 @@ const emiContext = async (req, res, next) => {
       }
       owner = await User.findById(user.tenantId).select("name role subscription businessInfo phone");
       if (!owner) throw new AppError(403, "Dukaan nahi mili");
-      roles = (user.emiRoles || []).map((r) => ({ role: r.role, storeId: r.storeId || null }));
+      roles = await resolveRoles(user.tenantId, user.emiRoles || []);
       if (!roles.length) throw new AppError(403, "Aapko abhi koi role nahi diya gaya hai");
     } else {
       roles = [{ role: "OWNER", storeId: null }];
@@ -151,7 +187,7 @@ const emiContext = async (req, res, next) => {
 
 // Can this request do `perm`, at `storeId` if given?
 const can = (req, perm, storeId) =>
-  req.emi.roles.some((r) => (!storeId || !r.storeId || String(r.storeId) === String(storeId)) && roleCan(r.role, perm));
+  req.emi.roles.some((r) => (!storeId || !r.storeId || String(r.storeId) === String(storeId)) && permsOf(r).some((g) => grants(g, perm)));
 
 // Route guard. With a :storeId in the URL, the role must cover that store.
 const need = (perm) => (req, res, next) => {
@@ -170,4 +206,4 @@ const need = (perm) => (req, res, next) => {
 // Collection agents only ever see the contracts assigned to them
 const agentOnly = (req) => req.emi.roles.every((r) => r.role === "AGENT");
 
-module.exports = { PERMISSIONS, ROLE_LABELS, roleCan, can, need, emiContext, agentOnly, bootstrapTenant, permissionsOf };
+module.exports = { PERMISSIONS, ROLE_LABELS, CUSTOM_ABILITIES, roleCan, can, need, emiContext, agentOnly, bootstrapTenant, permissionsOf, resolveRoles };

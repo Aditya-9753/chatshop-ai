@@ -38,7 +38,8 @@ const userSchema = new mongoose.Schema(
     emiRoles: [
       {
         _id: false,
-        role: { type: String, enum: ["STORE_ADMIN", "CASHIER", "ACCOUNTANT", "AGENT"], required: true },
+        role: { type: String, enum: ["STORE_ADMIN", "CASHIER", "ACCOUNTANT", "AGENT", "CUSTOM"], required: true },
+        customRoleId: { type: mongoose.Schema.Types.ObjectId, ref: "CustomRole" }, // for a role the owner made
         storeId: { type: mongoose.Schema.Types.ObjectId, ref: "Store", default: null }, // null = every store
       },
     ],

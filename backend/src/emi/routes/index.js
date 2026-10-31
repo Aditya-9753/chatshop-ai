@@ -40,7 +40,7 @@ router.get(
         user: { _id: req.user._id, name: req.user.name, email: req.user.email, role: req.user.role },
         tenant: req.emi.tenant,
         isOwner: req.emi.isOwner,
-        roles: req.emi.roles.map((r) => ({ ...r, label: ROLE_LABELS[r.role] })),
+        roles: req.emi.roles.map((r) => ({ ...r, label: r.name || ROLE_LABELS[r.role] })),
         permissions: permissionsOf(req.emi.roles),
         stores,
       },

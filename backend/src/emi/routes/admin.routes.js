@@ -67,7 +67,7 @@ r.get("/reports/dashboard", need("report.store"), ah(async (req, res) => ok(res,
 // Each staff member's own work, by role
 r.get("/reports/my", need("store.read"), ah(async (req, res) => ok(res, await reports.myWork(req))));
 r.get("/reports/emi-aging", need("emi.read"), ah(async (req, res) => ok(res, await reports.emiAging(req))));
-r.get("/reports/gst", need("report.store"), ah(async (req, res) => ok(res, await reports.gstSummary(req, req.query.month))));
+r.get("/reports/gst", need("ledger.read"), ah(async (req, res) => ok(res, await reports.gstSummary(req, req.query.month))));
 r.get("/reports/trial-balance", need("ledger.read"), ah(async (req, res) => ok(res, await reports.trialBalanceReport(req, req.query))));
 r.get("/ledger", need("ledger.read"), ah(async (req, res) => ok(res, await reports.ledger(req, req.query))));
 
@@ -152,5 +152,11 @@ r.post("/users", need("user.manage"), s.validate(s.StaffIn), ah(async (req, res)
 r.patch("/users/:id", need("user.manage"), checkId("id"), s.validate(s.StaffPatch), ah(async (req, res) => ok(res, await team.updateStaff(req, req.params.id, req.body))));
 // The shop owner approves staff a Store Admin added
 r.post("/users/:id/decide", need("user.manage"), checkId("id"), s.validate(s.StaffDecideIn), ah(async (req, res) => ok(res, await team.decideStaff(req, req.params.id, req.body))));
+
+// Roles the shop owner makes up: their own name and the work it may do
+r.get("/roles", need("user.read"), ah(async (req, res) => ok(res, await team.listRoles(req))));
+r.post("/roles", need("user.manage"), s.validate(s.CustomRoleIn), ah(async (req, res) => ok(res, await team.saveRole(req, null, req.body), 201)));
+r.put("/roles/:id", need("user.manage"), checkId("id"), s.validate(s.CustomRoleIn), ah(async (req, res) => ok(res, await team.saveRole(req, req.params.id, req.body))));
+r.delete("/roles/:id", need("user.manage"), checkId("id"), ah(async (req, res) => ok(res, await team.deleteRole(req, req.params.id))));
 
 module.exports = r;

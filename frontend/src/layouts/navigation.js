@@ -15,6 +15,7 @@ import {
   Wallet,
   CalendarClock,
 } from "lucide-react";
+import { anyGrants } from "../features/billing/permissions";
 
 // Sidebar groups, in the order a shop owner uses them
 export const NAV_GROUPS = [
@@ -73,10 +74,18 @@ export const STAFF_PAGES = {
   AGENT: ["home", "emi", "account"],
 };
 
+// A role the shop owner made up gets the pages its chosen work allows (never
+// Staff or settings), plus My work and My account
+const customPages = (role) => [
+  "home",
+  "account",
+  ...BILLING_ITEMS.filter((item) => item.perm && !["staff", "settings"].includes(item.key) && anyGrants(role.perms || [], item.perm)).map((item) => item.key),
+];
+
 // Billing pages one person can use, from their roles and permissions
 export function billingItemsFor({ staff, roles, can }) {
   if (!staff) return BILLING_ITEMS.filter((item) => !item.staffOnly && can(item.perm));
-  const keys = new Set(roles.flatMap((r) => STAFF_PAGES[r.role] || []));
+  const keys = new Set(roles.flatMap((r) => (r.role === "CUSTOM" ? customPages(r) : STAFF_PAGES[r.role] || [])));
   // A Store Admin already has My account inside Billing settings
   if (keys.has("settings")) keys.delete("account");
   return BILLING_ITEMS.filter((item) => keys.has(item.key) && (!item.perm || can(item.perm)));

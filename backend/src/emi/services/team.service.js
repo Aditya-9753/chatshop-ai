@@ -1,8 +1,8 @@
 const bcrypt = require("bcryptjs");
 const User = require("../../models/User.model");
-const { Store, Tenant } = require("../models/platform");
+const { Store, Tenant, CustomRole } = require("../models/platform");
 const { AppError, audit, isOid } = require("../utils/helpers");
-const { can } = require("../middleware/rbac");
+const { can, CUSTOM_ABILITIES, ROLE_LABELS } = require("../middleware/rbac");
 
 const STAFF_FIELDS = "name email phone role tenantId emiRoles staffActive approvalStatus approvalNote createdAt";
 
@@ -59,13 +59,77 @@ async function checkRoles(req, roles) {
   if (storeIds.some((id) => !isOid(id))) throw new AppError(422, "Store galat hai");
   const found = await Store.countDocuments({ tenantId: req.emi.tenantId, _id: { $in: storeIds } });
   if (found !== new Set(storeIds.map(String)).size) throw new AppError(422, "Store nahi mila");
+  const customIds = roles.filter((r) => r.role === "CUSTOM").map((r) => r.customRoleId);
+  if (customIds.some((id) => !isOid(id))) throw new AppError(422, "Apna banaya role chuno");
+  const customFound = await CustomRole.countDocuments({ tenantId: req.emi.tenantId, _id: { $in: customIds } });
+  if (customFound !== new Set(customIds.map(String)).size) throw new AppError(422, "Ye role nahi mila");
   for (const r of roles) {
-    if (!["STORE_ADMIN", "CASHIER", "ACCOUNTANT", "AGENT"].includes(r.role)) throw new AppError(422, `Role ${r.role} galat hai`);
+    if (!["STORE_ADMIN", "CASHIER", "ACCOUNTANT", "AGENT", "CUSTOM"].includes(r.role)) throw new AppError(422, `Role ${r.role} galat hai`);
     if (req.emi.isOwner) continue;
     if (r.role === "STORE_ADMIN") throw new AppError(403, "Store Admin sirf Owner bana sakta hai");
     if (!r.storeId || !can(req, "user.manage", r.storeId)) throw new AppError(403, "Sirf apne store ka staff bana sakte ho");
   }
-  return roles.map((r) => ({ role: r.role, storeId: r.storeId || null }));
+  return roles.map((r) => ({ role: r.role, storeId: r.storeId || null, ...(r.role === "CUSTOM" && { customRoleId: r.customRoleId }) }));
+}
+
+// ---- Roles the shop owner makes up ----
+
+// Custom roles with how many staff hold each, plus the work a role can be given
+async function listRoles(req) {
+  const [roles, holders] = await Promise.all([
+    CustomRole.find({ tenantId: req.emi.tenantId }).sort({ name: 1 }).lean(),
+    User.aggregate([
+      { $match: { tenantId: req.emi.tenantId, role: "staff", "emiRoles.role": "CUSTOM" } },
+      { $unwind: "$emiRoles" },
+      { $group: { _id: "$emiRoles.customRoleId", users: { $addToSet: "$_id" } } },
+    ]),
+  ]);
+  const count = new Map(holders.map((h) => [String(h._id), h.users.length]));
+  const abilities = Object.entries(CUSTOM_ABILITIES).map(([key, a]) => ({ key, label: a.label, detail: a.detail }));
+  return { roles: roles.map((r) => ({ ...r, staffCount: count.get(String(r._id)) || 0 })), abilities };
+}
+
+const cleanAbilities = (abilities) => {
+  const keys = [...new Set(abilities)];
+  const bad = keys.filter((k) => !CUSTOM_ABILITIES[k]);
+  if (bad.length) throw new AppError(422, `Ye kaam galat hai: ${bad.join(", ")}`);
+  return keys;
+};
+
+const ownerOnly = (req) => {
+  if (!req.emi.isOwner) throw new AppError(403, "Naye role sirf shop owner bana sakta hai");
+};
+
+async function saveRole(req, roleId, { name, abilities }) {
+  ownerOnly(req);
+  const taken = await CustomRole.findOne({ tenantId: req.emi.tenantId, name, ...(roleId && { _id: { $ne: roleId } }) }).collation({ locale: "en", strength: 2 });
+  if (taken || Object.values(ROLE_LABELS).some((l) => l.toLowerCase() === name.toLowerCase())) throw new AppError(409, `"${name}" naam ka role pehle se hai`);
+  const clean = cleanAbilities(abilities);
+  let role;
+  if (roleId) {
+    role = await CustomRole.findOne({ tenantId: req.emi.tenantId, _id: roleId });
+    if (!role) throw new AppError(404, "Role nahi mila");
+    const before = { name: role.name, abilities: role.abilities };
+    Object.assign(role, { name, abilities: clean });
+    await role.save();
+    await audit(req, "role.update", { entity: "CustomRole", entityId: role._id, before, after: { name, abilities: clean } });
+  } else {
+    role = await CustomRole.create({ tenantId: req.emi.tenantId, name, abilities: clean, createdBy: req.user._id });
+    await audit(req, "role.create", { entity: "CustomRole", entityId: role._id, after: { name, abilities: clean } });
+  }
+  return role;
+}
+
+// Only a role nobody holds can go, so no one is left without work
+async function deleteRole(req, roleId) {
+  ownerOnly(req);
+  const role = await CustomRole.findOne({ tenantId: req.emi.tenantId, _id: roleId });
+  if (!role) throw new AppError(404, "Role nahi mila");
+  const holders = await User.countDocuments({ tenantId: req.emi.tenantId, role: "staff", "emiRoles.customRoleId": role._id });
+  if (holders) throw new AppError(409, `${holders} staff ke paas ye role hai; pehle unka role badlo`);
+  await CustomRole.deleteOne({ tenantId: req.emi.tenantId, _id: role._id });
+  await audit(req, "role.delete", { entity: "CustomRole", entityId: role._id, before: { name: role.name, abilities: role.abilities } });
+  return { deleted: true };
 }
 
 async function listStaff(req) {
@@ -136,4 +200,4 @@ async function updateStaff(req, staffId, { roles, staffActive, password, name, p
   return User.findById(user._id).select(STAFF_FIELDS).lean();
 }
 
-module.exports = { listStores, createStore, updateStore, updateTenant, listStaff, createStaff, updateStaff, decideStaff };
+module.exports = { listStores, createStore, updateStore, updateTenant, listStaff, createStaff, updateStaff, decideStaff, listRoles, saveRole, deleteRole };

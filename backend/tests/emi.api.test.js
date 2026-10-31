@@ -32,6 +32,8 @@ const as = (token) => ({
     return req.send(body);
   },
   patch: (url, body) => request(app).patch(`/api/emi${url}`).set("Authorization", `Bearer ${token}`).send(body),
+  put: (url, body) => request(app).put(`/api/emi${url}`).set("Authorization", `Bearer ${token}`).send(body),
+  del: (url) => request(app).delete(`/api/emi${url}`).set("Authorization", `Bearer ${token}`),
 });
 
 const login = async (email, password) => {
@@ -390,6 +392,51 @@ test("The shop owner approves staff; each role gets only its own work", async ()
   const turnedDown = await as(other.token).get("/me");
   assert.equal(turnedDown.body.code, "TENANT_REJECTED");
   assert.match(turnedDown.body.message, /GSTIN missing/);
+});
+
+test("The shop owner makes up a role: own name, own choice of work", async () => {
+  const s = await setupShop();
+
+  // Name and work are checked
+  assert.equal((await s.owner.post("/roles", { name: "Helper", abilities: ["nope"] })).status, 422);
+  assert.equal((await s.owner.post("/roles", { name: "Cashier", abilities: ["stock"] })).status, 409, "built-in names are taken");
+  const made = await s.owner.post("/roles", { name: "Stock Checker", abilities: ["stock", "invoices"] });
+  assert.equal(made.status, 201, JSON.stringify(made.body));
+  const roleId = made.body.data._id;
+  assert.equal((await s.owner.post("/roles", { name: "stock checker", abilities: ["stock"] })).status, 409, "names are unique, any case");
+
+  // A Store Admin may give the role but not make one
+  const admin = await s.owner.post("/users", { name: "Admin", email: `sa-${Date.now()}@crm.local`, password: "Password@123", roles: [{ role: "STORE_ADMIN", storeId: s.store._id }] });
+  const storeAdmin = as(await login(admin.body.data.email, "Password@123"));
+  assert.equal((await storeAdmin.post("/roles", { name: "Mine", abilities: ["stock"] })).status, 403);
+  assert.equal((await storeAdmin.get("/roles")).body.data.roles.length, 1);
+
+  // Staff with it see only that work
+  const email = `checker-${Date.now()}@crm.local`;
+  assert.equal((await s.owner.post("/users", { name: "Checker", email, password: "Password@123", roles: [{ role: "CUSTOM", storeId: s.store._id }] })).status, 422, "a custom role must be picked");
+  const staff = await s.owner.post("/users", { name: "Checker", email, password: "Password@123", roles: [{ role: "CUSTOM", customRoleId: roleId, storeId: s.store._id }] });
+  assert.equal(staff.status, 201, JSON.stringify(staff.body));
+  const checker = as(await login(email, "Password@123"));
+  const me = await checker.get("/me");
+  assert.equal(me.body.data.roles[0].label, "Stock Checker");
+  assert.equal((await checker.get(`/stores/${s.store._id}/stock`)).status, 200);
+  assert.equal((await checker.get("/invoices")).status, 200);
+  assert.equal((await checker.get("/emi")).status, 403);
+  assert.equal((await checker.post(`/stores/${s.store._id}/checkout`, caseB(s, "IMEI-001"), "k-custom")).status, 403);
+  const work = (await checker.get("/reports/my")).body.data;
+  assert.ok(!work.sales && !work.agent && !work.accounts);
+
+  // Changing the role changes their work at once
+  assert.equal((await s.owner.put(`/roles/${roleId}`, { name: "Stock & EMI", abilities: ["stock", "emi"] })).status, 200);
+  assert.equal((await checker.get("/emi")).status, 200);
+  assert.equal((await checker.get("/invoices")).status, 403);
+  assert.equal((await checker.get("/reports/my")).body.data.agent.scope, "store");
+
+  // A role someone holds can't be deleted
+  assert.equal((await s.owner.del(`/roles/${roleId}`)).status, 409);
+  await s.owner.patch(`/users/${staff.body.data._id}`, { roles: [{ role: "CASHIER", storeId: s.store._id }] });
+  assert.equal((await s.owner.del(`/roles/${roleId}`)).status, 200);
+  assert.equal((await s.owner.get("/roles")).body.data.roles.length, 0);
 });
 
 test("Gateway webhook needs a valid signature", async () => {

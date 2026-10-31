@@ -60,9 +60,23 @@ const counterSchema = new mongoose.Schema({
 counterSchema.plugin(tenantScope);
 counterSchema.index({ tenantId: 1, key: 1 }, { unique: true });
 
+// A role the shop owner makes up: their own name and the work it may do
+// (`abilities`, keys of CUSTOM_ABILITIES in the RBAC middleware)
+const customRoleSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true },
+    abilities: [{ type: String }],
+    createdBy: { type: ObjectId, ref: "User" },
+  },
+  { timestamps: true }
+);
+customRoleSchema.plugin(tenantScope);
+customRoleSchema.index({ tenantId: 1, name: 1 }, { unique: true, collation: { locale: "en", strength: 2 } });
+
 const Tenant = mongoose.models.Tenant || mongoose.model("Tenant", tenantSchema);
 const Store = mongoose.models.Store || mongoose.model("Store", storeSchema);
 const Setting = mongoose.models.Setting || mongoose.model("Setting", settingSchema);
 const Counter = mongoose.models.Counter || mongoose.model("Counter", counterSchema);
+const CustomRole = mongoose.models.CustomRole || mongoose.model("CustomRole", customRoleSchema);
 
-module.exports = { Tenant, Store, Setting, Counter };
+module.exports = { Tenant, Store, Setting, Counter, CustomRole };

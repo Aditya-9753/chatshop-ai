@@ -2,16 +2,10 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { useAuth } from "../../context/AuthContext";
 import { BILLING_ITEMS, billingItemsFor } from "../../layouts/navigation";
 import { emiApi } from "./api";
+import { anyGrants } from "./permissions";
 
 const BillingContext = createContext(null);
 const STORE_KEY = "billing-store";
-
-// Same rules as the server: "x.*", "*.read" and "*" (never super.*)
-const grants = (granted, perm) =>
-  granted === perm ||
-  (granted === "*" && !perm.startsWith("super.")) ||
-  (granted.endsWith(".*") && perm.startsWith(granted.slice(0, -1))) ||
-  (granted.startsWith("*.") && perm.endsWith(granted.slice(1)));
 
 /**
  * Who the signed-in person is in EMI & billing: the shop, their roles,
@@ -59,7 +53,7 @@ export function BillingProvider({ children }) {
     const stores = (me?.stores || []).filter((s) => s.active !== false);
     const store = stores.find((s) => s._id === storeId) || stores[0] || null;
     const permissions = me?.permissions || [];
-    const can = (perm) => permissions.some((g) => grants(g, perm));
+    const can = (perm) => anyGrants(permissions, perm);
     const roles = me?.roles || [];
     const staff = user?.role === "staff";
     return {
