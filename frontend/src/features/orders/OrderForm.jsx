@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import customerService from "../../services/customer.service";
 import productService from "../../services/product.service";
@@ -54,6 +54,17 @@ export default function OrderForm({ open, onOpenChange, initialCustomerId, onCre
   const [saving, setSaving] = useState(false);
   const [emiSale, setEmiSale] = useState(null);
   const onEmi = paymentMethod === "emi";
+  const errorRef = useRef(null);
+
+  // The form scrolls; bring a new error into view next to the button
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [error]);
+
+  // Once the EMI checks out, the old "what is missing" message goes
+  useEffect(() => {
+    if (emiSale?.ready) setError("");
+  }, [emiSale?.ready]);
 
   useEffect(() => {
     if (!open) return;
@@ -104,7 +115,7 @@ export default function OrderForm({ open, onOpenChange, initialCustomerId, onCre
     e.preventDefault();
     if (!customerId) return setError("Choose a customer");
     if (items.length === 0) return setError("Add at least one item");
-    if (onEmi && !emiSale?.ready) return setError("Fill in the EMI details until the monthly EMI shows");
+    if (onEmi && !emiSale?.ready) return setError(`Before the order can be made on EMI: ${(emiSale?.missing?.length ? emiSale.missing : ["fill in the EMI details"]).join(" · ")}`);
     setSaving(true);
     setError("");
     try {
@@ -149,7 +160,7 @@ export default function OrderForm({ open, onOpenChange, initialCustomerId, onCre
           <Button variant="secondary" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button type="submit" form="order-form" loading={saving} disabled={onEmi && !emiSale?.ready}>
+          <Button type="submit" form="order-form" loading={saving}>
             {onEmi ? "Create order on EMI" : "Create order"} · {formatCurrency(total)}
           </Button>
         </>
@@ -271,7 +282,11 @@ export default function OrderForm({ open, onOpenChange, initialCustomerId, onCre
 
         <Textarea label="Notes" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} hint="Visible on the invoice" />
 
-        {error && <Alert tone="danger">{error}</Alert>}
+        {error && (
+          <div ref={errorRef}>
+            <Alert tone="danger">{error}</Alert>
+          </div>
+        )}
       </form>
     </Drawer>
   );

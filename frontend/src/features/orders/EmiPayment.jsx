@@ -12,7 +12,7 @@ const empty = () => Promise.resolve({ data: null });
 /**
  * The Shop EMI part of New order: store, IMEIs for phones, down payment,
  * tenure and rate, with the server's own check and monthly EMI. Reports the
- * sale to make through onChange({ storeId, body, total, ready, key }).
+ * sale to make through onChange({ storeId, body, total, ready, missing, key }).
  */
 export default function EmiPayment({ customer, items, products, onCustomerChange, onChange }) {
   const billing = useBilling();
@@ -82,10 +82,25 @@ export default function EmiPayment({ customer, items, products, onCustomerChange
   }, [complete, storeId, body]);
 
   const ready = Boolean(complete && check.data?.ok && !check.loading);
+
+  // What still stands between the shop and the order, in plain words
+  const missing = !open
+    ? [billing.error?.code === "TENANT_PENDING" ? "EMI & billing for your shop is waiting for the Super Admin's approval" : billing.error?.message || "Your role can't sell on EMI"]
+    : [
+        !customer && "Choose a customer",
+        customer && customer.kycStatus !== "VERIFIED" && "Verify the customer's KYC: enter their PAN and press Verify KYC",
+        items.length === 0 && "Add at least one item",
+        !allPicked && "Pick the IMEI of each phone",
+        !plan.tenureMonths && "Choose the tenure (months)",
+        total > 0 && downPaise >= total && "Down payment must be less than the order total",
+        ...(complete && check.data && !check.data.ok ? check.data.errors : []),
+        complete && check.loading && "Working out the EMI, try again in a moment",
+      ].filter(Boolean);
+
   useEffect(() => {
-    onChange({ storeId, body, total: check.data?.invoice?.grossTotal ?? total, ready, key: keyRef.current });
+    onChange({ storeId, body, total: check.data?.invoice?.grossTotal ?? total, ready, missing, key: keyRef.current });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [storeId, body, total, ready, check.data]);
+  }, [storeId, body, total, ready, check.data, check.loading, open, customer?.kycStatus]);
 
   const verifyKyc = async () => {
     setVerifying(true);
@@ -170,15 +185,21 @@ export default function EmiPayment({ customer, items, products, onCustomerChange
 
       <div className="grid grid-cols-2 gap-3">
         <Input
-          label="Down payment ₹"
+          label={emiRules?.minDownPaymentPct ? "Down payment ₹" : "Down payment ₹ (optional)"}
           inputMode="decimal"
           value={down.amount}
           onChange={(e) => setDown({ ...down, amount: e.target.value.replace(/[^\d.]/g, "") })}
-          hint={emiRules && `At least ${inr(minDown, { whole: true })} (${emiRules.minDownPaymentPct}%)`}
+          hint={emiRules?.minDownPaymentPct ? `At least ${inr(minDown, { whole: true })} (${emiRules.minDownPaymentPct}%)` : "Leave empty if the customer pays nothing now"}
         />
         <Select label="Paid by" value={down.method} onChange={(e) => setDown({ ...down, method: e.target.value })} options={METHOD_OPTIONS} />
         {down.method !== "CASH" && downPaise > 0 && (
-          <Input label="UPI / card ref" className="col-span-2" value={down.txnRef} onChange={(e) => setDown({ ...down, txnRef: e.target.value })} />
+          <Input
+            label="UPI / card ref (optional)"
+            className="col-span-2"
+            hint="Only if the customer has already paid. Leave it empty otherwise."
+            value={down.txnRef}
+            onChange={(e) => setDown({ ...down, txnRef: e.target.value })}
+          />
         )}
         <Select
           label="Tenure"
@@ -210,11 +231,11 @@ export default function EmiPayment({ customer, items, products, onCustomerChange
       {!check.loading && result && !result.ok && <ErrorList error={{ errors: result.errors }} />}
       {!complete && (
         <p className="text-xs text-fg-muted">
-          {!customer ? "Choose a customer, " : ""}
-          {items.length === 0 ? "add items, " : ""}
-          {!allPicked ? "pick the IMEIs, " : ""}
-          {!plan.tenureMonths ? "choose the tenure " : ""}
-          to see the monthly EMI. EMI rules are in <Link className="text-accent hover:underline" to="/dashboard/billing/settings?tab=rules">Billing settings</Link>.
+          The monthly EMI shows once the details above are filled in. EMI rules are in{" "}
+          <Link className="text-accent hover:underline" to="/dashboard/billing/settings?tab=rules">
+            Billing settings
+          </Link>
+          .
         </p>
       )}
     </section>
