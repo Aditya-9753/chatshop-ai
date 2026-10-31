@@ -111,7 +111,7 @@ export function StoreSwitcher({ className }) {
 // Why billing is closed, when the Super Admin hasn't opened it (yet)
 const ACCESS_STATES = {
   TENANT_PENDING: { icon: Clock, title: "Waiting for Super Admin approval" },
-  STAFF_PENDING: { icon: Clock, title: "Waiting for Super Admin approval" },
+  STAFF_PENDING: { icon: Clock, title: "Waiting for the shop owner's approval" },
   TENANT_REJECTED: { icon: ShieldX, title: "EMI & billing was not approved" },
   TENANT_SUSPENDED: { icon: ShieldX, title: "EMI & billing is suspended" },
 };

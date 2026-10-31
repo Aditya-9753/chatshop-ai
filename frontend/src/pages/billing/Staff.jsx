@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { Pencil, Plus, UserPlus, Users } from "lucide-react";
-import { Badge, Button, Card, DataTable, Input, Modal, PageHeader, Select, Switch } from "../../components/ui";
+import { Check, Pencil, Plus, UserPlus, Users, X } from "lucide-react";
+import { Alert, Badge, Button, Card, DataTable, Input, Modal, PageHeader, Select, Switch, Textarea } from "../../components/ui";
 import { useToast } from "../../components/Toast";
 import { useBilling } from "../../features/billing/BillingContext";
 import { BillingGate, ErrorList, StateBadge, Stat, useLoad } from "../../features/billing/components";
@@ -13,7 +13,7 @@ const ROLE_OPTIONS = [
   { value: "AGENT", label: "Collection agent" },
 ];
 const roleLabel = (r) => ROLE_OPTIONS.find((o) => o.value === r)?.label || r;
-const APPROVAL_LABELS = { PENDING: "Waiting for Super Admin", APPROVED: "Approved", REJECTED: "Not approved" };
+const APPROVAL_LABELS = { PENDING: "Waiting for owner", APPROVED: "Approved", REJECTED: "Not approved" };
 
 function StaffModal({ member, onClose, onDone }) {
   const { allStores, isOwner } = useBilling();
@@ -38,7 +38,7 @@ function StaffModal({ member, onClose, onDone }) {
       } else {
         await emiApi.post("/users", { ...form, phone: form.phone || undefined, roles });
       }
-      toast.success(member ? "Staff updated" : "Staff added. They can sign in once the Super Admin approves them.");
+      toast.success(member ? "Staff updated" : isOwner ? "Staff added. They can sign in now." : "Staff added. They can sign in once the shop owner approves them.");
       onClose();
       onDone();
     } catch (e) {
@@ -53,11 +53,13 @@ function StaffModal({ member, onClose, onDone }) {
     <Modal
       open
       onOpenChange={(open) => !open && onClose()}
-      title={member ? `Edit ${member.name}` : "Add staff"}
+      title={member ? `${member.name}: role and store` : "Add staff"}
       description={
         member
-          ? "Staff sign in at the normal login page and only see EMI & billing."
-          : "The Super Admin approves new staff; after that they sign in at the normal login page and only see EMI & billing."
+          ? "Change their role or store at any time. They are signed out and see the new role's pages at their next sign-in."
+          : isOwner
+            ? "Pick their role and store. They sign in at the normal login page and only see the pages of their role."
+            : "The shop owner approves new staff; after that they sign in at the normal login page and only see the pages of their role."
       }
       footer={
         <Button loading={saving} onClick={submit}>
@@ -91,11 +93,60 @@ function StaffModal({ member, onClose, onDone }) {
   );
 }
 
+// The owner turns down staff a Store Admin asked for, with a reason they see at login
+function RejectModal({ member, onClose, onDone }) {
+  const toast = useToast();
+  const [note, setNote] = useState("");
+  const [error, setError] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const submit = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      await emiApi.post(`/users/${member._id}/decide`, { decision: "REJECTED", note });
+      toast.success(`${member.name} not approved`);
+      onClose();
+      onDone();
+    } catch (e) {
+      setError(e);
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <Modal
+      open
+      onOpenChange={(open) => !open && onClose()}
+      title={`Don't approve ${member.name}?`}
+      description="They can't sign in. The reason is shown to them at login."
+      footer={
+        <Button variant="danger" loading={saving} disabled={!note.trim()} onClick={submit}>
+          Don't approve
+        </Button>
+      }
+    >
+      <Textarea label="Reason" required rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
+      {error && <ErrorList error={error} className="mt-3" />}
+    </Modal>
+  );
+}
+
 function Page() {
-  const { can, allStores } = useBilling();
+  const { can, allStores, isOwner } = useBilling();
   const toast = useToast();
   const { data, loading, error, reload } = useLoad(() => emiApi.get("/users"), []);
   const [editing, setEditing] = useState(null);
+  const [rejecting, setRejecting] = useState(null);
+
+  const approve = async (m) => {
+    try {
+      await emiApi.post(`/users/${m._id}/decide`, { decision: "APPROVED" });
+      toast.success(`${m.name} approved. They can sign in now.`);
+      reload();
+    } catch (e) {
+      toast.error(e.message);
+    }
+  };
   const [role, setRole] = useState("");
   const [approval, setApproval] = useState("");
   const storeName = (id) => (id ? allStores.find((s) => s._id === id)?.name || "Store" : "All stores");
@@ -141,6 +192,18 @@ function Page() {
         <span>
           <StateBadge status={statusOf(r)} label={APPROVAL_LABELS[statusOf(r)]} />
           {statusOf(r) === "REJECTED" && r.approvalNote && <span className="mt-0.5 block text-xs text-fg-muted">{r.approvalNote}</span>}
+          {isOwner && statusOf(r) !== "APPROVED" && (
+            <span className="mt-1.5 flex gap-1.5">
+              <Button size="sm" icon={Check} onClick={() => approve(r)}>
+                Approve
+              </Button>
+              {statusOf(r) === "PENDING" && (
+                <Button size="sm" variant="ghost" icon={X} onClick={() => setRejecting(r)}>
+                  Reject
+                </Button>
+              )}
+            </span>
+          )}
         </span>
       ),
     },
@@ -152,7 +215,7 @@ function Page() {
     <>
       <PageHeader
         title="Staff"
-        description="Store Admins, cashiers, accountants and collection agents. Each has their own login and only sees EMI & billing."
+        description="Store Admins, cashiers, accountants and collection agents. Each has their own login and only sees the work of their role."
         actions={
           can("user.manage") && (
             <Button icon={UserPlus} onClick={() => setEditing("new")}>
@@ -165,9 +228,15 @@ function Page() {
       <Card className="mb-4 grid grid-cols-2 gap-4 p-4 sm:grid-cols-4">
         <Stat label="Staff">{all.length}</Stat>
         <Stat label="Can sign in">{all.filter((m) => statusOf(m) === "APPROVED" && m.staffActive).length}</Stat>
-        <Stat label="Waiting for Super Admin">{all.filter((m) => statusOf(m) === "PENDING").length}</Stat>
+        <Stat label="Waiting for owner">{all.filter((m) => statusOf(m) === "PENDING").length}</Stat>
         <Stat label="Switched off">{all.filter((m) => !m.staffActive).length}</Stat>
       </Card>
+
+      {isOwner && all.some((m) => statusOf(m) === "PENDING") && (
+        <Alert tone="warning" className="mb-4" title="Staff waiting for you">
+          A Store Admin added staff who can sign in only after you approve them. Approve or reject them in the Approval column.
+        </Alert>
+      )}
 
       <DataTable
         columns={columns}
@@ -196,10 +265,11 @@ function Page() {
             />
           </>
         }
-        empty={{ icon: Users, title: "No staff yet", description: "Add cashiers, accountants and collection agents. The Super Admin approves them before they can sign in." }}
+        empty={{ icon: Users, title: "No staff yet", description: "Add cashiers, accountants and collection agents, each with their own login." }}
         pageSize={15}
       />
       {editing && <StaffModal member={editing === "new" ? null : editing} onClose={() => setEditing(null)} onDone={reload} />}
+      {rejecting && <RejectModal member={rejecting} onClose={() => setRejecting(null)} onDone={reload} />}
     </>
   );
 }

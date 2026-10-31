@@ -26,10 +26,9 @@ async function dashboard() {
   ]);
   const count = (s) => tenants.find((t) => t._id === s)?.count || 0;
   const active = book[0]?.count || 0;
-  const pendingStaff = await User.countDocuments({ role: "staff", approvalStatus: "PENDING" });
   return {
     tenants: { active: count("ACTIVE"), suspended: count("SUSPENDED"), pending: count("PENDING") },
-    pendingRequests: count("PENDING") + pendingStaff,
+    pendingRequests: count("PENDING"),
     stores,
     gmv30d: { gross: gmv[0]?.gross || 0, invoices: gmv[0]?.count || 0 },
     emiBook: { contracts: active, outstanding: book[0]?.outstanding || 0, overdueContracts: overdue, overduePct: active ? Math.round((overdue / active) * 1000) / 10 : 0 },
@@ -116,33 +115,13 @@ async function staff({ tenantId, status }) {
   return staffWithNames(await User.find(filter).select(STAFF_FIELDS).sort({ createdAt: -1 }).limit(500).lean());
 }
 
-// Everything waiting for the Super Admin: shops and staff
+// Shops waiting for the Super Admin to open EMI & billing for them.
+// (Staff are approved by their own shop owner.)
 async function requests() {
-  const [pendingShops, pendingStaff] = await Promise.all([
-    Tenant.find({ status: "PENDING" }).sort({ createdAt: 1 }).lean(),
-    User.find({ role: "staff", approvalStatus: "PENDING" }).select(STAFF_FIELDS).sort({ createdAt: 1 }).lean(),
-  ]);
+  const pendingShops = await Tenant.find({ status: "PENDING" }).sort({ createdAt: 1 }).lean();
   const owners = await User.find({ _id: { $in: pendingShops.map((t) => t._id) } }).select("name email phone").lean();
   const ownerOf = new Map(owners.map((o) => [String(o._id), o]));
-  return {
-    shops: pendingShops.map((t) => ({ ...t, owner: ownerOf.get(String(t._id)) || null })),
-    staff: await staffWithNames(pendingStaff),
-  };
-}
-
-async function decideStaff(req, id, { decision, note }) {
-  if (!isId(id)) throw new AppError(400, "ID galat hai");
-  const user = await User.findOne({ _id: id, role: "staff" });
-  if (!user) throw new AppError(404, "Staff nahi mila");
-  if (decision === "REJECTED" && !note) throw new AppError(422, "Reject karne ka kaaran likho");
-  const before = { approvalStatus: user.approvalStatus };
-  user.approvalStatus = decision;
-  user.approvalNote = note;
-  if (decision === "REJECTED") user.passwordChangedAt = new Date(); // ends any session
-  await user.save();
-  await audit(req, `staff.${decision === "APPROVED" ? "approve" : "reject"}`, { tenantId: user.tenantId, entity: "User", entityId: user._id, before, after: { approvalStatus: decision, email: user.email }, reason: note });
-  const [named] = await staffWithNames([user.toObject()]);
-  return named;
+  return { shops: pendingShops.map((t) => ({ ...t, owner: ownerOf.get(String(t._id)) || null })) };
 }
 
 // The Super Admin adds staff to a shop directly: approved from the start
@@ -335,7 +314,6 @@ module.exports = {
   payments,
   staff,
   requests,
-  decideStaff,
   createStaffFor,
   updateStaffFor,
 };

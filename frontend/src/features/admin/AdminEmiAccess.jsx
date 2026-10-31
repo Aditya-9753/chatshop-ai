@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Building2, Check, Plus, UserPlus, Users, X } from "lucide-react";
+import { Building2, Check, Plus, UserPlus, X } from "lucide-react";
 import { Badge, Button, Card, CardHeader, DataTable, EmptyState, Input, Modal, Select, Skeleton, Switch, Textarea } from "../../components/ui";
 import { useToast } from "../../components/Toast";
 import { useAuth } from "../../context/AuthContext";
@@ -8,7 +8,8 @@ import { ErrorList, StateBadge, useLoad } from "../billing/components";
 import { emiApi } from "../billing/api";
 import { ShopFilter } from "./AdminEmiRecords";
 
-// Who may use EMI & billing: shops and staff wait for the Super Admin.
+// Who may use EMI & billing: shops wait for the Super Admin; staff are
+// approved by their own shop owner.
 // The limited Admin panel sees the same lists, without the buttons.
 
 const S = (path) => `/super${path}`;
@@ -26,8 +27,7 @@ function DecideModal({ target, onClose, onDone }) {
     setSaving(true);
     setError(null);
     try {
-      if (target.kind === "shop") await emiApi.patch(S(`/tenants/${target.row._id}`), { status: "REJECTED", reason: note });
-      else await emiApi.post(S(`/staff/${target.row._id}/decide`), { decision: "REJECTED", note });
+      await emiApi.patch(S(`/tenants/${target.row._id}`), { status: "REJECTED", reason: note });
       toast.success("Rejected");
       onClose();
       onDone();
@@ -42,7 +42,7 @@ function DecideModal({ target, onClose, onDone }) {
       open
       onOpenChange={(open) => !open && onClose()}
       title={`Reject ${target.row.name}?`}
-      description={target.kind === "shop" ? "The shop sees this reason instead of EMI & billing." : "They can't sign in; the reason is shown at login."}
+      description="The shop sees this reason instead of EMI & billing."
       size="sm"
       footer={
         <Button variant="danger" loading={saving} disabled={note.trim().length < 3} onClick={submit}>
@@ -63,12 +63,11 @@ export function Requests() {
   const [rejecting, setRejecting] = useState(null);
   const [busy, setBusy] = useState(null);
 
-  const approve = async (kind, row) => {
+  const approve = async (row) => {
     setBusy(row._id);
     try {
-      if (kind === "shop") await emiApi.patch(S(`/tenants/${row._id}`), { status: "ACTIVE" });
-      else await emiApi.post(S(`/staff/${row._id}/decide`), { decision: "APPROVED" });
-      toast.success(kind === "shop" ? `${row.name} can use EMI & billing now` : `${row.name} can sign in now`);
+      await emiApi.patch(S(`/tenants/${row._id}`), { status: "ACTIVE" });
+      toast.success(`${row.name} can use EMI & billing now`);
       reload();
     } catch (e) {
       toast.error(e.message);
@@ -79,13 +78,13 @@ export function Requests() {
 
   if (error) return <ErrorList error={error} />;
   if (loading && !data) return <Skeleton className="h-48 w-full" />;
-  const actions = (kind, row) =>
+  const actions = (row) =>
     isSuperAdmin ? (
       <div className="flex gap-2">
-        <Button size="sm" variant="secondary" icon={X} onClick={() => setRejecting({ kind, row })}>
+        <Button size="sm" variant="secondary" icon={X} onClick={() => setRejecting({ row })}>
           Reject
         </Button>
-        <Button size="sm" icon={Check} loading={busy === row._id} onClick={() => approve(kind, row)}>
+        <Button size="sm" icon={Check} loading={busy === row._id} onClick={() => approve(row)}>
           Approve
         </Button>
       </div>
@@ -110,35 +109,13 @@ export function Requests() {
                     {t.gstin ? ` · GSTIN ${t.gstin}` : " · no GSTIN"} · asked {formatDateTime(t.createdAt)}
                   </span>
                 </span>
-                {actions("shop", t)}
+                {actions(t)}
               </li>
             ))}
           </ul>
         )}
       </Card>
 
-      <Card>
-        <CardHeader title="Staff waiting to sign in" description="Added by a shop owner or Store Admin" />
-        {data.staff.length === 0 ? (
-          <EmptyState icon={Users} title="No staff is waiting" className="py-8" />
-        ) : (
-          <ul className="divide-y divide-line border-t border-line">
-            {data.staff.map((u) => (
-              <li key={u._id} className="flex flex-col gap-3 px-5 py-3 sm:flex-row sm:items-center">
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-medium text-fg">
-                    {u.name} <span className="font-normal text-fg-muted">· {u.tenantName}</span>
-                  </span>
-                  <span className="block text-caption text-fg-muted">
-                    {u.email} · {rolesText(u)} · asked {formatDateTime(u.createdAt)}
-                  </span>
-                </span>
-                {actions("staff", u)}
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
       {rejecting && <DecideModal target={rejecting} onClose={() => setRejecting(null)} onDone={reload} />}
     </div>
   );
@@ -230,7 +207,7 @@ export function Staff() {
     ) },
     { key: "tenantName", header: "Shop" },
     { key: "roles", header: "Roles", sortable: false, hideBelow: "md", cell: (r) => <span className="text-caption">{rolesText(r)}</span> },
-    { key: "approvalStatus", header: "Approval", cell: (r) => <StateBadge status={r.approvalStatus || "APPROVED"} label={{ PENDING: "Waiting", APPROVED: "Approved", REJECTED: "Rejected" }[r.approvalStatus || "APPROVED"]} /> },
+    { key: "approvalStatus", header: "Approval", cell: (r) => <StateBadge status={r.approvalStatus || "APPROVED"} label={{ PENDING: "Waiting for owner", APPROVED: "Approved", REJECTED: "Rejected" }[r.approvalStatus || "APPROVED"]} /> },
     {
       key: "staffActive",
       header: "Sign-in",
@@ -266,7 +243,7 @@ export function Staff() {
               onChange={(e) => setStatus(e.target.value)}
               options={[
                 { value: "", label: "Any approval" },
-                { value: "PENDING", label: "Waiting" },
+                { value: "PENDING", label: "Waiting for owner" },
                 { value: "APPROVED", label: "Approved" },
                 { value: "REJECTED", label: "Rejected" },
               ]}

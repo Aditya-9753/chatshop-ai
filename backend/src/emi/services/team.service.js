@@ -75,9 +75,10 @@ async function listStaff(req) {
   return staff.filter((u) => u.emiRoles.some((r) => r.storeId && mine.includes(String(r.storeId))));
 }
 
-// Staff added by a shop wait for the Super Admin (`approved` is only true
-// when the Super Admin adds them)
-async function createStaff(req, { name, email, phone, password, roles }, { approved = false } = {}) {
+// Staff the shop owner adds can sign in straight away; staff a Store Admin
+// adds wait until the owner approves them (`approved` forces it, e.g. when
+// the Super Admin adds staff)
+async function createStaff(req, { name, email, phone, password, roles }, { approved = req.emi.isOwner } = {}) {
   const emiRoles = await checkRoles(req, roles);
   if (!password || password.length < 8) throw new AppError(422, "Password kam se kam 8 characters ka ho");
   if (await User.exists({ email: String(email).toLowerCase() })) throw new AppError(409, "Is email se account pehle se hai");
@@ -93,6 +94,21 @@ async function createStaff(req, { name, email, phone, password, roles }, { appro
     isVerified: true,
   });
   await audit(req, "staff.create", { entity: "User", entityId: user._id, after: { email: user.email, roles: emiRoles, approvalStatus: user.approvalStatus } });
+  return User.findById(user._id).select(STAFF_FIELDS).lean();
+}
+
+// The shop owner approves or rejects staff a Store Admin asked for
+async function decideStaff(req, staffId, { decision, note }) {
+  if (!req.emi.isOwner) throw new AppError(403, "Staff ko sirf shop owner approve kar sakta hai");
+  const user = await User.findOne({ _id: staffId, tenantId: req.emi.tenantId, role: "staff" });
+  if (!user) throw new AppError(404, "Staff nahi mila");
+  if (decision === "REJECTED" && !note) throw new AppError(422, "Reject karne ka kaaran likho");
+  const before = { approvalStatus: user.approvalStatus };
+  user.approvalStatus = decision;
+  user.approvalNote = decision === "REJECTED" ? note : undefined;
+  if (decision === "REJECTED") user.passwordChangedAt = new Date(); // ends any session
+  await user.save();
+  await audit(req, `staff.${decision === "APPROVED" ? "approve" : "reject"}`, { entity: "User", entityId: user._id, before, after: { approvalStatus: decision, email: user.email }, reason: note });
   return User.findById(user._id).select(STAFF_FIELDS).lean();
 }
 
@@ -120,4 +136,4 @@ async function updateStaff(req, staffId, { roles, staffActive, password, name, p
   return User.findById(user._id).select(STAFF_FIELDS).lean();
 }
 
-module.exports = { listStores, createStore, updateStore, updateTenant, listStaff, createStaff, updateStaff };
+module.exports = { listStores, createStore, updateStore, updateTenant, listStaff, createStaff, updateStaff, decideStaff };

@@ -37,7 +37,8 @@ const PERMISSIONS = {
     "nbfc.*",
     "store.read",
   ],
-  ACCOUNTANT: ["*.read", "payment.reconcile", "report.store", "ledger.read"],
+  // Accounts work only: invoices, payments and settlement, GST and the books
+  ACCOUNTANT: ["invoice.read", "customer.read", "payment.read", "payment.reconcile", "report.store", "ledger.read", "store.read"],
   AGENT: ["customer.read", "emi.read", "emi.followup", "payment.collect", "store.read"],
   SUPER_ADMIN: ["super.*"],
 };
@@ -103,7 +104,7 @@ const emiContext = async (req, res, next) => {
     if (user.role === "staff") {
       if (!user.tenantId || user.staffActive === false) throw new AppError(403, "Aapka staff account band hai");
       if (user.approvalStatus && user.approvalStatus !== "APPROVED") {
-        throw new AppError(403, "Aapka account Super Admin ke approval ka intezaar kar raha hai", undefined, "STAFF_PENDING");
+        throw new AppError(403, "Aapka account shop owner ke approval ka intezaar kar raha hai", undefined, "STAFF_PENDING");
       }
       owner = await User.findById(user.tenantId).select("name role subscription businessInfo phone");
       if (!owner) throw new AppError(403, "Dukaan nahi mili");

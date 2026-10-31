@@ -167,12 +167,21 @@ r.get(
   loadStore,
   ah(async (req, res) => {
     const products = await Product.find({ userId: req.emi.tenantId, isActive: true }).sort({ name: 1 }).lean();
-    const units = await InventoryItem.find({ tenantId: req.emi.tenantId, storeId: req.store._id, status: "IN_STOCK" }).select("productId imei").lean();
+    const [units, sales] = await Promise.all([
+      InventoryItem.find({ tenantId: req.emi.tenantId, storeId: req.store._id, status: "IN_STOCK" }).select("productId imei").lean(),
+      // Units sold from this store (cancelled sales put stock back, so they don't count)
+      Invoice.aggregate([
+        { $match: { tenantId: req.emi.tenantId, storeId: req.store._id, status: { $ne: "CANCELLED" } } },
+        { $unwind: "$lines" },
+        { $group: { _id: "$lines.productId", qty: { $sum: "$lines.qty" } } },
+      ]),
+    ]);
     const byProduct = new Map();
     for (const u of units) {
       if (!byProduct.has(String(u.productId))) byProduct.set(String(u.productId), []);
       byProduct.get(String(u.productId)).push(u.imei);
     }
+    const sold = new Map(sales.map((s) => [String(s._id), s.qty]));
     ok(
       res,
       products.map((p) => ({
@@ -185,6 +194,7 @@ r.get(
         gstRatePct: p.gstRatePct ?? 18,
         serialized: Boolean(p.serialized),
         available: p.serialized ? byProduct.get(String(p._id))?.length || 0 : p.stock || 0,
+        sold: sold.get(String(p._id)) || 0,
         imeis: p.serialized ? byProduct.get(String(p._id)) || [] : [],
       }))
     );

@@ -6,7 +6,8 @@ import { ToastProvider } from "./components/Toast";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { PageLoader } from "./components/ui";
-import { BillingProvider } from "./features/billing/BillingContext";
+import { BillingProvider, useBilling } from "./features/billing/BillingContext";
+import { billingPathAllowed } from "./layouts/navigation";
 
 
 // Pages are split per route so the landing and login pages load fast
@@ -38,6 +39,7 @@ const Payments = lazy(() => import("./pages/billing/Payments"));
 const Accounts = lazy(() => import("./pages/billing/Accounts"));
 const BillingSettings = lazy(() => import("./pages/billing/BillingSettings"));
 const BillingStaff = lazy(() => import("./pages/billing/Staff"));
+const MyWork = lazy(() => import("./pages/billing/MyWork"));
 
 // Admin Pages
 const AdminLogin = lazy(() => import("./pages/AdminLogin"));
@@ -96,6 +98,7 @@ function App() {
                         <Route path="billing">
                           <Route index element={<BillingOverview />} />
                           <Route path="start" element={<BillingStart />} />
+                          <Route path="home" element={<MyWork />} />
                           <Route path="sale" element={<NewSale />} />
                           <Route path="invoices" element={<Invoices />} />
                           <Route path="invoices/:id" element={<InvoiceDetail />} />
@@ -128,12 +131,16 @@ function App() {
 
 // Keeps the app shell on screen while a page chunk loads, and contains
 // a crashing page to its own area (reset when the user navigates away).
-// Shop staff only use EMI & billing: anything else sends them there.
+// Shop staff only open the billing pages of their own role: anything else,
+// typed URLs included, sends them to their start page.
 function PageOutlet() {
   const location = useLocation();
   const { user } = useAuth();
-  if (user?.role === "staff" && !location.pathname.startsWith("/dashboard/billing")) {
-    return <Navigate to="/dashboard/billing/start" replace />;
+  const billing = useBilling();
+  if (user?.role === "staff") {
+    if (!location.pathname.startsWith("/dashboard/billing")) return <Navigate to="/dashboard/billing/start" replace />;
+    if (billing.loading && !billing.me) return <PageLoader />;
+    if (billing.me && !billingPathAllowed(location.pathname, billing.items)) return <Navigate to="/dashboard/billing/start" replace />;
   }
   return (
     <Suspense fallback={<PageLoader />}>

@@ -195,13 +195,8 @@ test("Case A approval: ₹10L EMI waits for a Store Admin, cashier cannot approv
   const mk = async (email, role) => {
     const res = await s.owner.post("/users", { name: role, email, password: "Password@123", roles: [{ role, storeId: s.store._id }] });
     assert.equal(res.status, 201, JSON.stringify(res.body));
-    // New staff can't sign in until the Super Admin approves them
-    assert.equal(res.body.data.approvalStatus, "PENDING");
-    const early = await request(app).post("/api/auth/login").send({ email, password: "Password@123" });
-    assert.equal(early.status, 401);
-    assert.match(early.body.message, /Super Admin approval/);
-    const decided = await platform.post(`/super/staff/${res.body.data._id}/decide`, { decision: "APPROVED" });
-    assert.equal(decided.status, 200, JSON.stringify(decided.body));
+    // Staff the owner adds can sign in straight away
+    assert.equal(res.body.data.approvalStatus, "APPROVED");
     return as(await login(email, "Password@123"));
   };
   const cashier = await mk(`cashier-${Date.now()}@crm.local`, "CASHIER");
@@ -340,29 +335,53 @@ test("Both admin panels see every shop's billing; only the Super Admin changes i
   assert.equal((await s.owner.get("/me")).status, 200);
 });
 
-test("Super Admin adds staff directly, or rejects a shop's request", async () => {
+test("The shop owner approves staff; each role gets only its own work", async () => {
   const s = await setupShop();
 
   // Added by the Super Admin: approved, signs in straight away
-  const direct = await platform.post("/super/staff", { tenantId: s.tenantId, name: "Direct Cashier", email: `direct-${Date.now()}@crm.local`, password: "Password@123", roles: [{ role: "CASHIER", storeId: s.store._id }] });
+  const direct = await platform.post("/super/staff", { tenantId: s.tenantId, name: "Direct Admin", email: `direct-${Date.now()}@crm.local`, password: "Password@123", roles: [{ role: "STORE_ADMIN", storeId: s.store._id }] });
   assert.equal(direct.status, 201, JSON.stringify(direct.body));
   assert.equal(direct.body.data.approvalStatus, "APPROVED");
-  await login(direct.body.data.email, "Password@123");
+  const storeAdmin = as(await login(direct.body.data.email, "Password@123"));
 
-  // Asked for by the shop, rejected by the Super Admin: cannot sign in
-  const asked = await s.owner.post("/users", { name: "Asked Agent", email: `asked-${Date.now()}@crm.local`, password: "Password@123", roles: [{ role: "AGENT", storeId: s.store._id }] });
-  const pending = await platform.get("/super/requests");
-  assert.ok(pending.body.data.staff.some((u) => u._id === asked.body.data._id && u.tenantName === "Bhopal Mobiles"));
-  assert.equal((await platform.post(`/super/staff/${asked.body.data._id}/decide`, { decision: "REJECTED" })).status, 422, "a reason is required");
-  const rejected = await platform.post(`/super/staff/${asked.body.data._id}/decide`, { decision: "REJECTED", note: "PAN not shared" });
-  assert.equal(rejected.status, 200);
-  const blocked = await request(app).post("/api/auth/login").send({ email: asked.body.data.email, password: "Password@123" });
-  assert.equal(blocked.status, 401);
+  // Staff a Store Admin adds wait for the shop owner, not the Super Admin
+  const askAgent = await storeAdmin.post("/users", { name: "Asked Agent", email: `asked-${Date.now()}@crm.local`, password: "Password@123", roles: [{ role: "AGENT", storeId: s.store._id }] });
+  assert.equal(askAgent.body.data.approvalStatus, "PENDING");
+  const early = await request(app).post("/api/auth/login").send({ email: askAgent.body.data.email, password: "Password@123" });
+  assert.equal(early.status, 401);
+  assert.match(early.body.message, /shop owner's approval/);
+  assert.equal((await platform.get("/super/requests")).body.data.staff, undefined, "the Super Admin has no staff approvals");
+  assert.equal((await storeAdmin.post(`/users/${askAgent.body.data._id}/decide`, { decision: "APPROVED" })).status, 403, "a Store Admin can't approve");
+  assert.equal((await s.owner.post(`/users/${askAgent.body.data._id}/decide`, { decision: "APPROVED" })).status, 200);
+  const agent = as(await login(askAgent.body.data.email, "Password@123"));
+
+  // The owner rejects one, with a reason shown at login
+  const askCashier = await storeAdmin.post("/users", { name: "Asked Cashier", email: `asked2-${Date.now()}@crm.local`, password: "Password@123", roles: [{ role: "CASHIER", storeId: s.store._id }] });
+  assert.equal((await s.owner.post(`/users/${askCashier.body.data._id}/decide`, { decision: "REJECTED" })).status, 422, "a reason is required");
+  await s.owner.post(`/users/${askCashier.body.data._id}/decide`, { decision: "REJECTED", note: "PAN not shared" });
+  const blocked = await request(app).post("/api/auth/login").send({ email: askCashier.body.data.email, password: "Password@123" });
   assert.match(blocked.body.message, /PAN not shared/);
 
-  // Staff of every shop, in one list
+  // My work: the agent gets agent work only; an accountant can't open sales or EMI
+  const mine = await agent.get("/reports/my");
+  assert.equal(mine.status, 200, JSON.stringify(mine.body));
+  assert.ok(mine.body.data.agent && !mine.body.data.sales && !mine.body.data.accounts);
+  const acct = await s.owner.post("/users", { name: "Accounts", email: `acct-${Date.now()}@crm.local`, password: "Password@123", roles: [{ role: "ACCOUNTANT", storeId: null }] });
+  const accountant = as(await login(acct.body.data.email, "Password@123"));
+  assert.ok((await accountant.get("/reports/my")).body.data.accounts);
+  assert.equal((await accountant.get("/emi")).status, 403);
+  assert.equal((await accountant.get(`/stores/${s.store._id}/stock`)).status, 403);
+  assert.equal((await accountant.get("/invoices")).status, 200);
+
+  // Stock shows what is left and what has sold
+  const stock = await s.owner.get(`/stores/${s.store._id}/stock`);
+  const phone = stock.body.data.find((p) => p._id === String(s.phone._id));
+  assert.equal(phone.available, 4);
+  assert.equal(phone.sold, 0);
+
+  // Staff of every shop, in one list for the Super Admin
   const all = await platform.get(`/super/staff?tenantId=${s.tenantId}`);
-  assert.equal(all.body.data.length, 2);
+  assert.equal(all.body.data.length, 4);
 
   // A shop the Super Admin turns down sees why
   const other = await registerUser(app, { businessName: "Late Shop" });

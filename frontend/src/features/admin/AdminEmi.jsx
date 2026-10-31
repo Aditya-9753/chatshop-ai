@@ -36,7 +36,7 @@ function Overview() {
     <>
     {d?.pendingRequests > 0 && (
       <Alert tone="warning" className="mb-4" title={`${d.pendingRequests} request${d.pendingRequests === 1 ? "" : "s"} waiting for approval`}>
-        Shops asking for EMI & billing and new staff are in the Requests tab.
+        Shops asking for EMI & billing are in the Requests tab. Staff are approved by their own shop owner.
       </Alert>
     )}
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

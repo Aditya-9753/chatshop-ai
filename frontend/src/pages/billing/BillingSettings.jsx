@@ -319,17 +319,23 @@ function Page() {
   const [params, setParams] = useSearchParams();
   const tabs = [
     can("settings.read") && { value: "shop", label: "Shop" },
-    can("store.read") && { value: "stores", label: "Stores" },
+    can("settings.read") && { value: "stores", label: "Stores" },
     can("settings.read") && { value: "rules", label: "EMI rules" },
-    can("report.store") && { value: "reminders", label: "Reminders" },
+    can("settings.read") && { value: "reminders", label: "Reminders" },
     user?.role === "staff" && { value: "account", label: "My account" },
   ].filter(Boolean);
   const tab = tabs.find((t) => t.value === params.get("tab"))?.value || tabs[0]?.value;
 
   return (
     <>
-      <PageHeader title="Billing settings" description="Shop details, stores and the EMI rules" />
-      <Tabs className="mb-5" tabs={tabs} value={tab} onChange={(v) => setParams({ tab: v }, { replace: true })} label="Settings sections" />
+      {tabs.length > 1 ? (
+        <>
+          <PageHeader title="Billing settings" description="Shop details, stores and the EMI rules" />
+          <Tabs className="mb-5" tabs={tabs} value={tab} onChange={(v) => setParams({ tab: v }, { replace: true })} label="Settings sections" />
+        </>
+      ) : (
+        <PageHeader title="My account" description="Your sign-in and password" />
+      )}
       {tab === "shop" && <ShopTab />}
       {tab === "stores" && <StoresTab />}
       {tab === "rules" && <RulesTab />}

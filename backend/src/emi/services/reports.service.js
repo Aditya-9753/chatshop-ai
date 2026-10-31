@@ -1,4 +1,6 @@
-const { Invoice, Payment } = require("../models/sales");
+const Product = require("../../models/Product.model");
+const Customer = require("../../models/Customer.model");
+const { Invoice, Payment, InventoryItem } = require("../models/sales");
 const { EmiContract, EmiInstallment, NbfcCase, JournalEntry, Approval } = require("../models/finance");
 const { trialBalance, ACC, ACCOUNT_NAMES } = require("../domain/ledger");
 const { unpaidOf, totalOf, addMonths } = require("../domain/emi");
@@ -149,4 +151,79 @@ async function ledger(req, { account, from, to, refId, limit = 200 } = {}) {
   return { entries, accounts: ACCOUNT_NAMES };
 }
 
-module.exports = { dashboard, emiAging, gstSummary, trialBalanceReport, ledger };
+/**
+ * "My work" for shop staff: only what their own role works on.
+ * Cashier / Store Admin: my sales and collections today, low stock.
+ * Agent: my assigned EMIs, due today and overdue.
+ * Accountant: money waiting to settle, today's collections, this month's GST.
+ */
+async function myWork(req) {
+  const roles = new Set(req.emi.roles.map((r) => r.role));
+  const base = scoped(req);
+  const me = req.user._id;
+  const day = today();
+  const out = { date: day, roles: [...roles] };
+
+  if (roles.has("CASHIER") || roles.has("STORE_ADMIN") || roles.has("OWNER")) {
+    const [mySales, myInvoices, myCollections] = await Promise.all([
+      Invoice.aggregate([{ $match: { ...base, createdBy: me, date: day, ...LIVE_INVOICE } }, { $group: { _id: null, count: { $sum: 1 }, gross: { $sum: "$grossTotal" } } }]),
+      Invoice.find({ ...base, createdBy: me }).sort({ createdAt: -1 }).limit(8).select("invoiceNo date grossTotal status financeType customer.name").lean(),
+      Payment.aggregate([
+        { $match: { ...base, receivedBy: me, date: day, purpose: { $in: ["EMI", "FORECLOSURE"] }, status: { $ne: "REVERSED" } } },
+        { $group: { _id: null, count: { $sum: 1 }, amount: { $sum: "$amount" } } },
+      ]),
+    ]);
+    out.sales = { count: mySales[0]?.count || 0, gross: mySales[0]?.gross || 0, recent: myInvoices };
+    out.collections = { count: myCollections[0]?.count || 0, amount: myCollections[0]?.amount || 0 };
+
+    // Low stock in the stores I work at: phones by IMEI, the rest by count
+    const products = await Product.find({ userId: req.emi.tenantId, isActive: true }).select("name serialized stock").lean();
+    const units = await InventoryItem.aggregate([
+      { $match: { ...base, status: "IN_STOCK" } },
+      { $group: { _id: "$productId", n: { $sum: 1 } } },
+    ]);
+    const inStock = new Map(units.map((u) => [String(u._id), u.n]));
+    out.lowStock = products
+      .map((p) => ({ _id: p._id, name: p.name, available: p.serialized ? inStock.get(String(p._id)) || 0 : p.stock || 0 }))
+      .filter((p) => p.available <= 2)
+      .sort((a, b) => a.available - b.available);
+  }
+
+  if (roles.has("AGENT")) {
+    const contracts = await EmiContract.find({ ...base, assignedAgentId: me, status: "ACTIVE" }).select("contractNo customerId emiAmount nextDueDate currentDpd bucket principal paidPrincipal").lean();
+    const customers = await Customer.find({ _id: { $in: contracts.map((c) => c.customerId) } }).select("name phone").lean();
+    const who = new Map(customers.map((c) => [String(c._id), c]));
+    const due = await EmiInstallment.find({ tenantId: base.tenantId, contractId: { $in: contracts.map((c) => c._id) }, status: { $in: ["DUE", "OVERDUE", "UPCOMING"] }, dueDate: { $lte: day } }).lean();
+    const dueBy = new Map();
+    for (const i of due) dueBy.set(String(i.contractId), (dueBy.get(String(i.contractId)) || 0) + totalOf(unpaidOf(i)));
+    const rows = contracts.map((c) => ({ ...c, customer: who.get(String(c.customerId)) || null, dueNow: dueBy.get(String(c._id)) || 0 }));
+    const [myCollections] = await Payment.aggregate([
+      { $match: { ...base, receivedBy: me, date: day, status: { $ne: "REVERSED" } } },
+      { $group: { _id: null, count: { $sum: 1 }, amount: { $sum: "$amount" } } },
+    ]);
+    out.agent = {
+      assigned: rows.length,
+      dueToday: rows.filter((c) => c.nextDueDate === day),
+      overdue: rows.filter((c) => c.currentDpd > 0).sort((a, b) => b.currentDpd - a.currentDpd),
+      overdueAmount: rows.reduce((s, c) => s + (c.currentDpd > 0 ? c.dueNow : 0), 0),
+      collectedToday: { count: myCollections?.count || 0, amount: myCollections?.amount || 0 },
+    };
+  }
+
+  if (roles.has("ACCOUNTANT")) {
+    const month = day.slice(0, 7);
+    const [awaiting, collectedToday, gst] = await Promise.all([
+      Payment.aggregate([{ $match: { ...base, status: "CAPTURED" } }, { $group: { _id: null, count: { $sum: 1 }, amount: { $sum: "$amount" } } }]),
+      Payment.aggregate([{ $match: { ...base, date: day, status: { $ne: "REVERSED" } } }, { $group: { _id: null, count: { $sum: 1 }, amount: { $sum: "$amount" } } }]),
+      gstSummary(req, month),
+    ]);
+    out.accounts = {
+      awaitingSettlement: { count: awaiting[0]?.count || 0, amount: awaiting[0]?.amount || 0 },
+      collectedToday: { count: collectedToday[0]?.count || 0, amount: collectedToday[0]?.amount || 0 },
+      gst: { month, output: gst.totalOutput, input: gst.inputGst, netPayable: gst.netPayable },
+    };
+  }
+  return out;
+}
+
+module.exports = { dashboard, emiAging, gstSummary, trialBalanceReport, ledger, myWork };

@@ -10,7 +10,7 @@ import AnnouncementBanner from "../features/dashboard/Announcements";
 import { endShopView, SHOP_VIEW_EXIT_URL } from "../services/shopView";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
-import { TAB_BAR_ITEMS, STAFF_TAB_BAR_ITEMS } from "./navigation";
+import { TAB_BAR_ITEMS } from "./navigation";
 import { useBilling } from "../features/billing/BillingContext";
 
 const COLLAPSED_KEY = "sidebar-collapsed";
@@ -109,7 +109,7 @@ const DashboardLayout = () => {
   const [searchOpen, setSearchOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSED_KEY) === "1");
   const { unreadChats, unreadCount } = useInboxSummary({ enabled: !staff });
-  const tabItems = staff ? STAFF_TAB_BAR_ITEMS.filter((item) => billing.can(item.perm)).slice(0, 4) : TAB_BAR_ITEMS;
+  const tabItems = staff ? billing.items.slice(0, 4) : TAB_BAR_ITEMS;
 
   // The inbox fills the viewport and scrolls its own panes
   const fullBleed = location.pathname.startsWith("/dashboard/messages");

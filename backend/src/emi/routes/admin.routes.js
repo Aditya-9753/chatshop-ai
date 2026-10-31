@@ -64,6 +64,8 @@ r.post(
 // ---- Reports ----
 
 r.get("/reports/dashboard", need("report.store"), ah(async (req, res) => ok(res, await reports.dashboard(req))));
+// Each staff member's own work, by role
+r.get("/reports/my", need("store.read"), ah(async (req, res) => ok(res, await reports.myWork(req))));
 r.get("/reports/emi-aging", need("emi.read"), ah(async (req, res) => ok(res, await reports.emiAging(req))));
 r.get("/reports/gst", need("report.store"), ah(async (req, res) => ok(res, await reports.gstSummary(req, req.query.month))));
 r.get("/reports/trial-balance", need("ledger.read"), ah(async (req, res) => ok(res, await reports.trialBalanceReport(req, req.query))));
@@ -148,5 +150,7 @@ r.patch("/stores/:storeId", need("store.manage"), checkId("storeId"), s.validate
 r.get("/users", need("user.read"), ah(async (req, res) => ok(res, await team.listStaff(req))));
 r.post("/users", need("user.manage"), s.validate(s.StaffIn), ah(async (req, res) => ok(res, await team.createStaff(req, req.body), 201)));
 r.patch("/users/:id", need("user.manage"), checkId("id"), s.validate(s.StaffPatch), ah(async (req, res) => ok(res, await team.updateStaff(req, req.params.id, req.body))));
+// The shop owner approves staff a Store Admin added
+r.post("/users/:id/decide", need("user.manage"), checkId("id"), s.validate(s.StaffDecideIn), ah(async (req, res) => ok(res, await team.decideStaff(req, req.params.id, req.body))));
 
 module.exports = r;

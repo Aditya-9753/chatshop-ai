@@ -4,7 +4,7 @@ import { Alert, Badge, Button, Card, DataTable, Input, Modal, PageHeader, Select
 import { useToast } from "../../components/Toast";
 import { formatDate } from "../../utils/format";
 import { useBilling } from "../../features/billing/BillingContext";
-import { BillingGate, ErrorList, Money, StoreSwitcher, useLoad } from "../../features/billing/components";
+import { BillingGate, ErrorList, Money, Stat, StoreSwitcher, useLoad } from "../../features/billing/components";
 import { emiApi } from "../../features/billing/api";
 
 function ReceiveModal({ store, products, open, onOpenChange, onDone }) {
@@ -96,9 +96,73 @@ function GstRow({ product, onSaved }) {
   );
 }
 
+// What is left and what has sold, per product, at this store
+const levelOf = (p) => (p.available === 0 ? "out" : p.available <= 2 ? "low" : "ok");
+const LEVELS = {
+  out: { tone: "danger", label: "Out of stock" },
+  low: { tone: "warning", label: "Low" },
+  ok: { tone: "success", label: "In stock" },
+};
+
+function Summary({ stock }) {
+  const [level, setLevel] = useState("");
+  const all = stock.data || [];
+  const rows = all.filter((p) => !level || levelOf(p) === level);
+  const units = all.reduce((s, p) => s + p.available, 0);
+  const value = all.reduce((s, p) => s + p.available * (p.price || 0), 0);
+  const sold = all.reduce((s, p) => s + (p.sold || 0), 0);
+
+  const columns = [
+    { key: "name", header: "Product", cell: (r) => (
+      <span>
+        <span className="block max-w-56 truncate font-medium text-fg">{r.name}</span>
+        <span className="block text-xs text-fg-muted">{r.category || (r.serialized ? "By IMEI" : "By count")}</span>
+      </span>
+    ) },
+    { key: "available", header: "In stock", align: "right", cell: (r) => <span className="font-semibold tabular-nums text-fg">{r.available}</span> },
+    { key: "sold", header: "Sold", align: "right", cell: (r) => <span className="tabular-nums">{r.sold || 0}</span> },
+    { key: "price", header: "Price", align: "right", hideBelow: "sm", cell: (r) => <Money value={r.price} whole /> },
+    { key: "value", header: "Stock value", align: "right", hideBelow: "md", sortValue: (r) => r.available * (r.price || 0), cell: (r) => <Money value={r.available * (r.price || 0)} whole /> },
+    { key: "level", header: "Status", sortValue: (r) => r.available, cell: (r) => <Badge tone={LEVELS[levelOf(r)].tone} dot>{LEVELS[levelOf(r)].label}</Badge> },
+  ];
+
+  return (
+    <>
+      <Card className="mb-4 grid grid-cols-2 gap-4 p-4 sm:grid-cols-4">
+        <Stat label="Units in stock">{units}</Stat>
+        <Stat label="Stock value (incl. GST)"><Money value={value} whole /></Stat>
+        <Stat label="Units sold">{sold}</Stat>
+        <Stat label="Low or out of stock">{all.filter((p) => levelOf(p) !== "ok").length}</Stat>
+      </Card>
+      <DataTable
+        columns={columns}
+        rows={rows}
+        loading={stock.loading && !stock.data}
+        error={stock.error?.message}
+        onRetry={stock.reload}
+        searchable
+        searchPlaceholder="Product or category"
+        searchText={(r) => `${r.name} ${r.category || ""}`}
+        toolbar={
+          <Select
+            aria-label="Stock level"
+            value={level}
+            onChange={(e) => setLevel(e.target.value)}
+            options={[{ value: "", label: "All products" }, { value: "low", label: "Low (2 or fewer)" }, { value: "out", label: "Out of stock" }, { value: "ok", label: "In stock" }]}
+            className="w-44"
+          />
+        }
+        defaultSort={{ key: "available", dir: "asc" }}
+        empty={{ icon: Boxes, title: "No products", description: "Add products in Catalog, then receive stock here." }}
+        pageSize={20}
+      />
+    </>
+  );
+}
+
 function StockPage() {
   const { store, can } = useBilling();
-  const [tab, setTab] = useState("units");
+  const [tab, setTab] = useState("summary");
   const [status, setStatus] = useState("IN_STOCK");
   const [receiving, setReceiving] = useState(false);
   const stock = useLoad(() => emiApi.get(`/stores/${store._id}/stock`), [store._id]);
@@ -115,7 +179,7 @@ function StockPage() {
     <>
       <PageHeader
         title="Stock & IMEI"
-        description="Phones are received and sold by IMEI, per store"
+        description="What is in stock and what has sold, per store. Phones are received and sold by IMEI."
         actions={
           <>
             <StoreSwitcher />
@@ -128,31 +192,21 @@ function StockPage() {
         }
       />
 
-      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {(stock.data || [])
-          .filter((p) => p.serialized)
-          .slice(0, 4)
-          .map((p) => (
-            <Card key={p._id} className="p-3">
-              <p className="truncate text-caption text-fg-muted">{p.name}</p>
-              <p className="mt-1 text-xl font-semibold tabular-nums text-fg">{p.available}</p>
-              <p className="text-xs text-fg-muted">in stock here</p>
-            </Card>
-          ))}
-      </div>
-
       <Tabs
         className="mb-4"
         value={tab}
         onChange={setTab}
         label="Stock view"
         tabs={[
+          { value: "summary", label: "Stock summary" },
           { value: "units", label: "Units by IMEI" },
           { value: "gst", label: "Products: HSN & GST" },
         ]}
       />
 
-      {tab === "units" ? (
+      {tab === "summary" ? (
+        <Summary stock={stock} />
+      ) : tab === "units" ? (
         <DataTable
           columns={columns}
           rows={units.data || []}

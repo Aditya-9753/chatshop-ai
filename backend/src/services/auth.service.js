@@ -129,9 +129,9 @@ class AuthService {
     // An Admin with an account of their own always opens the limited panel
     if (user.role === "admin" && user.adminLevel === "admin") adminLevel = "admin";
 
-    // Shop staff sign in only once the Super Admin has approved them
+    // Shop staff sign in only once the shop owner has approved them
     if (user.role === "staff" && user.approvalStatus === "PENDING") {
-      throw new Error("Your account is waiting for Super Admin approval. Ask your shop owner to follow up.");
+      throw new Error("Your account is waiting for the shop owner's approval.");
     }
     if (user.role === "staff" && user.approvalStatus === "REJECTED") {
       throw new Error(`Your account was not approved${user.approvalNote ? `: ${user.approvalNote}` : ""}. Contact your shop owner.`);

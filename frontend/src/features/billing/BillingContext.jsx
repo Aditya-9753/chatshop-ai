@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
+import { BILLING_ITEMS, billingItemsFor } from "../../layouts/navigation";
 import { emiApi } from "./api";
 
 const BillingContext = createContext(null);
@@ -58,20 +59,26 @@ export function BillingProvider({ children }) {
     const stores = (me?.stores || []).filter((s) => s.active !== false);
     const store = stores.find((s) => s._id === storeId) || stores[0] || null;
     const permissions = me?.permissions || [];
+    const can = (perm) => permissions.some((g) => grants(g, perm));
+    const roles = me?.roles || [];
+    const staff = user?.role === "staff";
     return {
       ...state,
       reload: load,
       tenant: me?.tenant || null,
-      roles: me?.roles || [],
+      roles,
       isOwner: Boolean(me?.isOwner),
-      isAgent: Boolean(me?.roles?.length) && me.roles.every((r) => r.role === "AGENT"),
+      isAgent: Boolean(roles.length) && roles.every((r) => r.role === "AGENT"),
       stores,
       allStores: me?.stores || [],
       store,
       setStoreId,
-      can: (perm) => permissions.some((g) => grants(g, perm)),
+      can,
+      // The billing pages this person can open; an owner whose billing isn't
+      // open yet (waiting for approval) still gets the overview, which says why
+      items: state.error && !staff ? BILLING_ITEMS.filter((i) => i.key === "overview") : billingItemsFor({ staff, roles, can }),
     };
-  }, [state, storeId, load, setStoreId]);
+  }, [state, storeId, load, setStoreId, user?.role]);
 
   return <BillingContext.Provider value={value}>{children}</BillingContext.Provider>;
 }

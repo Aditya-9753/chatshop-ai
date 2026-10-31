@@ -1,15 +1,14 @@
 import React from "react";
 import { Navigate } from "react-router-dom";
 import { PageLoader } from "../../components/ui";
-import { BILLING_ITEMS } from "../../layouts/navigation";
 import { useBilling } from "./BillingContext";
 import { BillingBlocked } from "./components";
 
-// Landing spot after sign-in for staff: the first page their role can use
+// Landing spot after sign-in for staff (My work), and for links to pages a
+// role can't open: the first page this person can use
 export default function BillingStart() {
   const billing = useBilling();
   if (billing.loading && !billing.me) return <PageLoader />;
   if (billing.error) return <BillingBlocked error={billing.error} onRetry={billing.reload} />;
-  const first = BILLING_ITEMS.find((item) => billing.can(item.perm));
-  return <Navigate to={first?.href || "/dashboard/billing/settings?tab=account"} replace />;
+  return <Navigate to={billing.items[0]?.href || "/dashboard/billing/settings?tab=account"} replace />;
 }
