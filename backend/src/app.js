@@ -78,7 +78,9 @@ app.use("/api/admin", require("./routes/admin.routes"));
 app.use("/api/emi", require("./emi/routes"));
 
 // ChatShop AI help chat on the website
-app.use("/api/assistant", require("./assistant/routes"));
+const assistantRoutes = require("./assistant/routes");
+app.use("/api/assistant", assistantRoutes.router);
+app.use("/api/admin/assistant", assistantRoutes.admin);
 
 // Platform name and support contact, shown on public pages
 app.get("/api/settings/public", require("./controllers/adminTools.controller").publicSettings);

@@ -2,6 +2,7 @@ const Anthropic = require("@anthropic-ai/sdk");
 const { GoogleGenAI } = require("@google/genai");
 const { liveFacts, systemPrompt } = require("./knowledge");
 const rules = require("./rules");
+const stats = require("./stats");
 
 const MODEL = "claude-opus-5-5";
 // Free-tier Gemini models get busy: the next one is tried when one is busy
@@ -49,13 +50,13 @@ async function askClaude(history, f) {
     system: systemPrompt(f),
     messages: history,
   });
-  if (response.stop_reason === "refusal") return null;
+  if (response.stop_reason === "refusal") return { text: null, declined: true };
   const text = response.content
     .filter((b) => b.type === "text")
     .map((b) => b.text)
     .join("")
     .trim();
-  return text || null;
+  return { text: text || null, model: response.model || MODEL };
 }
 
 async function askGemini(history, f) {
@@ -70,8 +71,8 @@ async function askGemini(history, f) {
       });
       const text = (response.text || "").trim();
       // Blocked by Google's safety filter, or cut off: let the rules answer
-      if (!text || ["SAFETY", "PROHIBITED_CONTENT", "BLOCKLIST"].includes(response.candidates?.[0]?.finishReason)) return null;
-      return text;
+      if (["SAFETY", "PROHIBITED_CONTENT", "BLOCKLIST"].includes(response.candidates?.[0]?.finishReason)) return { text: null, declined: true, model };
+      return { text: text || null, model };
     } catch (error) {
       lastError = error;
       // Busy, out of free quota, or retired for new keys: try the next model
@@ -92,28 +93,50 @@ const logFailure = (name, error) => {
 /**
  * Reply to a website visitor. `history` is [{ role: "user"|"assistant",
  * content }] oldest first, ending with the visitor's message.
- * Returns { reply, source: "ai" | "rules", provider? }.
+ * Returns { reply, source: "ai" | "rules", provider?, model?, ms, error?, declined? }
+ * and counts it in the stats (track: false for the Super Admin's test chat).
  */
-async function chat(history) {
+async function chat(history, { track = true } = {}) {
   const recent = history.slice(-HISTORY_TURNS);
   // Both APIs want the conversation to start with the visitor
   while (recent.length && recent[0].role !== "user") recent.shift();
   const f = await facts();
 
+  const started = Date.now();
   const name = provider();
+  let outcome = { source: "rules", provider: name || undefined };
   if (name) {
     try {
-      const text = name === "claude" ? await askClaude(recent, f) : await askGemini(recent, f);
-      if (text) return { reply: text, source: "ai", provider: name };
+      const answer = name === "claude" ? await askClaude(recent, f) : await askGemini(recent, f);
+      if (answer.text) outcome = { source: "ai", provider: name, model: answer.model, reply: answer.text };
+      else outcome.declined = Boolean(answer.declined);
     } catch (error) {
       logFailure(name, error);
+      outcome.error = stats.describeError(error);
     }
   }
-  return { reply: rules.reply(recent, f), source: "rules" };
+  outcome.ms = Date.now() - started;
+  if (!outcome.reply) outcome.reply = rules.reply(recent, f);
+  if (track) await stats.record(outcome);
+  return outcome;
+}
+
+// What the Super Admin's status screen shows
+async function status() {
+  return {
+    active: provider(),
+    setting: process.env.ASSISTANT_PROVIDER || "",
+    switchedOff: process.env.ASSISTANT_AI === "off" || String(process.env.ASSISTANT_PROVIDER).toLowerCase() === "off",
+    keys: { claude: Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN), gemini: Boolean(process.env.GEMINI_API_KEY) },
+    models: { claude: MODEL, gemini: GEMINI_MODELS() },
+    rateLimitPerMinute: Number(process.env.ASSISTANT_RATE_LIMIT) || 15,
+    ...(await stats.summary(14)),
+  };
 }
 
 module.exports = {
   chat,
+  status,
   aiEnabled,
   provider,
   MODEL,

@@ -181,3 +181,48 @@ test("route: Gemini answers when chosen; a busy model passes to the next, total 
     assistant._setGemini(null);
   }
 });
+
+test("Super Admin status: which AI, keys, counts, last error; test chat isn't counted", async () => {
+  const { registerUser } = require("./helpers");
+  const User = require("../src/models/User.model");
+  const root = await registerUser(app, { name: "Root", email: "assistant-root@example.com" });
+  await User.updateOne({ _id: root.user.id }, { role: "admin" });
+  const shop = await registerUser(app, { name: "Shop" });
+  const as = (token) => (method, url) => request(app)[method](url).set("Authorization", `Bearer ${token}`);
+  const admin = as(root.token);
+
+  assert.equal((await as(shop.token)("get", "/api/admin/assistant/status")).status, 403);
+  assert.equal((await request(app).get("/api/admin/assistant/status")).status, 401);
+  await admin("put", "/api/admin/admin-panel").send({ password: "Panel@123" });
+  const limited = (await request(app).post("/api/auth/login").send({ email: "assistant-root@example.com", password: "Panel@123" })).body.data.token;
+  assert.equal((await as(limited)("get", "/api/admin/assistant/status")).status, 403);
+
+  const res = await admin("get", "/api/admin/assistant/status");
+  assert.equal(res.status, 200, JSON.stringify(res.body));
+  const s = res.body.data;
+  assert.equal(s.active, null); // no key in tests
+  assert.deepEqual(s.keys, { claude: false, gemini: false });
+  assert.equal(s.series.length, 14);
+  // Earlier tests in this file: AI answers, built-in answers, failures and a declined reply
+  assert.ok(s.today.total >= 8, `today ${JSON.stringify(s.today)}`);
+  assert.ok(s.today.ai >= 2);
+  assert.ok(s.today.failures >= 2);
+  assert.ok(s.today.declined >= 2);
+  assert.equal(s.lastError.code, "BUSY");
+  assert.equal(s.lastError.provider, "gemini");
+  assert.equal(s.lastSuccess.provider, "gemini");
+  assert.equal(s.lastSuccess.model, "good-model");
+
+  // The test chat answers but doesn't count
+  const before = s.today.total;
+  const test = await admin("post", "/api/admin/assistant/test").send({ messages: [{ role: "user", content: "mera naam Aditya hai" }] });
+  assert.equal(test.status, 200);
+  assert.equal(test.body.data.source, "rules");
+  assert.ok(typeof test.body.data.ms === "number");
+  assert.equal((await admin("get", "/api/admin/assistant/status")).body.data.today.total, before);
+
+  // Visitors never see why the AI failed
+  const visitor = await request(app).post("/api/assistant/chat").send({ messages: [{ role: "user", content: "hi" }] });
+  assert.equal(visitor.body.data.error, undefined);
+  assert.equal(visitor.body.data.ms, undefined);
+});

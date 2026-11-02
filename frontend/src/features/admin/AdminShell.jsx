@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import * as Dialog from "@radix-ui/react-dialog";
-import { BarChart3, CreditCard, Landmark, LayoutDashboard, Lock, LogOut, Menu, MessageSquare, Moon, Package, RefreshCw, Settings, ShoppingCart, Store, Sun, Users } from "lucide-react";
+import { BarChart3, Bot, CreditCard, Landmark, LayoutDashboard, Lock, LogOut, Menu, MessageSquare, Moon, Package, RefreshCw, Settings, ShoppingCart, Store, Sun, Users } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 import { LogoMark } from "../../components/Logo";
@@ -27,12 +27,13 @@ export const ADMIN_SECTIONS = [
   { value: "messages", label: "Messages", icon: MessageSquare },
   { value: "analytics", label: "Analytics", icon: BarChart3 },
   { value: "billing", label: "Billing", icon: CreditCard, superOnly: true },
+  { value: "assistant", label: "AI Assistant", icon: Bot, superOnly: true },
   { value: "emi", label: "EMI & Billing", icon: Landmark },
   { value: "settings", label: "Settings", icon: Settings, superOnly: true },
   { value: "security", label: "Security", icon: Lock, superOnly: true },
 ];
 
-// The limited Admin panel (admin-panel password) has no Billing, Settings or Security
+// The limited Admin panel (admin-panel password) has no Billing, AI Assistant, Settings or Security
 export const sectionsFor = (isSuperAdmin) => ADMIN_SECTIONS.filter((s) => isSuperAdmin || !s.superOnly);
 
 function AdminNav({ section, onSection }) {
