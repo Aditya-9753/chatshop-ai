@@ -17,10 +17,10 @@ async function dashboard(req) {
   const day = today();
   const from = addDays(day, -13);
 
-  const [salesToday, collectionsToday, overdue, book, approvals, nbfcPending, series, buckets] = await Promise.all([
+  const [salesToday, collectionsToday, overdue, book, approvals, nbfcPending, series, buckets, dues] = await Promise.all([
     Invoice.aggregate([{ $match: { ...base, ...LIVE_INVOICE, date: day } }, { $group: { _id: null, count: { $sum: 1 }, gross: { $sum: "$grossTotal" } } }]),
     Payment.aggregate([
-      { $match: { ...base, date: day, purpose: { $in: ["EMI", "FORECLOSURE"] }, status: { $ne: "REVERSED" } } },
+      { $match: { ...base, date: day, purpose: { $in: ["EMI", "FORECLOSURE", "DUE"] }, status: { $ne: "REVERSED" } } },
       { $group: { _id: null, count: { $sum: 1 }, amount: { $sum: "$amount" } } },
     ]),
     EmiInstallment.find({ ...base, status: "OVERDUE" }).lean(),
@@ -38,6 +38,11 @@ async function dashboard(req) {
       { $group: { _id: "$date", gross: { $sum: "$grossTotal" }, count: { $sum: 1 } } },
     ]),
     EmiContract.aggregate([{ $match: { ...base, status: "ACTIVE" } }, { $group: { _id: "$bucket", count: { $sum: 1 } } }]),
+    // Pay-later balances still owed, and how much of that is past due
+    Invoice.aggregate([
+      { $match: { ...base, status: { $in: ["UNPAID", "PARTIALLY_PAID"] }, balanceDue: { $gt: 0 } } },
+      { $group: { _id: { $lt: ["$dueDate", day] }, count: { $sum: 1 }, amount: { $sum: "$balanceDue" } } },
+    ]),
   ]);
 
   const byDay = new Map(series.map((s) => [s._id, s]));
@@ -48,6 +53,12 @@ async function dashboard(req) {
     overdue: { count: overdue.length, amount: overdue.reduce((s, i) => s + totalOf(unpaidOf(i)), 0) },
     emiBook: { contracts: book[0]?.count || 0, outstanding: book[0]?.outstanding || 0 },
     pendingApprovals: approvals,
+    dues: {
+      count: dues.reduce((n, d) => n + d.count, 0),
+      amount: dues.reduce((n, d) => n + d.amount, 0),
+      overdueCount: dues.find((d) => d._id === true)?.count || 0,
+      overdueAmount: dues.find((d) => d._id === true)?.amount || 0,
+    },
     nbfcPending: { count: nbfcPending[0]?.count || 0, payout: nbfcPending[0]?.payout || 0 },
     sales14d: Array.from({ length: 14 }, (_, i) => {
       const date = addDays(from, i);
@@ -173,7 +184,7 @@ async function myWork(req) {
       Invoice.aggregate([{ $match: { ...base, createdBy: me, date: day, ...LIVE_INVOICE } }, { $group: { _id: null, count: { $sum: 1 }, gross: { $sum: "$grossTotal" } } }]),
       Invoice.find({ ...base, createdBy: me }).sort({ createdAt: -1 }).limit(8).select("invoiceNo date grossTotal status financeType customer.name").lean(),
       Payment.aggregate([
-        { $match: { ...base, receivedBy: me, date: day, purpose: { $in: ["EMI", "FORECLOSURE"] }, status: { $ne: "REVERSED" } } },
+        { $match: { ...base, receivedBy: me, date: day, purpose: { $in: ["EMI", "FORECLOSURE", "DUE"] }, status: { $ne: "REVERSED" } } },
         { $group: { _id: null, count: { $sum: 1 }, amount: { $sum: "$amount" } } },
       ]),
     ]);

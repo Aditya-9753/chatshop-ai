@@ -5,7 +5,8 @@ const Order = require("../models/Order.model");
 const Product = require("../models/Product.model");
 const Conversation = require("../models/Conversation.model");
 const InternalNote = require("../models/InternalNote.model");
-const subscriptionService = require("./subscription.service");
+const { currentPlan } = require("../billing/plans");
+const revenue = require("../billing/revenue");
 const { REVENUE_MATCH, ORDER_MATCH } = require("../utils/revenue");
 const { dayKeys, validTimeZone } = require("./report.service");
 
@@ -115,19 +116,11 @@ class AdminService {
     };
   }
 
-  // Monthly recurring revenue from active subscriptions, priced from the
-  // same plan list the billing page shows (one-time plans excluded)
+  // Monthly recurring revenue in rupees: the same paid-plans definition as
+  // Billing → Overview (trials and free grants excluded)
   async calculateTotalRevenue() {
-    const plans = subscriptionService.getPlans();
-    const activeSubscriptions = await User.find({
-      role: "user",
-      "subscription.status": "active",
-    }).select("subscription.plan");
-
-    return activeSubscriptions.reduce((total, user) => {
-      const plan = user.subscription?.plan;
-      return plan && plan !== "one-time" ? total + (plans[plan]?.price || 0) : total;
-    }, 0);
+    const { mrrPaise } = await revenue.recurring();
+    return mrrPaise / 100;
   }
 
   // Get all users
@@ -304,6 +297,7 @@ class AdminService {
 
     if (role) user.role = role;
     if (subscription) {
+      if (subscription.plan && !(await currentPlan(subscription.plan))) throw new Error("Unknown plan");
       if (subscription.plan !== undefined) user.subscription.plan = subscription.plan || null;
       if (subscription.status) user.subscription.status = subscription.status;
       if (subscription.startDate)

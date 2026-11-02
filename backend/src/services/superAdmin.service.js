@@ -1,7 +1,9 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User.model");
 const authService = require("./auth.service");
-const subscriptionService = require("./subscription.service");
+const { listPlans } = require("../billing/plans");
+const revenue = require("../billing/revenue");
+const { logEvent } = require("../billing/subscriptions");
 const cache = require("../utils/cache");
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -17,6 +19,7 @@ const row = (shop, now) => ({
   businessName: shop.businessInfo?.businessName,
   plan: shop.subscription?.plan || null,
   status: shop.subscription?.status,
+  trial: Boolean(shop.subscription?.trial),
   endDate: shop.subscription?.endDate || null,
   daysLeft: shop.subscription?.endDate ? daysLeft(shop.subscription.endDate, now) : null,
 });
@@ -26,23 +29,29 @@ const row = (shop, now) => ({
  * dashboard as its owner.
  */
 class SuperAdminService {
-  // Revenue by plan, plans running out soon and plans that have ended
+  // Revenue by plan, plans running out soon and plans that have ended.
+  // Money is in rupees here; MRR counts paid plans only (as Billing → Overview).
   async billing() {
-    const plans = subscriptionService.getPlans();
+    const [plans, recurring] = await Promise.all([listPlans({ includeInactive: true }), revenue.recurring()]);
     const now = Date.now();
     const shops = await User.find({ role: "user" })
       .select("name email businessInfo.businessName subscription")
       .lean();
 
-    // Same definition as the Overview MRR: active plans, one-time excluded
     const active = shops.filter((s) => s.subscription?.status === "active" && s.subscription?.plan);
     const lapsed = (s) => s.subscription?.endDate && new Date(s.subscription.endDate).getTime() < now;
 
-    const byPlan = Object.entries(plans).map(([plan, info]) => {
-      const count = active.filter((s) => s.subscription.plan === plan).length;
-      return { plan, name: info.name, price: info.price, shops: count, mrr: plan === "one-time" ? 0 : count * info.price };
-    });
-    const mrr = byPlan.reduce((sum, p) => sum + p.mrr, 0);
+    const paid = new Map(recurring.byPlan.map((p) => [p.plan, p]));
+    const byPlan = plans.map((p) => ({
+      plan: p.code,
+      name: p.name,
+      price: p.pricePaise / 100,
+      interval: p.interval,
+      shops: paid.get(p.code)?.shops || 0,
+      trials: active.filter((s) => s.subscription.plan === p.code && s.subscription.trial).length,
+      mrr: (paid.get(p.code)?.mrrPaise || 0) / 100,
+    }));
+    const mrr = recurring.mrrPaise / 100;
 
     const expiringSoon = active
       .filter((s) => s.subscription.endDate && !lapsed(s) && daysLeft(s.subscription.endDate, now) <= SOON_DAYS)
@@ -59,7 +68,8 @@ class SuperAdminService {
       totals: {
         mrr,
         arr: mrr * 12,
-        payingShops: active.length,
+        payingShops: recurring.paying,
+        trials: active.filter((s) => s.subscription.trial).length,
         expiringSoon: expiringSoon.length,
         ended: ended.length,
       },
@@ -71,7 +81,7 @@ class SuperAdminService {
   }
 
   // Add days to a shop's plan (from today if it already ended) and turn it on
-  async extendSubscription(shopId, days) {
+  async extendSubscription(shopId, days, actor) {
     const add = Number(days);
     if (!Number.isInteger(add) || add < 1 || add > 365) throw new Error("Pick between 1 and 365 days");
 
@@ -83,6 +93,7 @@ class SuperAdminService {
     shop.subscription.endDate = new Date(Math.max(end, Date.now()) + add * DAY_MS);
     shop.subscription.status = "active";
     await shop.save();
+    await logEvent({ merchantId: shop._id, type: "EXTENDED", planCode: shop.subscription.plan, periodEnd: shop.subscription.endDate, actor, note: `+${add} days by Super Admin` });
     cache.clear();
     return row(shop.toObject(), Date.now());
   }

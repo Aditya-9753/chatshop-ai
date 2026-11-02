@@ -11,6 +11,7 @@ const { AppError, withTxn, nextSeq, pad, saveJournals, audit, today } = require(
 const { resolveSettings } = require("./settings.service");
 const { can } = require("../middleware/rbac");
 const bridge = require("./bridge.service");
+const { assertWithinLimit } = require("../../billing/subscriptions");
 
 const saleSummary = (invoice, extra = {}) => ({
   invoiceId: invoice._id,
@@ -113,6 +114,7 @@ async function createSale(req, storeId, body, idempotencyKey) {
     if (existing) return saleSummary(existing, { duplicate: true });
   }
 
+  await assertWithinLimit(tenantId, "invoicesPerMonth");
   const ctx = await loadSale(req, storeId, body);
   const check = checkout({ ...ctx.input, invoiceNo: "PREVIEW" }, ctx.settings);
   if (!check.ok) throw new AppError(422, check.errors[0], check.errors);

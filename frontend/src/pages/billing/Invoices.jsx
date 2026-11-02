@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { FileText, Plus } from "lucide-react";
 import { Button, DataTable, PageHeader, Tabs } from "../../components/ui";
 import { useBilling } from "../../features/billing/BillingContext";
@@ -9,6 +9,8 @@ import { emiApi } from "../../features/billing/api";
 const B = "/dashboard/billing";
 const VIEWS = [
   { value: "", label: "All" },
+  { value: "DUE", label: "Unpaid & part paid" },
+  { value: "OVERDUE", label: "Overdue" },
   { value: "EMI_ACTIVE", label: "On EMI" },
   { value: "PENDING_APPROVAL", label: "Needs approval" },
   { value: "NBFC_PENDING", label: "NBFC pending" },
@@ -19,8 +21,16 @@ const VIEWS = [
 function List() {
   const navigate = useNavigate();
   const { can, stores } = useBilling();
-  const [status, setStatus] = useState("");
-  const { data, loading, error, reload } = useLoad(() => emiApi.get("/invoices", { status: status || undefined }), [status]);
+  const [params] = useSearchParams();
+  const [status, setStatus] = useState(VIEWS.some((v) => v.value === params.get("view")) ? params.get("view") : "");
+  const query = status === "OVERDUE" ? { overdue: "true" } : status === "DUE" ? null : { status: status || undefined };
+  const { data, loading, error, reload } = useLoad(
+    // Pay-later invoices with money owed come from /dues (unpaid and part paid together)
+    () => (query ? emiApi.get("/invoices", query) : emiApi.get("/dues").then((res) => ({ data: res.data.rows }))),
+    [status]
+  );
+  const today = new Date(Date.now() + 5.5 * 3600 * 1000).toISOString().slice(0, 10);
+  const overdue = (r) => ["UNPAID", "PARTIALLY_PAID"].includes(r.status) && r.balanceDue > 0 && r.dueDate && r.dueDate < today;
   const storeName = (id) => stores.find((s) => s._id === id)?.name;
 
   const columns = [
@@ -30,7 +40,8 @@ function List() {
     { key: "financeType", header: "Payment", hideBelow: "md", cell: (r) => FINANCE_LABELS[r.financeType] },
     { key: "storeId", header: "Store", hideBelow: "lg", cell: (r) => storeName(r.storeId) || "—" },
     { key: "grossTotal", header: "Amount", align: "right", cell: (r) => <Money value={r.grossTotal} /> },
-    { key: "status", header: "Status", cell: (r) => <StateBadge status={r.status} /> },
+    { key: "balanceDue", header: "Due", align: "right", hideBelow: "md", cell: (r) => (r.balanceDue > 0 && r.status !== "CANCELLED" ? <span><Money value={r.balanceDue} /><span className="block text-xs text-fg-muted">by {r.dueDate}</span></span> : "—") },
+    { key: "status", header: "Status", cell: (r) => (overdue(r) ? <StateBadge status="OVERDUE" label="Overdue" /> : <StateBadge status={r.status} />) },
   ];
 
   return (

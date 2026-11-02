@@ -7,7 +7,7 @@ import { useBilling } from "../../features/billing/BillingContext";
 import { BillingGate, METHOD_LABELS, Money, StateBadge, Stat, useLoad } from "../../features/billing/components";
 import { emiApi, inr } from "../../features/billing/api";
 
-const PURPOSES = { SALE: "At sale", EMI: "EMI", FORECLOSURE: "Foreclosure" };
+const PURPOSES = { SALE: "At sale", EMI: "EMI", FORECLOSURE: "Foreclosure", DUE: "Later payment" };
 
 function Page() {
   const { can } = useBilling();

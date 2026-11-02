@@ -17,7 +17,7 @@ const { version } = require("../../package.json");
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DB_STATES = ["disconnected", "connected", "connecting", "disconnecting"];
-const PLANS = ["starter", "business", "premium", "one-time"];
+const { currentPlan } = require("../billing/plans");
 
 const nodemailer = require("nodemailer");
 
@@ -158,7 +158,7 @@ class AdminToolsService {
     if (!name?.trim() || !email?.trim() || !password) throw new Error("Name, email and password are required");
     if (password.length < 6) throw new Error("Password must be at least 6 characters");
     if (await User.exists({ email: email.trim().toLowerCase() })) throw new Error("A user with this email already exists");
-    if (plan && !PLANS.includes(plan)) throw new Error("Unknown plan");
+    if (plan && !(await currentPlan(plan))) throw new Error("Unknown plan");
 
     const user = await User.create({
       name: name.trim(),

@@ -4,7 +4,9 @@ const { buildSchedule } = require("./emi");
 const { computeMdr, PAYMENT_METHODS } = require("./mdr");
 const { ACC, dr, cr, gstCredits, journal, accountForMethod } = require("./ledger");
 
-const FINANCE_TYPES = ["NONE", "SHOP_EMI", "NBFC"];
+const FINANCE_TYPES = ["NONE", "SHOP_EMI", "NBFC", "CREDIT"];
+
+const addDays = (date, days) => new Date(Date.parse(`${date}T00:00:00Z`) + days * 86400000).toISOString().slice(0, 10);
 
 /**
  * The whole money side of one sale, with no database: checks, invoice lines
@@ -13,7 +15,8 @@ const FINANCE_TYPES = ["NONE", "SHOP_EMI", "NBFC"];
  * input: { invoiceNo, date, store: { stateCode }, customer: { kycStatus, stateCode },
  *          items: [{ productId, name, hsn, gstRatePct, listPrice, price?, qty, imei?, serialized }],
  *          canDiscount, payments: [{ method, amount, txnRef? }],
- *          finance: { type, principal?, annualRatePct?, tenureMonths?, loanAmount?, partner? } }
+ *          finance: { type, principal?, annualRatePct?, tenureMonths?, loanAmount?, partner?, dueDate? } }
+ * CREDIT is a pay-later sale: whatever isn't paid now stays owed until dueDate.
  * settings: effective settings (config/defaults.js shape). Amounts in paise.
  *
  * Returns { ok, errors, needsApproval, invoice, payments, emi, nbfc, journals }.
@@ -94,6 +97,7 @@ function checkout(input, settings) {
 
   // ---- Finance ----
   let financed = 0;
+  let dueDate;
   let schedule = null;
   let nbfc = null;
   let needsApproval = false;
@@ -138,11 +142,21 @@ function checkout(input, settings) {
       const subventionGst = gstOf(subvention, 18);
       nbfc = { loanAmount, subventionPct: finance.partner.subventionPct || 0, subvention, subventionGst, expectedPayout: loanAmount - subvention - subventionGst };
     }
+  } else if (finance.type === "CREDIT") {
+    const credit = settings.credit || {};
+    financed = grossTotal - paid;
+    if (!credit.enabled) errors.push("Is dukaan me pay later (udhaar) band hai");
+    if (financed <= 0) errors.push("Pay later me kuch baaki hona chahiye; poora payment hai to Full payment chuno");
+    dueDate = finance.dueDate || addDays(input.date, credit.defaultDueDays || 0);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate) || dueDate < input.date) errors.push("Due date aaj ya aage ki honi chahiye");
+    else if (dueDate > addDays(input.date, credit.maxDueDays ?? 90)) errors.push(`Due date ${credit.maxDueDays} din ke andar honi chahiye`);
   }
 
-  if ((financed > 0 || grossTotal > settings.kycRequiredAbove) && input.customer?.kycStatus !== "VERIFIED") {
+  // EMI and NBFC need KYC; a pay-later balance only above the usual sale limit
+  const financeKyc = financed > 0 && finance.type !== "CREDIT";
+  if ((financeKyc || grossTotal > settings.kycRequiredAbove) && input.customer?.kycStatus !== "VERIFIED") {
     errors.push(
-      financed > 0
+      financeKyc
         ? "EMI/finance ke liye customer ka KYC verified hona chahiye"
         : `${fmt(settings.kycRequiredAbove)} se upar ki sale ke liye customer ka KYC verified hona chahiye`
     );
@@ -191,7 +205,8 @@ function checkout(input, settings) {
     );
   }
 
-  const status = needsApproval ? "PENDING_APPROVAL" : schedule ? "EMI_ACTIVE" : nbfc ? "NBFC_PENDING" : "PAID";
+  const credit = finance.type === "CREDIT";
+  const status = needsApproval ? "PENDING_APPROVAL" : schedule ? "EMI_ACTIVE" : nbfc ? "NBFC_PENDING" : credit ? (paid > 0 ? "PARTIALLY_PAID" : "UNPAID") : "PAID";
 
   return {
     ok: true,
@@ -206,6 +221,9 @@ function checkout(input, settings) {
       ...totals,
       paidAtSale: paid,
       financed,
+      amountPaid: paid,
+      balanceDue: credit ? financed : 0,
+      dueDate: credit ? dueDate : undefined,
       lines,
     },
     payments,

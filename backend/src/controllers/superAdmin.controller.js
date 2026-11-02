@@ -15,7 +15,7 @@ const handle = (fn) => async (req, res) => {
 exports.billing = handle(async (req, res) => ResponseHandler.success(res, await superAdmin.billing()));
 
 exports.extendSubscription = handle(async (req, res) => {
-  const shop = await superAdmin.extendSubscription(req.params.id, req.body.days);
+  const shop = await superAdmin.extendSubscription(req.params.id, req.body.days, req.user._id);
   await audit(req, "subscription.extend", { target: shop.email, details: `+${req.body.days} days` });
   return ResponseHandler.success(res, shop, `Plan extended by ${req.body.days} days`);
 });

@@ -11,6 +11,8 @@ const toRupees = (paise) => Math.round(paise) / 100;
 // Invoice status -> ChatShop order status and payment status
 const ORDER_STATES = {
   PAID: ["delivered", "paid"],
+  UNPAID: ["delivered", "pending"],
+  PARTIALLY_PAID: ["delivered", "pending"],
   EMI_ACTIVE: ["delivered", "paid"],
   EMI_CLOSED: ["delivered", "paid"],
   FORECLOSED: ["delivered", "paid"],
@@ -19,7 +21,7 @@ const ORDER_STATES = {
   CANCELLED: ["cancelled", "refunded"],
 };
 
-const FINANCE_LABELS = { NONE: "", SHOP_EMI: "Shop EMI", NBFC: "NBFC finance" };
+const FINANCE_LABELS = { NONE: "", SHOP_EMI: "Shop EMI", NBFC: "NBFC finance", CREDIT: "Pay later" };
 
 // An order taken in chat still has to be shipped: once billed it is
 // "confirmed", and the shop moves it on to shipped and delivered

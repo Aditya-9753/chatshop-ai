@@ -51,15 +51,19 @@ app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 600, // limit each IP to 600 requests per windowMs
-  // Meta delivers webhooks from a few IPs; never throttle them
-  skip: (req) => req.path.endsWith("/webhook"),
+  // Meta and Razorpay deliver webhooks from a few IPs; never throttle them
+  skip: (req) => req.path.endsWith("/webhook") || req.path.startsWith("/webhooks/"),
 });
 app.use("/api/", limiter);
 
 // Routes
 app.use("/api/auth", require("./routes/auth.routes"));
 app.use("/api/users", require("./routes/user.routes"));
-app.use("/api/subscriptions", require("./routes/subscription.routes"));
+// ChatShop's own plans, invoices and payments (platform billing)
+const billing = require("./billing/routes");
+app.use("/api/subscriptions", billing.merchant);
+app.use("/api/webhooks", billing.webhooks);
+app.use("/api/admin", billing.admin);
 app.use("/api/whatsapp", require("./routes/whatsapp.routes"));
 app.use("/api/instagram", require("./routes/instagram.routes"));
 app.use("/api/facebook", require("./routes/facebook.routes"));
@@ -72,6 +76,9 @@ app.use("/api/analytics", require("./routes/analytics.routes"));
 app.use("/api/admin", require("./routes/admin.routes"));
 // EMI & billing: counter sales, GST invoices, Shop EMI, NBFC, accounts
 app.use("/api/emi", require("./emi/routes"));
+
+// ChatShop AI help chat on the website
+app.use("/api/assistant", require("./assistant/routes"));
 
 // Platform name and support contact, shown on public pages
 app.get("/api/settings/public", require("./controllers/adminTools.controller").publicSettings);

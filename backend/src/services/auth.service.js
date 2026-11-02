@@ -80,6 +80,7 @@ class AuthService {
       subscription: {
         plan: "premium", // Give premium by default (free trial)
         status: "active",
+        trial: true,
         startDate: new Date(),
         endDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days trial
       },

@@ -3,33 +3,11 @@ import { Link } from "react-router-dom";
 import { MessageCircle, Send, X } from "lucide-react";
 import { LogoMark } from "./Logo";
 import { cn } from "./ui";
-import { FAQS, PRICING, TRIAL_DAYS } from "../features/marketing/content";
-import { formatCurrency } from "../utils/format";
+import api from "../services/api.service";
 
-const GREETING = "Hi! I can answer questions about ChatShop: pricing, setup, channels, payments or the free trial.";
-const SUGGESTIONS = ["How much does it cost?", "How long does setup take?", "Is there a free trial?", "Can I use Instagram?"];
-
-// Answer from the same FAQ and pricing the landing page shows
-function answer(question) {
-  const text = question.toLowerCase();
-  if (/(price|pricing|cost|plan|how much|₹)/.test(text)) {
-    return [
-      "Plans, per month:",
-      ...PRICING.map((p) => `• ${p.name}: ${formatCurrency(p.price)}${p.oneTime ? " once" : ""}. ${p.blurb}`),
-      `Every plan starts with a ${TRIAL_DAYS}-day free trial.`,
-    ].join("\n");
-  }
-  if (/^(hi|hello|hey)\b/.test(text)) return GREETING;
-  if (/(thank)/.test(text)) return "You're welcome! Anything else?";
-
-  const scored = FAQS.map((faq) => ({ faq, score: faq.keywords.filter((k) => text.includes(k)).length }))
-    .filter((s) => s.score > 0)
-    .sort((a, b) => b.score - a.score);
-  if (scored.length) return scored[0].faq.a;
-
-  return "I'm not sure about that one. Try asking about pricing, setup, channels, payments or security, or create a free account to look around.";
-}
-
+const GREETING = "Namaste! 🙏 Main ChatShop AI hoon. Aap apna naam bata sakte hain, ya poochiye ChatShop aapki dukaan ke liye kya kar sakta hai. (English bhi chalegi.)";
+const SUGGESTIONS = ["ChatShop kya hai?", "Isse main kya kya kar sakta hoon?", "Price kitna hai?", "Is there a free trial?"];
+const OFFLINE = "Abhi jawab nahi de pa raha. Thodi der baad try kijiye, ya /register par 14 din free try kijiye.";
 /**
  * Help widget on the landing page: a 56px floating button that opens a
  * 380 × 560 panel (full width on phones).
@@ -50,16 +28,24 @@ export default function Chatbot() {
     if (open) inputRef.current?.focus();
   }, [open]);
 
-  const ask = (question) => {
+  // The server answers (ChatShop AI, or built-in answers without an AI key);
+  // it gets the whole chat so it remembers the visitor's name
+  const ask = async (question) => {
     const value = question.trim();
     if (!value || typing) return;
-    setMessages((list) => [...list, { from: "user", text: value }]);
+    const next = [...messages, { from: "user", text: value }];
+    setMessages(next);
     setInput("");
     setTyping(true);
-    setTimeout(() => {
-      setMessages((list) => [...list, { from: "bot", text: answer(value) }]);
+    try {
+      const history = next.slice(1).map((m) => ({ role: m.from === "user" ? "user" : "assistant", content: m.text.slice(0, 1000) }));
+      const res = await api.post("/assistant/chat", { messages: history.slice(-20) });
+      setMessages((list) => [...list, { from: "bot", text: res.data.reply }]);
+    } catch (error) {
+      setMessages((list) => [...list, { from: "bot", text: error.status === 429 ? error.message : OFFLINE }]);
+    } finally {
       setTyping(false);
-    }, 450);
+    }
   };
 
   return (
@@ -67,15 +53,15 @@ export default function Chatbot() {
       {open && (
         <div
           role="dialog"
-          aria-label="ChatShop help"
+          aria-label="ChatShop AI chat"
           className="fixed inset-x-4 bottom-24 z-50 flex h-[min(560px,calc(100dvh-8rem))] flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-popover animate-slide-up sm:inset-x-auto sm:right-6 sm:w-[380px]"
           onKeyDown={(e) => e.key === "Escape" && setOpen(false)}
         >
           <header className="flex items-center gap-3 border-b border-line px-4 py-3">
             <LogoMark />
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-fg">ChatShop help</p>
-              <p className="text-xs text-fg-muted">Answers instantly</p>
+              <p className="text-sm font-semibold text-fg">ChatShop AI</p>
+              <p className="text-xs text-fg-muted">Hindi, Hinglish ya English me poochiye</p>
             </div>
             <button onClick={() => setOpen(false)} className="rounded-md p-1.5 text-fg-muted hover:bg-surface-2 hover:text-fg" aria-label="Close help">
               <X className="h-4 w-4" />
@@ -126,7 +112,8 @@ export default function Chatbot() {
                 ref={inputRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask a question…"
+                maxLength={1000}
+                placeholder="Apna sawaal likhiye…"
                 aria-label="Your question"
                 className="h-10 flex-1 bg-transparent text-sm text-fg outline-none placeholder:text-fg-subtle"
               />

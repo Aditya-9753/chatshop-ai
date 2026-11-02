@@ -56,8 +56,8 @@ export function printTaxInvoice({ invoice, payments = [], contract, nbfcCase }) 
     .join("");
 
   const paymentRows = payments
-    .filter((p) => p.purpose === "SALE")
-    .map((p) => `<tr><td>${esc(p.receiptNo)}</td><td>${esc(METHOD_LABELS[p.method] || p.method)}${p.txnRef ? ` · ${esc(p.txnRef)}` : ""}</td><td class="num">${money(p.amount)}</td></tr>`)
+    .filter((p) => (p.purpose === "SALE" || p.purpose === "DUE") && p.status !== "REVERSED")
+    .map((p) => `<tr><td>${esc(p.receiptNo)}</td><td>${esc(p.date || "")}</td><td>${esc(METHOD_LABELS[p.method] || p.method)}${p.txnRef ? ` · ${esc(p.txnRef)}` : ""}</td><td class="num">${money(p.amount)}</td></tr>`)
     .join("");
 
   const finance =
@@ -65,7 +65,9 @@ export function printTaxInvoice({ invoice, payments = [], contract, nbfcCase }) 
       ? `<p><strong>Shop EMI:</strong> ${esc(contract.tenureMonths)} monthly installments of ${money(contract.emiAmount)} at ${esc(contract.annualRatePct)}% p.a. (reducing balance), first due ${esc(contract.nextDueDate || "")}. Contract ${esc(contract.contractNo)}.</p>`
       : nbfcCase
         ? `<p><strong>NBFC finance:</strong> ${money(nbfcCase.loanAmount)} financed by ${esc(nbfcCase.partnerName)}${nbfcCase.doNumber ? `, DO ${esc(nbfcCase.doNumber)}` : ""}.</p>`
-        : "";
+        : invoice.financeType === "CREDIT"
+          ? `<p><strong>Pay later:</strong> paid ${money(invoice.amountPaid)} of ${money(invoice.grossTotal)}; <strong>${money(invoice.balanceDue)} due${invoice.dueDate ? ` by ${esc(invoice.dueDate)}` : ""}</strong>.</p>`
+          : "";
 
   const html = `<!doctype html>
 <html><head><meta charset="utf-8"><title>Tax Invoice ${esc(invoice.invoiceNo)}</title>
@@ -135,7 +137,7 @@ export function printTaxInvoice({ invoice, payments = [], contract, nbfcCase }) 
   </table>
   <p class="muted" style="text-align:right;margin:4px 0 0">${esc(amountInWords(invoice.grossTotal))}</p>
 
-  ${paymentRows ? `<h2 style="margin-top:16px">Received at sale</h2><table style="margin-top:4px"><tbody>${paymentRows}</tbody></table>` : ""}
+  ${paymentRows ? `<h2 style="margin-top:16px">Payments received</h2><table style="margin-top:4px"><tbody>${paymentRows}</tbody></table>` : ""}
   ${finance ? `<div style="margin-top:12px">${finance}</div>` : ""}
 
   <footer>

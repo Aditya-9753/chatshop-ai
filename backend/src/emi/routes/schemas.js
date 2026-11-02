@@ -37,12 +37,13 @@ const CheckoutIn = z.object({
   payments: z.array(z.object({ method, amount: positivePaise, txnRef: z.string().trim().max(80).optional() })).max(5).default([]),
   finance: z
     .object({
-      type: z.enum(["NONE", "SHOP_EMI", "NBFC"]),
+      type: z.enum(["NONE", "SHOP_EMI", "NBFC", "CREDIT"]),
       principal: positivePaise.optional(),
       annualRatePct: z.number().min(0).max(60).optional(),
       tenureMonths: z.number().int().min(1).max(60).optional(),
       partnerId: id.optional(),
       loanAmount: positivePaise.optional(),
+      dueDate: date.optional(), // CREDIT: when the rest is due
     })
     .default({ type: "NONE" }),
   note: z.string().max(500).optional(),

@@ -35,6 +35,7 @@ function Overview() {
   const attention = d
     ? [
         d.overdue.count > 0 && { icon: AlertTriangle, tone: "bg-danger-soft text-danger-fg", title: `${d.overdue.count} overdue installment${d.overdue.count === 1 ? "" : "s"}`, detail: `${inr(d.overdue.amount)} to collect`, to: `${B}/emi?view=overdue` },
+        d.dues?.overdueCount > 0 && { icon: AlertTriangle, tone: "bg-danger-soft text-danger-fg", title: `${d.dues.overdueCount} pay-later invoice${d.dues.overdueCount === 1 ? "" : "s"} overdue`, detail: `${inr(d.dues.overdueAmount)} to collect`, to: `${B}/invoices?view=OVERDUE` },
         d.pendingApprovals > 0 && { icon: CheckSquare, tone: "bg-warning-soft text-warning-fg", title: `${d.pendingApprovals} approval${d.pendingApprovals === 1 ? "" : "s"} waiting`, detail: "High EMI, waivers, foreclosures, cancellations", to: `${B}/approvals` },
       ].filter(Boolean)
     : [];
@@ -53,11 +54,12 @@ function Overview() {
         }
       />
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <StatCard label="Sales today" icon={Receipt} loading={loading} value={d ? inr(d.salesToday.gross, { whole: true }) : "—"} deltaNote={d && `${d.salesToday.count} invoice${d.salesToday.count === 1 ? "" : "s"}`} />
-        <StatCard label="EMI collected today" icon={Wallet} loading={loading} value={d ? inr(d.collectionsToday.amount, { whole: true }) : "—"} deltaNote={d && `${d.collectionsToday.count} receipt${d.collectionsToday.count === 1 ? "" : "s"}`} />
+        <StatCard label="Collected today" icon={Wallet} loading={loading} value={d ? inr(d.collectionsToday.amount, { whole: true }) : "—"} deltaNote={d && `${d.collectionsToday.count} receipt${d.collectionsToday.count === 1 ? "" : "s"}`} />
         <StatCard label="EMI book outstanding" icon={IndianRupee} loading={loading} value={d ? inr(d.emiBook.outstanding, { whole: true }) : "—"} deltaNote={d && `${d.emiBook.contracts} active contract${d.emiBook.contracts === 1 ? "" : "s"}`} />
-        <StatCard label="Overdue" icon={CalendarClock} loading={loading} value={d ? inr(d.overdue.amount, { whole: true }) : "—"} deltaNote={d && `${d.overdue.count} installment${d.overdue.count === 1 ? "" : "s"}`} />
+        <StatCard label="EMI overdue" icon={CalendarClock} loading={loading} value={d ? inr(d.overdue.amount, { whole: true }) : "—"} deltaNote={d && `${d.overdue.count} installment${d.overdue.count === 1 ? "" : "s"}`} />
+        <StatCard label="Pay-later dues" icon={IndianRupee} loading={loading} value={d ? inr(d.dues?.amount || 0, { whole: true }) : "—"} deltaNote={d && (d.dues?.overdueCount ? `${d.dues.overdueCount} overdue · ${inr(d.dues.overdueAmount, { whole: true })}` : `${d.dues?.count || 0} invoice${d.dues?.count === 1 ? "" : "s"}`)} />
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">

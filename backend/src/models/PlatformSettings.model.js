@@ -15,6 +15,23 @@ const platformSettingsSchema = new mongoose.Schema(
       // Send admins a copy of every broadcast
       systemUpdates: { type: Boolean, default: false },
     },
+    // ChatShop AI as the supplier on the invoices it sends shops. GST is
+    // charged only once a GSTIN is set; have a tax advisor check these.
+    billing: {
+      legalName: { type: String, default: "", trim: true },
+      gstin: { type: String, default: "", trim: true, uppercase: true },
+      stateCode: { type: String, default: "", trim: true },
+      address: { type: String, default: "", trim: true },
+      email: { type: String, default: "", trim: true, lowercase: true },
+      phone: { type: String, default: "", trim: true },
+      invoicePrefix: { type: String, default: "CSA", trim: true, uppercase: true },
+      sac: { type: String, default: "", trim: true }, // service code printed on lines
+      gstRatePct: { type: Number, default: 18 },
+      pricesIncludeGst: { type: Boolean, default: false }, // plan prices are before GST
+      graceDays: { type: Number, default: 3 }, // access after the end date, before the plan expires
+      reminderDays: { type: Number, default: 3 }, // email this many days before the end date
+      paymentTermsDays: { type: Number, default: 7 }, // due date on manual invoices
+    },
   },
   { timestamps: true }
 );

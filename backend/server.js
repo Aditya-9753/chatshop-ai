@@ -10,6 +10,7 @@ const server = http.createServer(app);
 realtime.init(server);
 
 require("./src/emi/jobs").startEmiJobs();
+require("./src/billing/jobs").startBillingJobs();
 
 server.listen(PORT, () => {
   console.log(`✅ Server running on http://localhost:${PORT}`);

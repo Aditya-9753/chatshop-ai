@@ -64,6 +64,7 @@ exports.createProduct = async (req, res) => {
     );
   } catch (error) {
     console.error("Create product error:", error);
+    if (error.code === "PLAN_LIMIT") return ResponseHandler.forbidden(res, error.message);
     return ResponseHandler.badRequest(res, error.message);
   }
 };

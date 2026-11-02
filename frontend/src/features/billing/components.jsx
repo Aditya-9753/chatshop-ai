@@ -29,6 +29,8 @@ export const Money = ({ value, whole, className }) => <span className={cn("tabul
 
 const TONES = {
   PAID: ["success", "Paid"],
+  UNPAID: ["warning", "Unpaid"],
+  PARTIALLY_PAID: ["warning", "Part paid"],
   EMI_ACTIVE: ["accent", "EMI active"],
   EMI_CLOSED: ["success", "EMI closed"],
   FORECLOSED: ["neutral", "Foreclosed"],
@@ -79,7 +81,7 @@ export const BucketBadge = ({ bucket }) => (
 
 export const METHOD_LABELS = { CASH: "Cash", UPI: "UPI", CREDIT_CARD: "Credit card", DEBIT_CARD: "Debit card", BANK: "Bank transfer" };
 export const METHOD_OPTIONS = Object.entries(METHOD_LABELS).map(([value, label]) => ({ value, label }));
-export const FINANCE_LABELS = { NONE: "Full payment", SHOP_EMI: "Shop EMI", NBFC: "NBFC finance" };
+export const FINANCE_LABELS = { NONE: "Full payment", SHOP_EMI: "Shop EMI", NBFC: "NBFC finance", CREDIT: "Pay later" };
 export const APPROVAL_LABELS = { HIGH_EMI: "High-value EMI", LATE_FEE_WAIVER: "Late fee waiver", FORECLOSURE: "Foreclosure", INVOICE_CANCEL: "Invoice cancellation" };
 
 // Store picker for people who work at more than one store

@@ -362,7 +362,10 @@ function ItemsStep({ store, stock, lines, setLines, canDiscount }) {
 
 // ---------- Step 3: payment & finance ----------
 
-function PaymentStep({ total, rules, finance, setFinance, payments, setPayments, emi, setEmi, paid }) {
+// Today + n days in India, YYYY-MM-DD
+const inDays = (n) => new Date(Date.now() + 5.5 * 3600 * 1000 + n * 86400000).toISOString().slice(0, 10);
+
+function PaymentStep({ total, rules, finance, setFinance, payments, setPayments, emi, setEmi, paid, dueDate, setDueDate }) {
   const financed = finance === "NONE" ? 0 : Math.max(0, total - paid);
   const [schedule, setSchedule] = useState({ data: null, error: null, loading: false });
 
@@ -399,12 +402,13 @@ function PaymentStep({ total, rules, finance, setFinance, payments, setPayments,
             label="Finance"
             tabs={[
               { value: "NONE", label: "Full payment" },
+              ...(rules?.credit?.enabled ? [{ value: "CREDIT", label: "Pay later" }] : []),
               { value: "SHOP_EMI", label: "Shop EMI" },
             ]}
           />
 
           <div className="mt-5 flex flex-col gap-3">
-            <p className="text-caption font-medium text-fg">{finance === "NONE" ? "Payments" : "Down payment (optional)"}</p>
+            <p className="text-caption font-medium text-fg">{finance === "NONE" ? "Payments" : finance === "CREDIT" ? "Paid now (optional)" : "Down payment (optional)"}</p>
             {payments.map((row) => (
               <div key={row.key} className="grid grid-cols-[1fr_1fr_auto] gap-2 sm:grid-cols-[160px_1fr_1fr_auto] sm:items-end">
                 <Select aria-label="Method" value={row.method} onChange={(e) => setRow(row, { method: e.target.value })} options={METHOD_OPTIONS} />
@@ -427,6 +431,23 @@ function PaymentStep({ total, rules, finance, setFinance, payments, setPayments,
           </div>
         </CardBody>
       </Card>
+
+      {finance === "CREDIT" && (
+        <Card>
+          <CardHeader title="Pay later" description={`${inr(financed)} stays owed by the customer until the due date. Collect it from the invoice any time.`} />
+          <CardBody className="grid gap-3 sm:grid-cols-2">
+            <Input
+              label="Due date"
+              type="date"
+              value={dueDate || inDays(rules?.credit?.defaultDueDays ?? 15)}
+              min={inDays(0)}
+              max={inDays(rules?.credit?.maxDueDays ?? 90)}
+              onChange={(e) => setDueDate(e.target.value)}
+              hint={`Up to ${rules?.credit?.maxDueDays ?? 90} days from today`}
+            />
+          </CardBody>
+        </Card>
+      )}
 
       {finance === "SHOP_EMI" && (
         <Card>
@@ -573,7 +594,7 @@ function Review({ preview, customer }) {
           <dd className="text-right tabular-nums">{inr(inv.paidAtSale)}</dd>
           {inv.financed > 0 && (
             <>
-              <dt className="text-fg-muted">{inv.financeType === "NBFC" ? "NBFC loan" : "On Shop EMI"}</dt>
+              <dt className="text-fg-muted">{inv.financeType === "NBFC" ? "NBFC loan" : inv.financeType === "CREDIT" ? `Pay later (due ${inv.dueDate})` : "On Shop EMI"}</dt>
               <dd className="text-right tabular-nums">{inr(inv.financed)}</dd>
             </>
           )}
@@ -635,6 +656,7 @@ function Sale() {
   const [finance, setFinance] = useState("NONE");
   const [payments, setPayments] = useState([]);
   const [emi, setEmi] = useState({ tenureMonths: "", annualRatePct: "" });
+  const [dueDate, setDueDate] = useState("");
   const [preview, setPreview] = useState(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
@@ -657,9 +679,11 @@ function Sale() {
       finance:
         finance === "SHOP_EMI"
           ? { type: "SHOP_EMI", principal: financed, tenureMonths: Number(emi.tenureMonths) || undefined, annualRatePct: emi.annualRatePct === "" ? undefined : Number(emi.annualRatePct) }
-          : { type: "NONE" },
+          : finance === "CREDIT"
+            ? { type: "CREDIT", dueDate: dueDate || undefined }
+            : { type: "NONE" },
     }),
-    [customer, lines, payments, finance, financed, emi]
+    [customer, lines, payments, finance, financed, emi, dueDate]
   );
 
   // Any change after review is a different sale: a new idempotency key
@@ -709,6 +733,7 @@ function Sale() {
     setFinance("NONE");
     setPayments([]);
     setEmi({ tenureMonths: "", annualRatePct: "" });
+    setDueDate("");
     setPreview(null);
     setResult(null);
     setSaveError(null);
@@ -727,11 +752,11 @@ function Sale() {
   const canNext =
     (step === 1 && customer) ||
     (step === 2 && lines.length > 0) ||
-    (step === 3 && balance === 0 && (finance !== "SHOP_EMI" || (emi.tenureMonths && financed > 0)));
+    (step === 3 && balance === 0 && (finance === "NONE" || (finance === "CREDIT" && financed > 0) || (emi.tenureMonths && financed > 0)));
 
   return (
     <>
-      <PageHeader title="New sale" description="GST invoice with full payment or Shop EMI" actions={<StoreSwitcher />} />
+      <PageHeader title="New sale" description="GST invoice with full payment, pay later or Shop EMI" actions={<StoreSwitcher />} />
       <Steps step={step} />
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -749,6 +774,8 @@ function Sale() {
               emi={emi}
               setEmi={setEmi}
               paid={paid}
+              dueDate={dueDate}
+              setDueDate={setDueDate}
             />
           )}
           {step === 4 && <Review preview={preview} customer={customer} />}
@@ -778,7 +805,7 @@ function Sale() {
                 </div>
                 {finance !== "NONE" && (
                   <div className="flex justify-between">
-                    <dt className="text-fg-muted">Shop EMI</dt>
+                    <dt className="text-fg-muted">{finance === "CREDIT" ? "Pay later" : "Shop EMI"}</dt>
                     <dd className="tabular-nums">{inr(financed)}</dd>
                   </div>
                 )}

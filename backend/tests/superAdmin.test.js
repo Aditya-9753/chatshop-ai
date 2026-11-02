@@ -15,9 +15,13 @@ before(async () => {
   await request(app).put("/api/admin/admin-panel").set("Authorization", `Bearer ${superToken}`).send({ password: "Panel@123" });
   limitedToken = (await request(app).post("/api/auth/login").send({ email: "boss@example.com", password: "Panel@123" })).body.data.token;
 
-  // New sign-ups get a premium trial for 14 days; one ends in 3 days, one already ended
+  // New sign-ups get a premium trial for 14 days; one pays for Business and
+  // ends in 3 days, one already ended (trials add no revenue)
   shop = await registerUser(app, { name: "Asha Stores" });
-  await User.updateOne({ _id: shop.user.id }, { "subscription.plan": "business", "subscription.endDate": new Date(Date.now() + 3 * DAY_MS) });
+  await User.updateOne(
+    { _id: shop.user.id },
+    { "subscription.plan": "business", "subscription.trial": false, "subscription.interval": "MONTHLY", "subscription.pricePaise": 124900, "subscription.endDate": new Date(Date.now() + 3 * DAY_MS) }
+  );
   ended = await registerUser(app, { name: "Old Shop" });
   await User.updateOne({ _id: ended.user.id }, { "subscription.status": "expired", "subscription.endDate": new Date(Date.now() - 2 * DAY_MS) });
 });

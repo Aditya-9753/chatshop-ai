@@ -6,13 +6,14 @@ import { API_ENDPOINTS } from "../config/api.config";
 import { Card, cn, ErrorState, PageHeader, Skeleton } from "../components/ui";
 import ProfileSettings from "../features/settings/ProfileSettings";
 import ChannelSettings from "../features/settings/ChannelSettings";
-import { AiSettings, BillingSettings, SecuritySettings, TeamSettings } from "../features/settings/AccountSettings";
+import { AiSettings, SecuritySettings, TeamSettings } from "../features/settings/AccountSettings";
+import PlanBilling from "../features/settings/PlanBilling";
 
 const SECTIONS = [
   { value: "profile", label: "Profile", icon: User, component: ProfileSettings },
   { value: "channels", label: "Channels", icon: MessageSquare, component: ChannelSettings },
   { value: "ai", label: "AI replies", icon: Sparkles, component: AiSettings },
-  { value: "billing", label: "Billing", icon: CreditCard, component: BillingSettings },
+  { value: "billing", label: "Plan & billing", icon: CreditCard, component: PlanBilling },
   { value: "team", label: "Team", icon: Users, component: TeamSettings },
   { value: "security", label: "Security", icon: Lock, component: SecuritySettings },
 ];

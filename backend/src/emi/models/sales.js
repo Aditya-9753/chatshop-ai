@@ -60,11 +60,15 @@ const invoiceSchema = new mongoose.Schema(
     discount: Money(),
     paidAtSale: Money(),
     financed: Money(),
+    // Pay-later (CREDIT) sales: what has come in so far and what is still owed
+    amountPaid: Money(),
+    balanceDue: Money(),
+    dueDate: String, // YYYY-MM-DD
     interState: Boolean,
-    financeType: { type: String, enum: ["NONE", "SHOP_EMI", "NBFC"], default: "NONE" },
+    financeType: { type: String, enum: ["NONE", "SHOP_EMI", "NBFC", "CREDIT"], default: "NONE" },
     status: {
       type: String,
-      enum: ["PAID", "EMI_ACTIVE", "EMI_CLOSED", "FORECLOSED", "PENDING_APPROVAL", "NBFC_PENDING", "CANCELLED"],
+      enum: ["PAID", "UNPAID", "PARTIALLY_PAID", "EMI_ACTIVE", "EMI_CLOSED", "FORECLOSED", "PENDING_APPROVAL", "NBFC_PENDING", "CANCELLED"],
       required: true,
     },
     emiContractId: { type: ObjectId, ref: "EmiContract", default: null },
@@ -83,13 +87,14 @@ invoiceSchema.index({ tenantId: 1, invoiceNo: 1 }, { unique: true });
 invoiceSchema.index({ tenantId: 1, idempotencyKey: 1 }, { unique: true, partialFilterExpression: { idempotencyKey: { $type: "string" } } });
 invoiceSchema.index({ tenantId: 1, storeId: 1, createdAt: -1 });
 invoiceSchema.index({ tenantId: 1, customerId: 1 });
+invoiceSchema.index({ tenantId: 1, balanceDue: 1, dueDate: 1 });
 
 const paymentSchema = new mongoose.Schema(
   {
     storeId: { type: ObjectId, ref: "Store", required: true },
     receiptNo: { type: String, required: true },
     date: { type: String, required: true },
-    purpose: { type: String, enum: ["SALE", "EMI", "FORECLOSURE"], required: true },
+    purpose: { type: String, enum: ["SALE", "EMI", "FORECLOSURE", "DUE"], required: true }, // DUE: later payment on a pay-later sale
     invoiceId: { type: ObjectId, ref: "Invoice" },
     emiContractId: { type: ObjectId, ref: "EmiContract" },
     customerId: { type: ObjectId, ref: "Customer" },

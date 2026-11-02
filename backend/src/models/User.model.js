@@ -54,19 +54,24 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    // The shop's ChatShop plan. Plan codes live in the plans collection
+    // (src/billing), so the Super Admin can add plans.
     subscription: {
-      plan: {
-        type: String,
-        enum: ["starter", "business", "premium", "one-time", null],
-        default: null,
-      },
+      plan: { type: String, default: null, lowercase: true, trim: true },
       status: {
         type: String,
         enum: ["active", "inactive", "cancelled", "expired"],
         default: "inactive",
       },
+      trial: { type: Boolean, default: false }, // free trial: no payment, no revenue
+      interval: { type: String, enum: ["MONTHLY", "YEARLY", "ONE_TIME", null], default: null },
+      planVersion: Number,
+      pricePaise: { type: Number, default: 0 }, // recurring price before GST, from the last paid invoice
       startDate: Date,
       endDate: Date,
+      cancelAtPeriodEnd: { type: Boolean, default: false },
+      cancelledAt: Date,
+      lastInvoiceId: { type: mongoose.Schema.Types.ObjectId, ref: "PlatformInvoice" },
       razorpaySubscriptionId: String,
       razorpayCustomerId: String,
     },

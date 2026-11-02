@@ -1,12 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Ban, CalendarClock, Printer } from "lucide-react";
-import { Alert, Button, Card, CardBody, CardHeader, DetailRow, ErrorState, Modal, PageHeader, PageLoader, Textarea } from "../../components/ui";
+import { ArrowLeft, Ban, BellRing, CalendarClock, Printer, Wallet } from "lucide-react";
+import { Alert, Button, Card, CardBody, CardHeader, DetailRow, ErrorState, Input, Modal, PageHeader, PageLoader, Select, Textarea } from "../../components/ui";
 import { useToast } from "../../components/Toast";
 import { formatDateTime } from "../../utils/format";
 import { useBilling } from "../../features/billing/BillingContext";
-import { APPROVAL_LABELS, BillingGate, ErrorList, FINANCE_LABELS, METHOD_LABELS, Money, StateBadge, useLoad } from "../../features/billing/components";
-import { emiApi, inr } from "../../features/billing/api";
+import { APPROVAL_LABELS, BillingGate, ErrorList, FINANCE_LABELS, METHOD_LABELS, METHOD_OPTIONS, Money, StateBadge, useLoad } from "../../features/billing/components";
+import { emiApi, fromPaise, inr, newKey, toPaise } from "../../features/billing/api";
 import { printTaxInvoice } from "../../features/billing/printInvoice";
 
 const B = "/dashboard/billing";
@@ -54,6 +54,85 @@ function CancelRequest({ invoice, onDone }) {
   );
 }
 
+const OPEN = ["UNPAID", "PARTIALLY_PAID"];
+const PURPOSE_LABELS = { SALE: "At sale", EMI: "EMI", FORECLOSURE: "Foreclosure", DUE: "Later payment" };
+
+// Money for a pay-later sale, taken after the sale
+function CollectDue({ invoice, onDone }) {
+  const toast = useToast();
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ method: "UPI", amount: "", txnRef: "" });
+  const [key, setKey] = useState(newKey());
+  const [error, setError] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const start = () => {
+    setForm({ method: "UPI", amount: String(fromPaise(invoice.balanceDue)), txnRef: "" });
+    setKey(newKey()); // one receipt per dialog, even if Save is pressed twice
+    setError(null);
+    setOpen(true);
+  };
+  const submit = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await emiApi.post(`/invoices/${invoice._id}/payments`, { method: form.method, amount: toPaise(form.amount), txnRef: form.txnRef || undefined }, key);
+      toast.success(res.data.invoice?.status === "PAID" ? `${res.data.payment.receiptNo}: fully paid` : `${res.data.payment.receiptNo}: ${inr(res.data.invoice?.balanceDue ?? 0)} still due`);
+      setOpen(false);
+      onDone();
+    } catch (e) {
+      setError(e);
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <>
+      <Button icon={Wallet} onClick={start}>
+        Collect payment
+      </Button>
+      <Modal
+        open={open}
+        onOpenChange={setOpen}
+        title={`Collect for ${invoice.invoiceNo}`}
+        description={`${inr(invoice.balanceDue)} due${invoice.dueDate ? ` by ${invoice.dueDate}` : ""}`}
+        footer={
+          <Button loading={saving} disabled={toPaise(form.amount) <= 0} onClick={submit}>
+            Save receipt
+          </Button>
+        }
+      >
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Select label="Method" value={form.method} onChange={(e) => setForm({ ...form, method: e.target.value })} options={METHOD_OPTIONS} />
+          <Input label="Amount ₹" inputMode="decimal" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value.replace(/[^\d.]/g, "") })} />
+          {form.method !== "CASH" && <Input label="Reference" placeholder="UPI / card / UTR" className="sm:col-span-2" value={form.txnRef} onChange={(e) => setForm({ ...form, txnRef: e.target.value })} />}
+        </div>
+        {error && <ErrorList error={error} className="mt-3" />}
+      </Modal>
+    </>
+  );
+}
+
+function RemindDue({ invoice }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const send = async () => {
+    setBusy(true);
+    try {
+      await emiApi.post(`/invoices/${invoice._id}/remind`, {});
+      toast.success("Reminder queued: it goes out on WhatsApp in a few minutes");
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Button variant="secondary" icon={BellRing} loading={busy} onClick={send}>
+      Send reminder
+    </Button>
+  );
+}
+
 function Detail() {
   const { id } = useParams();
   const [params] = useSearchParams();
@@ -72,6 +151,7 @@ function Detail() {
   if (error) return <ErrorState description={error.message} onRetry={reload} />;
   const { invoice, payments, contract, nbfcCase, approvals, store } = data;
   const pendingCancel = approvals.some((a) => a.type === "INVOICE_CANCEL" && a.status === "PENDING");
+  const owing = OPEN.includes(invoice.status) && invoice.balanceDue > 0;
 
   return (
     <>
@@ -83,7 +163,9 @@ function Detail() {
         description={`${invoice.date} · ${store?.name || ""} · ${FINANCE_LABELS[invoice.financeType]}`}
         actions={
           <>
-            <StateBadge status={invoice.status} />
+            <StateBadge status={invoice.overdue ? "OVERDUE" : invoice.status} label={invoice.overdue ? "Overdue" : undefined} />
+            {owing && can("payment.collect") && <RemindDue invoice={invoice} />}
+            {owing && can("payment.collect") && <CollectDue invoice={invoice} onDone={reload} />}
             {can("approval.create") && invoice.status !== "CANCELLED" && !pendingCancel && <CancelRequest invoice={invoice} onDone={reload} />}
             <Button icon={Printer} onClick={() => printTaxInvoice(data)}>
               Print
@@ -91,6 +173,11 @@ function Detail() {
           </>
         }
       />
+      {owing && (
+        <Alert tone={invoice.overdue ? "danger" : "warning"} className="mb-4" title={`${inr(invoice.balanceDue)} still due`}>
+          {invoice.overdue ? `Was due on ${invoice.dueDate}.` : `Due by ${invoice.dueDate}.`} Paid so far: {inr(invoice.amountPaid)} of {inr(invoice.grossTotal)}.
+        </Alert>
+      )}
       {pendingCancel && (
         <Alert tone="warning" className="mb-4">
           A cancellation request is waiting for approval.
@@ -162,7 +249,7 @@ function Detail() {
             <CardHeader title="Payments" />
             <CardBody className="px-0">
               {payments.length === 0 ? (
-                <p className="px-5 text-caption text-fg-muted">Nothing received at the counter: fully financed.</p>
+                <p className="px-5 text-caption text-fg-muted">{invoice.financeType === "CREDIT" ? "Nothing paid yet." : "Nothing received at the counter: fully financed."}</p>
               ) : (
                 <ul className="divide-y divide-line">
                   {payments.map((p) => (
@@ -170,7 +257,7 @@ function Detail() {
                       <span className="min-w-0 flex-1">
                         <span className="block font-medium text-fg">{p.receiptNo}</span>
                         <span className="block text-caption text-fg-muted">
-                          {p.purpose === "SALE" ? "At sale" : p.purpose === "EMI" ? "EMI" : "Foreclosure"} · {METHOD_LABELS[p.method]}
+                          {PURPOSE_LABELS[p.purpose]} · {METHOD_LABELS[p.method]}
                           {p.txnRef ? ` · ${p.txnRef}` : ""} · {formatDateTime(p.createdAt)}
                         </span>
                       </span>
@@ -193,6 +280,13 @@ function Detail() {
                 <DetailRow label="Mobile">{invoice.customer?.phone || "—"}</DetailRow>
                 <DetailRow label="PAN">{invoice.customer?.pan || "—"}</DetailRow>
                 <DetailRow label="State code">{invoice.customer?.stateCode || "—"}</DetailRow>
+                {invoice.financeType === "CREDIT" && (
+                  <>
+                    <DetailRow label="Paid">{inr(invoice.amountPaid)}</DetailRow>
+                    <DetailRow label="Still due">{inr(invoice.balanceDue)}</DetailRow>
+                    <DetailRow label="Due date">{invoice.dueDate}</DetailRow>
+                  </>
+                )}
               </dl>
             </CardBody>
           </Card>

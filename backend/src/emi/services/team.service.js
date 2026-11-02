@@ -1,4 +1,5 @@
 const bcrypt = require("bcryptjs");
+const { assertWithinLimit } = require("../../billing/subscriptions");
 const User = require("../../models/User.model");
 const { Store, Tenant, CustomRole } = require("../models/platform");
 const { AppError, audit, isOid } = require("../utils/helpers");
@@ -143,6 +144,7 @@ async function listStaff(req) {
 // adds wait until the owner approves them (`approved` forces it, e.g. when
 // the Super Admin adds staff)
 async function createStaff(req, { name, email, phone, password, roles }, { approved = req.emi.isOwner } = {}) {
+  await assertWithinLimit(req.emi.tenantId, "staff");
   const emiRoles = await checkRoles(req, roles);
   if (!password || password.length < 8) throw new AppError(422, "Password kam se kam 8 characters ka ho");
   if (await User.exists({ email: String(email).toLowerCase() })) throw new AppError(409, "Is email se account pehle se hai");

@@ -241,6 +241,7 @@ const TEMPLATES = {
   REMIND_BEFORE_DUE: (p) => `Namaste ${p.customerName}, aapki EMI ${p.amount} ki due date ${p.dueDate} hai (${p.contractNo}). Samay par payment karke late fee se bachein. – ${p.shopName}`,
   DUE_TODAY: (p) => `Namaste ${p.customerName}, aapki EMI ${p.amount} aaj due hai (${p.contractNo}). – ${p.shopName}`,
   OVERDUE_NOTICE: (p) => `Namaste ${p.customerName}, aapki EMI ${p.amount} (due ${p.dueDate}) abhi baaki hai. Kripya jaldi payment karein (${p.contractNo}). – ${p.shopName}`,
+  DUE_REMINDER: (p) => `Namaste ${p.customerName}, invoice ${p.invoiceNo} ka ${p.amount} baaki hai (due ${p.dueDate}). Kripya jaldi payment karein. – ${p.shopName}`,
   LATE_FEE_NOTICE: (p) => `Namaste ${p.customerName}, EMI ${p.dpd} din se baaki hai, isliye ${p.lateFee} late fee lagi hai. Kul baaki: ${p.amount} (${p.contractNo}). – ${p.shopName}`,
 };
 const ONCE_PER_INSTALLMENT = ["OVERDUE_NOTICE", "LATE_FEE_NOTICE"];

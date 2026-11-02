@@ -27,6 +27,8 @@ const DEFAULT_SETTINGS = {
   },
   mdrPct: { credit: 1.5, debit: 0.9, upi: 0, cash: 0, bank: 0 },
   reminders: { enabled: true, daysBefore: 3, channel: "WHATSAPP" },
+  // Pay-later (udhaar) sales: the customer pays the rest by a due date
+  credit: { enabled: true, defaultDueDays: 15, maxDueDays: 90 },
 };
 
 // Keys a shop (tenant or store override) may change. Everything else is
@@ -50,6 +52,9 @@ const TENANT_EDITABLE = [
   "reminders.enabled",
   "reminders.daysBefore",
   "reminders.channel",
+  "credit.enabled",
+  "credit.defaultDueDays",
+  "credit.maxDueDays",
 ];
 
 const isInt = (v) => Number.isInteger(v);
@@ -92,6 +97,9 @@ const LIMITS = {
   "reminders.enabled": (v) => (typeof v === "boolean" ? null : "true/false"),
   "reminders.daysBefore": (v) => (isInt(v) && between(v, 0, 15) ? null : "Reminder 0–15 din pehle"),
   "reminders.channel": (v) => (["WHATSAPP", "SMS"].includes(v) ? null : "Channel WHATSAPP ya SMS"),
+  "credit.enabled": (v) => (typeof v === "boolean" ? null : "true/false"),
+  "credit.defaultDueDays": (v, platform, next) => (isInt(v) && v >= 0 && v <= next.credit.maxDueDays ? null : "Default due days, max due days se zyada nahi ho sakte"),
+  "credit.maxDueDays": (v) => (isInt(v) && between(v, 1, 365) ? null : "Max due days 1–365"),
 };
 
 module.exports = { DEFAULT_SETTINGS, TENANT_EDITABLE, LIMITS };

@@ -1,4 +1,5 @@
 const Product = require("../models/Product.model");
+const { assertWithinLimit } = require("../billing/subscriptions");
 
 class ProductService {
   // Get all products with filters
@@ -47,8 +48,9 @@ class ProductService {
     return product;
   }
 
-  // Create new product
+  // Create new product (within the shop's plan limit)
   async createProduct(userId, productData) {
+    await assertWithinLimit(userId, "products");
     const {
       name,
       description,

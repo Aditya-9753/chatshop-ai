@@ -1,16 +1,13 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Check, Sparkles, Users } from "lucide-react";
+import { Sparkles, Users } from "lucide-react";
 import api from "../../services/api.service";
 import authService from "../../services/auth.service";
 import { API_ENDPOINTS } from "../../config/api.config";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../components/Toast";
 import { PasswordInput, PasswordStrength } from "../../components/auth/PasswordInput";
-import { Alert, Avatar, Badge, Button, Card, CardBody, CardHeader, cn, EmptyState, Input, Modal, Select, Skeleton, StatusPill, Switch } from "../../components/ui";
-import { formatCurrency, formatDate } from "../../utils/format";
-import usePublicSettings from "../../hooks/usePublicSettings";
-import { PRICING } from "../marketing/content";
+import { Alert, Avatar, Badge, Button, Card, CardBody, CardHeader, EmptyState, Input, Modal, Select, Switch } from "../../components/ui";
 
 // AI replies: preferences are stored now; auto-reply ships in a later phase
 export function AiSettings({ profile, onProfileChange }) {
@@ -71,104 +68,6 @@ export function AiSettings({ profile, onProfileChange }) {
         </div>
       </CardBody>
     </Card>
-  );
-}
-
-const PLAN_ORDER = ["starter", "business", "premium", "one-time"];
-
-export function BillingSettings({ profile }) {
-  const [plans, setPlans] = useState(null);
-  const { supportEmail, contactPhone } = usePublicSettings();
-  const subscription = profile.subscription || {};
-
-  useEffect(() => {
-    api
-      .get(API_ENDPOINTS.SUBSCRIPTION.PLANS)
-      .then((res) => setPlans(res.data || {}))
-      .catch(() => setPlans({}));
-  }, []);
-
-  return (
-    <div className="flex flex-col gap-6">
-      <Card>
-        <CardHeader title="Current plan" />
-        <CardBody className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className="text-lg font-semibold capitalize text-fg">{subscription.plan || "No plan"}</p>
-            <p className="text-caption text-fg-muted">
-              {subscription.endDate
-                ? `Renews or ends on ${formatDate(subscription.endDate)} · ${Math.max(0, Math.ceil((new Date(subscription.endDate) - Date.now()) / 86400000))} days remaining`
-                : "No active billing period"}
-            </p>
-          </div>
-          <StatusPill status={subscription.status || "inactive"} />
-        </CardBody>
-        {PRICING.find((p) => p.key === subscription.plan) && (
-          <div className="border-t border-line px-5 py-4">
-            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-fg-muted">Included in your plan</p>
-            <ul className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-              {PRICING.find((p) => p.key === subscription.plan).features.map((f) => (
-                <li key={f} className="flex items-start gap-2 text-caption text-fg">
-                  <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent" aria-hidden="true" />
-                  {f}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </Card>
-
-      <Card>
-        <CardHeader title="Plans" description="Prices per month in INR, excluding GST." />
-        <CardBody>
-          {!plans ? (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {[1, 2, 3, 4].map((i) => (
-                <Skeleton key={i} className="h-28" />
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {PLAN_ORDER.filter((key) => plans[key]).map((key) => {
-                const plan = plans[key];
-                const current = subscription.plan === key;
-                return (
-                  <div key={key} className={cn("rounded-xl border p-4", current ? "border-accent bg-accent-soft/40" : "border-line")}>
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-semibold text-fg">{plan.name}</p>
-                      {current && (
-                        <Badge tone="accent">
-                          <Check className="h-3 w-3" /> Current
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="mt-2 text-xl font-semibold tabular-nums text-fg">
-                      {formatCurrency(plan.price)}
-                      <span className="text-caption font-normal text-fg-muted">{key === "one-time" ? " once" : " /mo"}</span>
-                    </p>
-                    {plan.originalPrice > plan.price && (
-                      <p className="text-xs text-fg-muted line-through">{formatCurrency(plan.originalPrice)}</p>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          <p className="mt-4 text-caption text-fg-muted">
-            Online checkout is coming soon. To change your plan now, contact support
-            {supportEmail && (
-              <>
-                {" at "}
-                <a href={`mailto:${supportEmail}`} className="font-medium text-accent hover:underline">
-                  {supportEmail}
-                </a>
-              </>
-            )}
-            {contactPhone && ` or ${contactPhone}`}.
-          </p>
-        </CardBody>
-      </Card>
-    </div>
   );
 }
 

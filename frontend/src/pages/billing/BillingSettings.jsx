@@ -162,6 +162,9 @@ function RulesTab() {
       remindersEnabled: e.reminders.enabled,
       daysBefore: String(e.reminders.daysBefore),
       channel: e.reminders.channel,
+      creditEnabled: e.credit?.enabled !== false,
+      creditDueDays: String(e.credit?.defaultDueDays ?? 15),
+      creditMaxDays: String(e.credit?.maxDueDays ?? 90),
     });
   }, [data]);
 
@@ -175,8 +178,9 @@ function RulesTab() {
       lateFee: { graceDays: num(form.graceDays), type: form.lateType, flat: toPaise(form.flat), pct: num(form.pct), cap: toPaise(form.cap) },
       mdrPct: { credit: num(form.credit), debit: num(form.debit), upi: num(form.upi) },
       reminders: { enabled: form.remindersEnabled, daysBefore: num(form.daysBefore), channel: form.channel },
+      credit: { enabled: form.creditEnabled, defaultDueDays: num(form.creditDueDays), maxDueDays: num(form.creditMaxDays) },
     };
-    const res = await saver.run(() => (storeId ? emiApi.put(`/settings/store/${storeId}`, patch) : emiApi.put("/settings/tenant", patch)), "EMI rules saved");
+    const res = await saver.run(() => (storeId ? emiApi.put(`/settings/store/${storeId}`, patch) : emiApi.put("/settings/tenant", patch)), "Rules saved");
     if (res) reload();
   };
   const set = (key) => (e) => setForm({ ...form, [key]: e.target.value.replace(/[^\d.]/g, "") });
@@ -257,6 +261,17 @@ function RulesTab() {
             </div>
             <Input label="Days before due" value={form.daysBefore} onChange={set("daysBefore")} disabled={!editable} />
             <Select label="Channel" value={form.channel} onChange={(e) => setForm({ ...form, channel: e.target.value })} options={[{ value: "WHATSAPP", label: "WhatsApp" }, { value: "SMS", label: "SMS (no provider yet)" }]} disabled={!editable} />
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader title="Pay later (udhaar)" description="Sell now, collect the rest by a due date" />
+          <CardBody className="grid gap-3 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <Switch checked={form.creditEnabled} onCheckedChange={(v) => setForm({ ...form, creditEnabled: v })} label="Allow pay-later sales" disabled={!editable} />
+            </div>
+            <Input label="Default due in (days)" value={form.creditDueDays} onChange={set("creditDueDays")} disabled={!editable || !form.creditEnabled} />
+            <Input label="Longest allowed (days)" value={form.creditMaxDays} onChange={set("creditMaxDays")} disabled={!editable || !form.creditEnabled} />
           </CardBody>
         </Card>
       </div>

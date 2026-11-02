@@ -14,6 +14,7 @@ const { resolveSettings } = require("../services/settings.service");
 const checkoutService = require("../services/checkout.service");
 const approvalService = require("../services/approval.service");
 const bridge = require("../services/bridge.service");
+const dues = require("../services/dues.service");
 const s = require("./schemas");
 
 const r = express.Router();
@@ -249,7 +250,7 @@ r.get(
   loadStore,
   ah(async (req, res) => {
     const conf = await resolveSettings(req.emi.tenantId, req.store._id);
-    ok(res, { emi: conf.emi, cashLimitPerTxn: conf.cashLimitPerTxn, kycRequiredAbove: conf.kycRequiredAbove, mdrPct: conf.mdrPct, gst: conf.gst, canDiscount: can(req, "invoice.discount", req.store._id) });
+    ok(res, { emi: conf.emi, credit: conf.credit, cashLimitPerTxn: conf.cashLimitPerTxn, kycRequiredAbove: conf.kycRequiredAbove, mdrPct: conf.mdrPct, gst: conf.gst, canDiscount: can(req, "invoice.discount", req.store._id) });
   })
 );
 
@@ -304,6 +305,7 @@ r.get(
   ah(async (req, res) => {
     const filter = scoped(req);
     if (req.query.status) filter.status = req.query.status;
+    if (req.query.overdue === "true") Object.assign(filter, { status: { $in: dues.OPEN }, balanceDue: { $gt: 0 }, dueDate: { $lt: today() } });
     if (req.query.financeType) filter.financeType = req.query.financeType;
     if (req.query.storeId && isOid(req.query.storeId)) filter.storeId = req.query.storeId;
     if (req.query.from || req.query.to) filter.date = { ...(req.query.from && { $gte: req.query.from }), ...(req.query.to && { $lte: req.query.to }) };
@@ -332,7 +334,7 @@ r.get(
       Approval.find({ tenantId, $or: [{ refId: invoice._id }, { refId: invoice.emiContractId }] }).sort({ createdAt: -1 }).lean(),
       Store.findOne({ tenantId, _id: invoice.storeId }).lean(),
     ]);
-    ok(res, { invoice, payments, contract, nbfcCase, approvals, store });
+    ok(res, { invoice: { ...invoice, overdue: dues.isOverdue(invoice) }, payments, contract, nbfcCase, approvals, store });
   })
 );
 
@@ -343,6 +345,36 @@ r.post(
   ah(async (req, res) => {
     if (!isOid(req.params.id)) throw new AppError(400, "ID galat hai");
     ok(res, await approvalService.requestInvoiceCancel(req, req.params.id, req.body.reason), 201);
+  })
+);
+
+// ---- Pay-later dues ----
+
+r.get(
+  "/dues",
+  need("invoice.read"),
+  ah(async (req, res) => ok(res, await dues.listDues(req, { overdue: req.query.overdue, storeId: isOid(req.query.storeId) ? req.query.storeId : undefined })))
+);
+
+r.post(
+  "/invoices/:id/payments",
+  need("payment.collect"),
+  s.validate(s.PaymentIn),
+  ah(async (req, res) => {
+    if (!isOid(req.params.id)) throw new AppError(400, "ID galat hai");
+    const key = req.get("Idempotency-Key");
+    if (!key) throw new AppError(400, "Idempotency-Key header chahiye");
+    const result = await dues.collectDue(req, req.params.id, req.body, key);
+    ok(res, result, result.duplicate ? 200 : 201);
+  })
+);
+
+r.post(
+  "/invoices/:id/remind",
+  need("payment.collect"),
+  ah(async (req, res) => {
+    if (!isOid(req.params.id)) throw new AppError(400, "ID galat hai");
+    ok(res, await dues.remindDue(req, req.params.id), 201);
   })
 );
 
