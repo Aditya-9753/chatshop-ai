@@ -7,7 +7,7 @@ const User = require("../models/User.model");
 // @desc    Get admin dashboard stats
 exports.getDashboardStats = async (req, res) => {
   try {
-    const stats = await adminService.getDashboardStats();
+    const stats = await adminService.getDashboardStats(req.shopScope);
     return ResponseHandler.success(res, stats);
   } catch (error) {
     console.error("Get dashboard stats error:", error);
@@ -18,7 +18,7 @@ exports.getDashboardStats = async (req, res) => {
 // @desc    Get all users
 exports.getAllUsers = async (req, res) => {
   try {
-    const result = await adminService.getAllUsers(req.query);
+    const result = await adminService.getAllUsers(req.query, req.shopScope);
     return ResponseHandler.paginated(res, result.users, {
       currentPage: result.currentPage,
       totalPages: result.totalPages,
@@ -33,7 +33,7 @@ exports.getAllUsers = async (req, res) => {
 // @desc    Get single user
 exports.getUser = async (req, res) => {
   try {
-    const user = await adminService.getUser(req.params.id);
+    const user = await adminService.getUser(req.params.id, req.shopScope);
     return ResponseHandler.success(res, user);
   } catch (error) {
     console.error("Get user error:", error);
@@ -90,7 +90,7 @@ exports.getSystemStats = async (req, res) => {
 // @route   GET /api/admin/activity?days=30&tz=Asia/Kolkata
 exports.getDailyActivity = async (req, res) => {
   try {
-    const data = await adminService.getDailyActivity(req.query);
+    const data = await adminService.getDailyActivity(req.query, req.shopScope);
     return ResponseHandler.success(res, data);
   } catch (error) {
     console.error("Get daily activity error:", error);
@@ -100,10 +100,11 @@ exports.getDailyActivity = async (req, res) => {
 
 const adminDataService = require("../services/adminData.service");
 
-// Platform-wide lists: GET /api/admin/{orders,customers,products,conversations}?shop=&limit=
+// Lists across shops (or the one shop an Admin looks after):
+// GET /api/admin/{orders,customers,products,conversations}?shop=&limit=
 const listHandler = (method) => async (req, res) => {
   try {
-    const rows = await adminDataService[method](req.query);
+    const rows = await adminDataService[method](req.query, req.shopScope);
     return ResponseHandler.success(res, rows);
   } catch (error) {
     console.error(`Admin ${method} error:`, error);
@@ -120,7 +121,7 @@ exports.getAllConversations = listHandler("conversations");
 // @route   GET /api/admin/conversations/:id/messages
 exports.getConversationMessages = async (req, res) => {
   try {
-    const data = await adminDataService.conversationMessages(req.params.id);
+    const data = await adminDataService.conversationMessages(req.params.id, req.shopScope);
     return ResponseHandler.success(res, data);
   } catch (error) {
     console.error("Admin conversation messages error:", error);

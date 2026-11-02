@@ -2,7 +2,11 @@ import React, { useState } from "react";
 import { Card, CardBody, CardHeader, ChannelBadge, ErrorState, PageHeader, Skeleton, Tabs } from "../../components/ui";
 import { ChartCard, seriesStats } from "../../components/charts/Charts";
 import { formatCurrency, formatCurrencyCompact, formatNumber } from "../../utils/format";
+import { useAuth } from "../../context/AuthContext";
 import { Bars, fetchActivity, fetchSystem, TopShops, useLoad } from "./AdminOverview";
+
+// An Admin who looks after one shop has no platform-wide numbers to load
+const noSystem = () => Promise.resolve({ data: null });
 
 // Monthly series from the API come newest-first as { _id: "YYYY-MM" }
 const monthly = (rows = [], key) =>
@@ -17,14 +21,16 @@ const RANGES = [
 export default function AdminAnalytics() {
   const [days, setDays] = useState(30);
   const activity = useLoad(fetchActivity, days);
-  const system = useLoad(fetchSystem);
+  const { isShopAdmin } = useAuth();
+  const system = useLoad(isShopAdmin ? noSystem : fetchSystem);
+  const across = isShopAdmin ? "in your shop" : "across all shops";
   const series = activity.data?.series || [];
   const stat = (key) => seriesStats(series, key);
   const best = (key, format) => (stat(key).bestDay ? format(stat(key).bestDay.value) : "—");
 
   return (
     <div>
-      <PageHeader title="Analytics" description="Sign-ups, orders and conversations across every shop." />
+      <PageHeader title="Analytics" description={isShopAdmin ? "Orders, revenue and conversations in the shop you look after." : "Sign-ups, orders and conversations across every shop."} />
       <Tabs variant="pill" tabs={RANGES} value={days} onChange={setDays} label="Date range" className="mb-6" />
 
       {activity.error ? (
@@ -42,7 +48,7 @@ export default function AdminAnalytics() {
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
             <ChartCard
               title="Revenue per day"
-              description="Paid orders across all shops, excluding cancelled."
+              description={`Paid orders ${across}, excluding cancelled.`}
               data={series}
               series={[{ key: "revenue", label: "Revenue", color: "var(--chart-1)" }]}
               format={(v) => formatCurrency(v)}
@@ -66,6 +72,7 @@ export default function AdminAnalytics() {
                 { label: "Days with orders", value: `${stat("orders").activeDays} of ${series.length}` },
               ]}
             />
+            {!isShopAdmin && (
             <ChartCard
               title="New shops per day"
               description="Sign-ups, not counting admins."
@@ -77,6 +84,7 @@ export default function AdminAnalytics() {
                 { label: "Best day", value: best("signups", formatNumber), note: stat("signups").bestDay?.date },
               ]}
             />
+            )}
             <ChartCard
               title="Messages per day"
               description="Sent and received, on every channel."
@@ -91,6 +99,7 @@ export default function AdminAnalytics() {
             />
           </div>
 
+          {!isShopAdmin && (
           <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
             <TopShops shops={activity.data.topShops} days={days} />
             <div className="lg:col-span-2">
@@ -109,6 +118,7 @@ export default function AdminAnalytics() {
               )}
             </div>
           </div>
+          )}
 
           {system.data && (
             <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">

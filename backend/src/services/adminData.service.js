@@ -10,19 +10,22 @@ const SHOP_FIELDS = "name email phone businessInfo.businessName";
 
 const MAX_LIMIT = 2000;
 
-// Optional ?shop=<userId> filter shared by every list
-const shopFilter = (shop) =>
-  shop && mongoose.isValidObjectId(shop) ? { userId: new mongoose.Types.ObjectId(shop) } : {};
+// Optional ?shop=<userId> filter shared by every list. An Admin who looks
+// after one shop (`scope`) only ever gets that shop, whatever ?shop says.
+const shopFilter = (shop, scope) => {
+  if (scope) return { userId: scope };
+  return shop && mongoose.isValidObjectId(shop) ? { userId: new mongoose.Types.ObjectId(shop) } : {};
+};
 
 const limitOf = (limit, fallback = 500) => Math.min(Math.max(Number(limit) || fallback, 1), MAX_LIMIT);
 
 /**
- * Platform-wide, read-only lists for the super admin: every shop's
- * orders, customers, products and conversations.
+ * Read-only lists for the admin panels: every shop's orders, customers,
+ * products and conversations, or one shop's for an Admin who looks after it.
  */
 class AdminDataService {
-  async orders({ shop, status, limit } = {}) {
-    const query = { ...shopFilter(shop) };
+  async orders({ shop, status, limit } = {}, scope) {
+    const query = { ...shopFilter(shop, scope) };
     if (status && status !== "all") query.status = status;
     return Order.find(query)
       .populate("userId", SHOP_FIELDS)
@@ -32,24 +35,24 @@ class AdminDataService {
       .lean();
   }
 
-  async customers({ shop, limit } = {}) {
-    return Customer.find(shopFilter(shop))
+  async customers({ shop, limit } = {}, scope) {
+    return Customer.find(shopFilter(shop, scope))
       .populate("userId", SHOP_FIELDS)
       .sort({ lastMessageDate: -1, createdAt: -1 })
       .limit(limitOf(limit))
       .lean();
   }
 
-  async products({ shop, limit } = {}) {
-    return Product.find(shopFilter(shop))
+  async products({ shop, limit } = {}, scope) {
+    return Product.find(shopFilter(shop, scope))
       .populate("userId", SHOP_FIELDS)
       .sort({ createdAt: -1 })
       .limit(limitOf(limit))
       .lean();
   }
 
-  async conversations({ shop, limit } = {}) {
-    return Conversation.find(shopFilter(shop))
+  async conversations({ shop, limit } = {}, scope) {
+    return Conversation.find(shopFilter(shop, scope))
       .populate("userId", SHOP_FIELDS)
       .populate("customerId", "name phone platform")
       .sort({ "lastMessage.timestamp": -1 })
@@ -58,8 +61,9 @@ class AdminDataService {
   }
 
   // Full thread of one conversation, oldest first (read-only for admins)
-  async conversationMessages(conversationId) {
-    const conversation = await Conversation.findById(conversationId)
+  async conversationMessages(conversationId, scope) {
+    if (!mongoose.isValidObjectId(conversationId)) throw new Error("Conversation not found");
+    const conversation = await Conversation.findOne({ _id: conversationId, ...(scope && { userId: scope }) })
       .populate("userId", SHOP_FIELDS)
       .populate("customerId", "name phone platform")
       .lean();
@@ -68,7 +72,7 @@ class AdminDataService {
     }
 
     const messages = await Message.find({
-      userId: conversation.userId._id,
+      userId: conversation.userId?._id || conversation.userId, // the shop may have been deleted
       customerId: conversation.customerId?._id,
       platform: conversation.platform,
       isDeleted: false,

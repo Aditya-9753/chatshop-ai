@@ -50,6 +50,8 @@ const userSchema = new mongoose.Schema(
     // Admin accounts: "super" (Super Admin, the default) or "admin" (an
     // Admin with their own login, name and the limited Admin panel)
     adminLevel: { type: String, enum: ["super", "admin"] },
+    // An Admin account looks after one shop and sees only that shop's data
+    adminShopId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     isVerified: {
       type: Boolean,
       default: false,

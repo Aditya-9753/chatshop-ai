@@ -48,7 +48,7 @@ exports.announcements = handle(async (req, res) => ResponseHandler.success(res, 
 exports.myAnnouncements = handle(async (req, res) => ResponseHandler.success(res, await adminTools.announcementsFor(req.user._id)));
 
 exports.exportCsv = handle(async (req, res) => {
-  const csv = await adminTools.exportCsv(req.params.kind);
+  const csv = await adminTools.exportCsv(req.params.kind, req.shopScope);
   await audit(req, "data.export", { target: req.params.kind });
   res.setHeader("Content-Type", "text/csv; charset=utf-8");
   res.setHeader("Content-Disposition", `attachment; filename="${req.params.kind}-${new Date().toISOString().slice(0, 10)}.csv"`);
@@ -102,13 +102,14 @@ exports.listAdmins = handle(async (req, res) => ResponseHandler.success(res, awa
 
 exports.createAdmin = handle(async (req, res) => {
   const admin = await adminTools.createAdmin(req.body);
-  await audit(req, "admin.create", { target: admin.email });
+  await audit(req, "admin.create", { target: admin.email, details: `Looks after ${admin.shop?.name}` });
   return ResponseHandler.created(res, admin, "Admin added");
 });
 
 exports.updateAdmin = handle(async (req, res) => {
   const admin = await adminTools.updateAdmin(req.params.id, req.body);
-  await audit(req, "admin.update", { target: admin.email, details: req.body.password ? "Password reset" : undefined });
+  const changes = [req.body.password && "Password reset", req.body.shopId && `Shop: ${admin.shop?.name}`].filter(Boolean).join(" · ");
+  await audit(req, "admin.update", { target: admin.email, details: changes || undefined });
   return ResponseHandler.success(res, admin, "Admin saved");
 });
 

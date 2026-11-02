@@ -7,6 +7,7 @@ import { AdminOverview } from "../features/admin/AdminOverview";
 import AdminAnalytics from "../features/admin/AdminAnalytics";
 import AdminBilling from "../features/admin/AdminBilling";
 import AdminAssistant from "../features/admin/AdminAssistant";
+import ShopAdminOverview from "../features/admin/ShopAdminOverview";
 import AdminEmi from "../features/admin/AdminEmi";
 import { AdminCustomers, AdminOrders, AdminProducts } from "../features/admin/AdminRecords";
 import AdminMessages from "../features/admin/AdminMessages";
@@ -30,9 +31,10 @@ const SECTIONS = {
 
 const AdminDashboard = () => {
   const [params, setParams] = useSearchParams();
-  const { isSuperAdmin } = useAuth();
-  const section = sectionsFor(isSuperAdmin).some((s) => s.value === params.get("section")) ? params.get("section") : "overview";
-  const Section = SECTIONS[section];
+  const { isSuperAdmin, isShopAdmin } = useAuth();
+  const section = sectionsFor(isSuperAdmin, isShopAdmin).some((s) => s.value === params.get("section")) ? params.get("section") : "overview";
+  // An Admin who looks after one shop gets that shop's overview, not the platform's
+  const Section = isShopAdmin && section === "overview" ? ShopAdminOverview : SECTIONS[section];
   // "Refresh data" remounts the section, which reloads everything it shows
   const [refreshKey, setRefreshKey] = useState(0);
 

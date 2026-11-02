@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Download, Eye, LogIn, Megaphone, Trash2, UserPlus, Users } from "lucide-react";
 import adminService from "../../services/admin.service";
+import api from "../../services/api.service";
 import { startShopView } from "../../services/shopView";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../components/Toast";
@@ -23,13 +24,23 @@ import {
 import { formatCurrency, formatDate, formatNumber } from "../../utils/format";
 import { AddShopModal, BroadcastModal } from "./AdminTools";
 
-const PLAN_OPTIONS = [
-  { value: "", label: "No plan" },
+// Plans come from the database (the Super Admin can add plans in Billing)
+const DEFAULT_PLANS = [
   { value: "starter", label: "Starter" },
   { value: "business", label: "Business" },
   { value: "premium", label: "Premium" },
-  { value: "one-time", label: "One-time" },
+  { value: "one-time", label: "Done for you" },
 ];
+function usePlanOptions() {
+  const [plans, setPlans] = useState(DEFAULT_PLANS);
+  useEffect(() => {
+    api
+      .get("/subscriptions/plans")
+      .then((res) => setPlans((res.data?.plans || []).map((p) => ({ value: p.code, label: p.name }))))
+      .catch(() => {});
+  }, []);
+  return plans;
+}
 const STATUS_OPTIONS = ["active", "inactive", "cancelled", "expired"].map((v) => ({ value: v, label: v[0].toUpperCase() + v.slice(1) }));
 const filterClass = "h-8 rounded-lg border border-line bg-surface px-2 text-caption text-fg outline-none focus:border-accent";
 
@@ -44,8 +55,9 @@ function exportCsv(users) {
   URL.revokeObjectURL(link.href);
 }
 
-function UserDrawer({ userId, onClose, onChanged, onDelete, onMessage, onOpenAsShop, canDelete }) {
+function UserDrawer({ userId, onClose, onChanged, onDelete, onMessage, onOpenAsShop, canDelete, readOnly }) {
   const toast = useToast();
+  const plans = usePlanOptions();
   const [, setParams] = useSearchParams();
   const openSection = (section) => setParams({ section, shop: userId });
   const [detail, setDetail] = useState(null);
@@ -105,12 +117,16 @@ function UserDrawer({ userId, onClose, onChanged, onDelete, onMessage, onOpenAsS
                 Open as shop
               </Button>
             )}
-            <Button variant="secondary" icon={Megaphone} onClick={() => onMessage(user)}>
-              Send message
-            </Button>
-            <Button onClick={save} loading={saving}>
-              Save subscription
-            </Button>
+            {!readOnly && (
+              <>
+                <Button variant="secondary" icon={Megaphone} onClick={() => onMessage(user)}>
+                  Send message
+                </Button>
+                <Button onClick={save} loading={saving}>
+                  Save subscription
+                </Button>
+              </>
+            )}
           </>
         )
       }
@@ -171,11 +187,34 @@ function UserDrawer({ userId, onClose, onChanged, onDelete, onMessage, onOpenAsS
           </section>
           <section className="flex flex-col gap-3">
             <SectionLabel>Subscription</SectionLabel>
+            {readOnly ? (
+              <dl className="divide-y divide-line/60">
+                <DetailRow label="Plan">
+                  <span className="capitalize">{user.subscription?.plan || "None"}</span>
+                  {user.subscription?.trial ? " (trial)" : ""}
+                </DetailRow>
+                <DetailRow label="Status">
+                  <StatusPill status={user.subscription?.status || "inactive"} />
+                </DetailRow>
+                <DetailRow label="Ends on">{user.subscription?.endDate ? formatDate(user.subscription.endDate) : "—"}</DetailRow>
+              </dl>
+            ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <Select label="Plan" value={subscription.plan} options={PLAN_OPTIONS} onChange={(e) => setSubscription({ ...subscription, plan: e.target.value })} />
+              <Select
+                label="Plan"
+                value={subscription.plan}
+                options={[
+                  { value: "", label: "No plan" },
+                  ...plans,
+                  // A plan no longer offered still shows for the shops on it
+                  ...(subscription.plan && !plans.some((p) => p.value === subscription.plan) ? [{ value: subscription.plan, label: subscription.plan }] : []),
+                ]}
+                onChange={(e) => setSubscription({ ...subscription, plan: e.target.value })}
+              />
               <Select label="Status" value={subscription.status} options={STATUS_OPTIONS} onChange={(e) => setSubscription({ ...subscription, status: e.target.value })} />
               <Input label="Ends on" type="date" value={subscription.endDate} onChange={(e) => setSubscription({ ...subscription, endDate: e.target.value })} />
             </div>
+            )}
           </section>
         </div>
       )}
@@ -185,8 +224,10 @@ function UserDrawer({ userId, onClose, onChanged, onDelete, onMessage, onOpenAsS
 
 export default function AdminUsers() {
   const toast = useToast();
-  // Deleting a shop and opening it as its owner are Super Admin only
-  const { isSuperAdmin } = useAuth();
+  // Deleting a shop and opening it as its owner are Super Admin only; an
+  // Admin who looks after one shop only sees that shop, read-only
+  const { isSuperAdmin, isShopAdmin } = useAuth();
+  const plans = usePlanOptions();
 
   // Opens the shop's own dashboard; "Back to Super Admin" there returns here
   const openAsShop = async (shop) => {
@@ -273,19 +314,23 @@ export default function AdminUsers() {
   return (
     <div>
       <PageHeader
-        title="Shops"
-        description="Every shop on the platform, with its real customers, orders and revenue."
+        title={isShopAdmin ? "My shop" : "Shops"}
+        description={isShopAdmin ? "The shop you look after, with its real customers, orders and revenue." : "Every shop on the platform, with its real customers, orders and revenue."}
         actions={
           <>
             <Button variant="secondary" icon={Download} onClick={() => exportCsv(users)} disabled={!users.length}>
               Export CSV
             </Button>
-            <Button variant="secondary" icon={Megaphone} onClick={() => setMessageTo([])}>
-              Broadcast
-            </Button>
-            <Button icon={UserPlus} onClick={() => setAdding(true)}>
-              Add shop
-            </Button>
+            {!isShopAdmin && (
+              <>
+                <Button variant="secondary" icon={Megaphone} onClick={() => setMessageTo([])}>
+                  Broadcast
+                </Button>
+                <Button icon={UserPlus} onClick={() => setAdding(true)}>
+                  Add shop
+                </Button>
+              </>
+            )}
           </>
         }
       />
@@ -303,7 +348,7 @@ export default function AdminUsers() {
           <>
             <select value={plan} onChange={(e) => setPlan(e.target.value)} aria-label="Filter by plan" className={filterClass}>
               <option value="all">All plans</option>
-              {PLAN_OPTIONS.slice(1).map((o) => (
+              {plans.map((o) => (
                 <option key={o.value} value={o.value}>
                   {o.label}
                 </option>
@@ -323,7 +368,7 @@ export default function AdminUsers() {
         onRowClick={(u) => setOpenId(u._id)}
         rowActions={(u) => [
           { label: "View details", icon: Eye, onSelect: () => setOpenId(u._id) },
-          { label: "Send message", icon: Megaphone, onSelect: () => setMessageTo([u]) },
+          ...(isShopAdmin ? [] : [{ label: "Send message", icon: Megaphone, onSelect: () => setMessageTo([u]) }]),
           ...(isSuperAdmin && u.role !== "admin" ? [{ label: "Open as shop", icon: LogIn, onSelect: () => openAsShop(u) }] : []),
           ...(isSuperAdmin ? [{ label: "Delete", icon: Trash2, danger: true, onSelect: () => setDeleting(u) }] : []),
         ]}
@@ -336,6 +381,7 @@ export default function AdminUsers() {
         onChanged={(user) => setUsers((list) => list.map((u) => (u._id === user._id ? { ...u, ...user } : u)))}
         onDelete={setDeleting}
         canDelete={isSuperAdmin}
+        readOnly={isShopAdmin}
         onOpenAsShop={isSuperAdmin ? openAsShop : undefined}
         onMessage={(u) => setMessageTo([u])}
       />

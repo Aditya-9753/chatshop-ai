@@ -83,9 +83,11 @@ test("Admins with their own login see their own name and only the Admin panel", 
   const shared = await login("root@example.com", "Panel@456");
   assert.equal(shared.body.data.user.name, "Admin");
 
-  const created = await asSuper("post", "/api/admin/admins").send({ name: "Meera Shah", email: "meera@example.com", password: "Meera@1234" });
+  // Every Admin looks after one shop
+  const shop = await registerUser(app, { name: "Meera's Shop" });
+  const created = await asSuper("post", "/api/admin/admins").send({ name: "Meera Shah", email: "meera@example.com", password: "Meera@1234", shopId: shop.user.id });
   assert.equal(created.status, 201, JSON.stringify(created.body));
-  assert.equal((await asSuper("post", "/api/admin/admins").send({ name: "Copy", email: "meera@example.com", password: "Meera@1234" })).status, 400);
+  assert.equal((await asSuper("post", "/api/admin/admins").send({ name: "Copy", email: "meera@example.com", password: "Meera@1234", shopId: shop.user.id })).status, 400);
 
   // Her own login: her name, the limited panel, whatever password she uses
   const meera = await login("meera@example.com", "Meera@1234");

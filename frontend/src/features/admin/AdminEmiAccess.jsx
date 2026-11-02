@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Building2, Check, Plus, UserPlus, X } from "lucide-react";
 import { Badge, Button, Card, CardHeader, DataTable, EmptyState, Input, Modal, Select, Skeleton, Switch, Textarea } from "../../components/ui";
 import { useToast } from "../../components/Toast";
@@ -121,10 +121,21 @@ export function Requests() {
   );
 }
 
-function AddStaffModal({ onClose, onDone }) {
+// `shopAdmin`: an Admin who looks after one shop adds staff to that shop only
+function AddStaffModal({ onClose, onDone, shopAdmin }) {
   const toast = useToast();
   const tenants = useLoad(() => emiApi.get(S("/tenants")), []);
   const [form, setForm] = useState({ tenantId: "", name: "", email: "", phone: "", password: "", role: "CASHIER", storeId: "" });
+  // Their one shop is chosen for them
+  useEffect(() => {
+    if (shopAdmin && tenants.data?.[0] && !form.tenantId) setForm((f) => ({ ...f, tenantId: tenants.data[0]._id }));
+  }, [shopAdmin, tenants.data, form.tenantId]);
+  // The shop's stores and the roles its owner made
+  const options = useLoad(() => (form.tenantId ? emiApi.get(S("/shop-roles"), { tenantId: form.tenantId }) : Promise.resolve({ data: null })), [form.tenantId]);
+  const roleOptions = [
+    ...Object.entries(ROLE_LABELS).map(([value, label]) => ({ value, label })),
+    ...(options.data?.roles || []).map((r) => ({ value: `CUSTOM:${r._id}`, label: `${r.name} (shop's own role)` })),
+  ];
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
   const submit = async () => {
@@ -137,7 +148,11 @@ function AddStaffModal({ onClose, onDone }) {
         email: form.email,
         phone: form.phone || undefined,
         password: form.password,
-        roles: [{ role: form.role, storeId: null }],
+        roles: [
+          form.role.startsWith("CUSTOM:")
+            ? { role: "CUSTOM", customRoleId: form.role.slice(7), storeId: form.storeId || null }
+            : { role: form.role, storeId: form.storeId || null },
+        ],
       });
       toast.success(`${form.name} added and approved`);
       onClose();
@@ -152,28 +167,41 @@ function AddStaffModal({ onClose, onDone }) {
     <Modal
       open
       onOpenChange={(open) => !open && onClose()}
-      title="Add staff to a shop"
-      description="Staff you add here are approved straight away and can work at every store of the shop. The owner can narrow them to one store later."
+      title={shopAdmin ? "Add staff to your shop" : "Add staff to a shop"}
+      description="Staff you add here are approved straight away. They sign in at /login and see only the billing pages of their role."
       footer={
-        <Button loading={saving} disabled={!form.tenantId} onClick={submit}>
+        <Button loading={saving} disabled={!form.tenantId || (shopAdmin && tenants.data?.[0]?.status !== "ACTIVE")} onClick={submit}>
           Add staff
         </Button>
       }
     >
       <div className="grid gap-3 sm:grid-cols-2">
-        <Select
-          label="Shop"
-          required
-          className="sm:col-span-2"
-          value={form.tenantId}
-          onChange={(e) => setForm({ ...form, tenantId: e.target.value })}
-          options={[{ value: "", label: "Choose a shop" }, ...(tenants.data || []).filter((t) => t.status === "ACTIVE").map((t) => ({ value: t._id, label: t.name }))]}
-        />
+        {shopAdmin ? (
+          <p className="text-caption text-fg-muted sm:col-span-2">
+            Shop: <span className="font-medium text-fg">{tenants.data?.[0]?.name || "…"}</span>
+            {tenants.data?.[0] && tenants.data[0].status !== "ACTIVE" && " · EMI & billing isn't approved for this shop yet, so staff can't be added"}
+          </p>
+        ) : (
+          <Select
+            label="Shop"
+            required
+            className="sm:col-span-2"
+            value={form.tenantId}
+            onChange={(e) => setForm({ ...form, tenantId: e.target.value, storeId: "", role: "CASHIER" })}
+            options={[{ value: "", label: "Choose a shop" }, ...(tenants.data || []).filter((t) => t.status === "ACTIVE").map((t) => ({ value: t._id, label: t.name }))]}
+          />
+        )}
         <Input label="Name" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
         <Input label="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
         <Input label="Email (login)" type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
         <Input label="Password" type="password" required hint="At least 8 characters" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
-        <Select label="Role" className="sm:col-span-2" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} options={Object.entries(ROLE_LABELS).map(([value, label]) => ({ value, label }))} />
+        <Select label="Role" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} options={roleOptions} />
+        <Select
+          label="Store"
+          value={form.storeId}
+          onChange={(e) => setForm({ ...form, storeId: e.target.value })}
+          options={[{ value: "", label: "All stores" }, ...(options.data?.stores || []).map((st) => ({ value: st._id, label: `${st.name} (${st.invoicePrefix})` }))]}
+        />
         {error && <ErrorList error={error} className="sm:col-span-2" />}
       </div>
     </Modal>
@@ -182,7 +210,9 @@ function AddStaffModal({ onClose, onDone }) {
 
 export function Staff() {
   const toast = useToast();
-  const { isSuperAdmin } = useAuth();
+  // The Super Admin manages every shop's staff; an Admin, their own shop's
+  const { isSuperAdmin, isShopAdmin } = useAuth();
+  const canManage = isSuperAdmin || isShopAdmin;
   const [shop, setShop] = useState("");
   const [status, setStatus] = useState("");
   const [adding, setAdding] = useState(false);
@@ -211,16 +241,16 @@ export function Staff() {
     {
       key: "staffActive",
       header: "Sign-in",
-      cell: (r) => (isSuperAdmin ? <Switch checked={r.staffActive} onCheckedChange={() => toggle(r)} label={r.staffActive ? "On" : "Off"} /> : r.staffActive ? "On" : "Off"),
+      cell: (r) => (canManage ? <Switch checked={r.staffActive} onCheckedChange={() => toggle(r)} label={r.staffActive ? "On" : "Off"} /> : r.staffActive ? "On" : "Off"),
     },
   ];
 
   return (
     <>
-      {isSuperAdmin && (
+      {canManage && (
         <div className="mb-3 flex justify-end">
           <Button icon={UserPlus} onClick={() => setAdding(true)}>
-            Add staff to a shop
+            {isShopAdmin ? "Add staff" : "Add staff to a shop"}
           </Button>
         </div>
       )}
@@ -253,7 +283,7 @@ export function Staff() {
         empty={{ icon: Plus, title: "No staff", description: "Staff that shops add, or that you add here, appear in this list." }}
         pageSize={20}
       />
-      {adding && <AddStaffModal onClose={() => setAdding(false)} onDone={reload} />}
+      {adding && <AddStaffModal shopAdmin={isShopAdmin} onClose={() => setAdding(false)} onDone={reload} />}
     </>
   );
 }

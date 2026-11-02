@@ -43,6 +43,8 @@ class AuthService {
       role: user.role,
       // "super" (Super Admin) or "admin" (limited admin panel)
       adminLevel: user.role === "admin" ? (adminLevel === "admin" ? "admin" : "super") : undefined,
+      // An Admin account of its own looks after one shop (null until assigned)
+      ...(user.role === "admin" && user.adminLevel === "admin" && { shopAdmin: true, adminShopId: user.adminShopId || null }),
       isVerified: user.isVerified,
       profilePhoto: user.profilePhoto,
       businessInfo: user.businessInfo,

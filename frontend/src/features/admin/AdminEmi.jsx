@@ -320,26 +320,28 @@ function Jobs() {
 // like the rest of the admin panel); changes are Super Admin only too.
 const TABS = [
   { value: "overview", label: "Overview", component: Overview },
-  { value: "requests", label: "Requests", component: Requests },
+  { value: "requests", label: "Requests", component: Requests, platform: true },
   { value: "tenants", label: "Shops", component: Tenants },
   { value: "staff", label: "Staff", component: Staff },
   { value: "invoices", label: "Invoices", component: Invoices },
   { value: "contracts", label: "EMI contracts", component: Contracts },
   { value: "payments", label: "Payments", component: Payments },
-  { value: "risk", label: "Risk", component: Risk },
-  { value: "rules", label: "Platform rules", component: PlatformRules },
+  { value: "risk", label: "Risk", component: Risk, platform: true },
+  { value: "rules", label: "Platform rules", component: PlatformRules, platform: true },
   { value: "audit", label: "Audit", component: Audit, superOnly: true },
   { value: "jobs", label: "Jobs", component: Jobs, superOnly: true },
 ];
 
 export default function AdminEmi() {
-  const { isSuperAdmin } = useAuth();
-  const tabs = TABS.filter((t) => isSuperAdmin || !t.superOnly);
+  const { isSuperAdmin, isShopAdmin } = useAuth();
+  // An Admin who looks after one shop sees that shop's records, not the
+  // platform's requests, cross-shop risk or rules
+  const tabs = TABS.filter((t) => (isSuperAdmin || !t.superOnly) && !(isShopAdmin && t.platform));
   const [tab, setTab] = useState("overview");
   const Current = (tabs.find((t) => t.value === tab) || tabs[0]).component;
   return (
     <>
-      <PageHeader title="EMI & Billing" description={`Counter sales and Shop EMI across every shop${isSuperAdmin ? "" : " (view only)"}`} />
+      <PageHeader title="EMI & Billing" description={isShopAdmin ? "Counter sales and Shop EMI in the shop you look after (view only)" : `Counter sales and Shop EMI across every shop${isSuperAdmin ? "" : " (view only)"}`} />
       <Tabs className="mb-5" tabs={tabs} value={tab} onChange={setTab} label="EMI sections" />
       <Current />
     </>

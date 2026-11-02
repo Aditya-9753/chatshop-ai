@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import * as Dialog from "@radix-ui/react-dialog";
 import { BarChart3, Bot, CreditCard, Landmark, LayoutDashboard, Lock, LogOut, Menu, MessageSquare, Moon, Package, RefreshCw, Settings, ShoppingCart, Store, Sun, Users } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import api from "../../services/api.service";
 import { useTheme } from "../../context/ThemeContext";
 import { LogoMark } from "../../components/Logo";
 import {
@@ -33,21 +34,40 @@ export const ADMIN_SECTIONS = [
   { value: "security", label: "Security", icon: Lock, superOnly: true },
 ];
 
-// The limited Admin panel (admin-panel password) has no Billing, AI Assistant, Settings or Security
-export const sectionsFor = (isSuperAdmin) => ADMIN_SECTIONS.filter((s) => isSuperAdmin || !s.superOnly);
+// The limited Admin panel (admin-panel password) has no Billing, AI Assistant,
+// Settings or Security. An Admin who looks after one shop sees that shop's
+// records only, so "Shops" becomes "My shop".
+const SHOP_ADMIN_SECTIONS = ["overview", "users", "orders", "customers", "products", "messages", "analytics", "emi"];
+export const sectionsFor = (isSuperAdmin, isShopAdmin = false) =>
+  ADMIN_SECTIONS.filter((s) => (isShopAdmin ? SHOP_ADMIN_SECTIONS.includes(s.value) : isSuperAdmin || !s.superOnly)).map((s) =>
+    isShopAdmin && s.value === "users" ? { ...s, label: "My shop" } : s
+  );
+
+// The shop an Admin looks after, for the header
+function useAdminShop(isShopAdmin) {
+  const [shop, setShop] = useState(null);
+  useEffect(() => {
+    if (!isShopAdmin) return;
+    api
+      .get("/admin/users", { params: { limit: 1 } })
+      .then((res) => setShop(res.data?.[0] || false))
+      .catch(() => setShop(false));
+  }, [isShopAdmin]);
+  return shop;
+}
 
 function AdminNav({ section, onSection }) {
-  const { isSuperAdmin } = useAuth();
+  const { isSuperAdmin, isShopAdmin } = useAuth();
   return (
     <div className="flex h-full flex-col gap-2 p-3">
       <div className="flex items-center gap-2.5 p-1.5">
         <LogoMark />
         <span className="text-sm font-semibold text-fg">ChatShop</span>
-        <Badge tone="accent">{isSuperAdmin ? "Super Admin" : "Admin"}</Badge>
+        <Badge tone="accent">{isSuperAdmin ? "Super Admin" : isShopAdmin ? "Shop admin" : "Admin"}</Badge>
       </div>
       <nav aria-label="Admin" className="mt-2 flex-1">
         <ul className="flex flex-col gap-0.5">
-          {sectionsFor(isSuperAdmin).map((item) => {
+          {sectionsFor(isSuperAdmin, isShopAdmin).map((item) => {
             const active = item.value === section;
             return (
               <li key={item.value}>
@@ -73,7 +93,8 @@ function AdminNav({ section, onSection }) {
 
 // Same structure as the app shell, with a "Super Admin" or "Admin" badge and admin nav
 export default function AdminShell({ section, onSection, onRefresh, children }) {
-  const { user, logout, isSuperAdmin } = useAuth();
+  const { user, logout, isSuperAdmin, isShopAdmin } = useAuth();
+  const shop = useAdminShop(isShopAdmin);
   const { isDarkMode, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -105,8 +126,17 @@ export default function AdminShell({ section, onSection, onRefresh, children }) 
           <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-line bg-canvas/85 px-4 backdrop-blur lg:px-8">
             <Button variant="ghost" size="icon" icon={Menu} onClick={() => setMenuOpen(true)} className="lg:hidden" aria-label="Open menu" />
             <span className="min-w-0 truncate text-sm text-fg-muted">
-              {isSuperAdmin ? "Super Admin panel" : "Admin panel"}
-              <span className="hidden sm:inline"> · Platform administration</span>
+              {isShopAdmin ? (
+                <>
+                  Shop admin
+                  <span className="font-medium text-fg"> · {shop ? shop.businessInfo?.businessName || shop.name : shop === false ? "No shop assigned" : "…"}</span>
+                </>
+              ) : (
+                <>
+                  {isSuperAdmin ? "Super Admin panel" : "Admin panel"}
+                  <span className="hidden sm:inline"> · Platform administration</span>
+                </>
+              )}
             </span>
             <div className="ml-auto flex items-center gap-2">
               <Button variant="secondary" size="sm" icon={RefreshCw} onClick={onRefresh} aria-label="Refresh data">

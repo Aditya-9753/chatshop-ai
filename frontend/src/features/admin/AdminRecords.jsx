@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Package, ShoppingCart, Users } from "lucide-react";
 import adminService from "../../services/admin.service";
+import { useAuth } from "../../context/AuthContext";
 import { assetUrl } from "../../config/api.config";
 import {
   Avatar,
@@ -24,6 +25,10 @@ export const shopName = (shop) => shop?.businessInfo?.businessName || shop?.name
  * Load one platform-wide list, scoped by the ?shop= filter in the URL.
  * Returns rows, load state and the shop filter control.
  */
+
+// "every shop" for the platform admins, "your shop" for an Admin who looks after one
+const useWhere = () => (useAuth().isShopAdmin ? "your shop" : "every shop");
+
 export function useAdminList(kind) {
   const [params, setParams] = useSearchParams();
   const shop = params.get("shop") || "";
@@ -84,6 +89,7 @@ export const ShopCell = ({ shop }) => (
 const ORDER_STATUSES = ["all", "pending", "confirmed", "processing", "shipped", "delivered", "cancelled"];
 
 export function AdminOrders() {
+  const where = useWhere();
   const list = useAdminList("orders");
   const [status, setStatus] = useState("all");
   const [open, setOpen] = useState(null);
@@ -114,7 +120,7 @@ export function AdminOrders() {
 
   return (
     <div>
-      <PageHeader title="Orders" description={`Every order from every shop · ${rows.length} orders · ${formatCurrency(revenue)} paid`} />
+      <PageHeader title="Orders" description={`Every order from ${where} · ${rows.length} orders · ${formatCurrency(revenue)} paid`} />
       <DataTable
         columns={columns}
         rows={rows}
@@ -138,7 +144,7 @@ export function AdminOrders() {
           </>
         }
         onRowClick={setOpen}
-        empty={{ icon: ShoppingCart, title: "No orders yet", description: "Orders from every shop appear here." }}
+        empty={{ icon: ShoppingCart, title: "No orders yet", description: `Orders from ${where} appear here.` }}
         pageSize={20}
       />
       <Drawer open={!!open} onOpenChange={(v) => !v && setOpen(null)} title={<span className="font-mono">{open?.orderNumber}</span>} description={open && `${shopName(open.userId)} · ${formatDateTime(open.createdAt)}`}>
@@ -191,6 +197,7 @@ export function AdminOrders() {
 }
 
 export function AdminCustomers() {
+  const where = useWhere();
   const list = useAdminList("customers");
 
   const columns = [
@@ -227,7 +234,7 @@ export function AdminCustomers() {
 
   return (
     <div>
-      <PageHeader title="Customers" description={`Every customer of every shop · ${list.rows.length} customers`} />
+      <PageHeader title="Customers" description={`Every customer of ${where} · ${list.rows.length} customers`} />
       <DataTable
         columns={columns}
         rows={list.rows}
@@ -238,7 +245,7 @@ export function AdminCustomers() {
         searchPlaceholder="Search customer, phone or shop"
         searchText={(c) => `${c.name} ${c.phone || ""} ${c.email || ""} ${shopName(c.userId)}`}
         toolbar={list.shopFilter}
-        empty={{ icon: Users, title: "No customers yet", description: "Customers from every shop appear here." }}
+        empty={{ icon: Users, title: "No customers yet", description: `Customers from ${where} appear here.` }}
         pageSize={20}
       />
     </div>
@@ -248,6 +255,7 @@ export function AdminCustomers() {
 const stockLabel = (stock = 0) => (stock <= 0 ? "out of stock" : stock <= 5 ? "low stock" : "in stock");
 
 export function AdminProducts() {
+  const where = useWhere();
   const list = useAdminList("products");
 
   const columns = [
@@ -274,7 +282,7 @@ export function AdminProducts() {
 
   return (
     <div>
-      <PageHeader title="Products" description={`Every product in every shop's catalog · ${list.rows.length} products`} />
+      <PageHeader title="Products" description={`Every product in ${where}'s catalog · ${list.rows.length} products`} />
       <DataTable
         columns={columns}
         rows={list.rows}
@@ -285,7 +293,7 @@ export function AdminProducts() {
         searchPlaceholder="Search product, SKU or shop"
         searchText={(p) => `${p.name} ${p.sku || ""} ${p.category || ""} ${shopName(p.userId)}`}
         toolbar={list.shopFilter}
-        empty={{ icon: Package, title: "No products yet", description: "Products from every shop appear here." }}
+        empty={{ icon: Package, title: "No products yet", description: `Products from ${where} appear here.` }}
         pageSize={20}
       />
     </div>

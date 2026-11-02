@@ -22,6 +22,7 @@ const { ensureDefaultPlans } = require("./src/billing/plans");
 
 const SHOP_PASSWORD = "Shop@12345";
 const STAFF_PASSWORD = "Staff@12345";
+const ADMIN_PASSWORD = "Admin@12345"; // each shop's own Admin (Admin panel, that shop only)
 const uri = process.env.MONGODB_URI || "";
 const local = /mongodb(\+srv)?:\/\/(localhost|127\.0\.0\.1)/.test(uri);
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -279,6 +280,16 @@ async function seedShop(shop) {
     customers.push(customer);
   }
 
+  // The shop's own Admin: signs in at /admin/login and sees only this shop
+  const adminEmail = `${shop.key}.admin@example.com`;
+  const [shopAdmin, adminCreated] = await upsertUser(
+    adminEmail,
+    { name: `${shop.business.businessName} Admin`, phone: shop.owner.phone, role: "admin", adminLevel: "admin", adminShopId: owner._id },
+    ADMIN_PASSWORD
+  );
+  if (!adminCreated && String(shopAdmin.adminShopId) !== String(owner._id)) await User.updateOne({ _id: shopAdmin._id }, { adminShopId: owner._id });
+  log(`shop admin ${adminEmail} (sees only this shop)`, adminCreated);
+
   // Staff, approved by the owner
   for (const s of shop.staff) {
     const [, staffCreated] = await upsertUser(
@@ -346,7 +357,8 @@ async function run() {
 
   console.log(`\n✅ Billing test shops ready.`);
   console.log(`   Shop owners: password ${SHOP_PASSWORD} · staff: password ${STAFF_PASSWORD} · sign in at /login`);
-  SHOPS.forEach((s) => console.log(`   - ${s.business.businessName.padEnd(22)} ${s.owner.email}`));
+  console.log(`   Shop admins: password ${ADMIN_PASSWORD} · sign in at /admin/login · each sees only their shop`);
+  SHOPS.forEach((s) => console.log(`   - ${s.business.businessName.padEnd(22)} owner ${s.owner.email.padEnd(30)} admin ${s.key}.admin@example.com`));
   await mongoose.disconnect();
 }
 

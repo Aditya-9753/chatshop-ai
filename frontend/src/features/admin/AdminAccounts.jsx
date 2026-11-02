@@ -1,25 +1,27 @@
 import React, { useState } from "react";
-import { KeyRound, Trash2, UserPlus } from "lucide-react";
+import { KeyRound, Store, Trash2, UserPlus } from "lucide-react";
 import api from "../../services/api.service";
 import { useToast } from "../../components/Toast";
-import { Alert, Button, Card, CardHeader, ConfirmDialog, Input, Modal, Skeleton } from "../../components/ui";
+import { Alert, Badge, Button, Card, CardHeader, ConfirmDialog, Input, Modal, Select, Skeleton } from "../../components/ui";
 import { formatDate } from "../../utils/format";
 import { useLoad } from "../billing/components";
 
 /**
- * Admins with their own login: each signs in with their own email, sees
- * their own name and gets the limited Admin panel. Super Admin only.
+ * Admins with their own login: each looks after one shop and sees only that
+ * shop's data (orders, customers, products, chats, EMI & billing). Super
+ * Admin only.
  */
 function AdminModal({ admin, onClose, onDone }) {
   const toast = useToast();
-  const [form, setForm] = useState({ name: admin?.name || "", email: admin?.email || "", phone: admin?.phone && admin.phone !== "-" ? admin.phone : "", password: "" });
+  const shops = useLoad(() => api.get("/admin/users", { params: { limit: 1000 } }), []);
+  const [form, setForm] = useState({ name: admin?.name || "", email: admin?.email || "", phone: admin?.phone && admin.phone !== "-" ? admin.phone : "", password: "", shopId: admin?.shop?._id || "" });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const submit = async () => {
     setSaving(true);
     setError("");
     try {
-      if (admin) await api.put(`/admin/admins/${admin._id}`, { name: form.name, phone: form.phone, ...(form.password ? { password: form.password } : {}) });
+      if (admin) await api.put(`/admin/admins/${admin._id}`, { name: form.name, phone: form.phone, shopId: form.shopId, ...(form.password ? { password: form.password } : {}) });
       else await api.post("/admin/admins", form);
       toast.success(admin ? "Admin saved" : `${form.name} can sign in at /admin/login`);
       onClose();
@@ -35,14 +37,26 @@ function AdminModal({ admin, onClose, onDone }) {
       open
       onOpenChange={(open) => !open && onClose()}
       title={admin ? `Edit ${admin.name}` : "Add admin"}
-      description={admin ? "A new password signs them out everywhere." : "They sign in at /admin/login with this email and see their own name."}
+      description={admin ? "A new password or a different shop signs them out everywhere." : "They sign in at /admin/login and see only the shop you choose."}
       footer={
-        <Button loading={saving} onClick={submit}>
+        <Button loading={saving} disabled={!form.shopId} onClick={submit}>
           {admin ? "Save" : "Add admin"}
         </Button>
       }
     >
       <div className="grid gap-3 sm:grid-cols-2">
+        <Select
+          label="Shop they look after"
+          required
+          className="sm:col-span-2"
+          hint="They see only this shop's orders, customers, products, chats and EMI & billing"
+          value={form.shopId}
+          onChange={(e) => setForm({ ...form, shopId: e.target.value })}
+          options={[
+            { value: "", label: shops.data ? "Choose a shop" : "Loading shops…" },
+            ...(shops.data || []).map((s) => ({ value: s._id, label: `${s.businessInfo?.businessName || s.name} · ${s.email}` })),
+          ]}
+        />
         <Input label="Name" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
         <Input label="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
         <Input label="Email (login)" type="email" required disabled={Boolean(admin)} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
@@ -82,7 +96,7 @@ export default function AdminAccountsCard() {
     <Card>
       <CardHeader
         title="Admin accounts"
-        description="Each admin has their own login and name, and opens the limited Admin panel"
+        description="Give each shop its own admin: they sign in with their own login and see only that shop's data"
         action={
           <Button size="sm" icon={UserPlus} onClick={() => setEditing("new")}>
             Add admin
@@ -101,6 +115,15 @@ export default function AdminAccountsCard() {
                 <span className="block text-sm font-medium text-fg">{a.name}</span>
                 <span className="block truncate text-caption text-fg-muted">
                   {a.email} · added {formatDate(a.createdAt)}
+                </span>
+                <span className="mt-1 block">
+                  {a.shop ? (
+                    <Badge tone="accent">
+                      <Store className="h-3 w-3" aria-hidden="true" /> {a.shop.name}
+                    </Badge>
+                  ) : (
+                    <Badge tone="warning">No shop yet: sees nothing until you choose one</Badge>
+                  )}
                 </span>
               </span>
               <Button size="icon-sm" variant="ghost" icon={KeyRound} aria-label={`Edit ${a.name}`} onClick={() => setEditing(a)} />

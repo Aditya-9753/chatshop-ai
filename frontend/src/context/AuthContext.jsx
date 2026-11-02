@@ -72,6 +72,8 @@ export const AuthProvider = ({ children }) => {
     isAdmin: user?.role === "admin",
     // Signed in with the Super Admin password (not the limited Admin panel one)
     isSuperAdmin: user?.role === "admin" && user?.adminLevel !== "admin",
+    // An Admin account that looks after one shop and sees only its data
+    isShopAdmin: user?.role === "admin" && user?.shopAdmin === true,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

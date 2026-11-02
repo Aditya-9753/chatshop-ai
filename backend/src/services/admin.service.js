@@ -13,106 +13,40 @@ const { dayKeys, validTimeZone } = require("./report.service");
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 class AdminService {
-  // Get dashboard overview stats
-  async getDashboardStats() {
-    // Total users
-    const totalUsers = await User.countDocuments({ role: "user" });
+  // Dashboard numbers: every shop, or only the one shop an Admin looks after
+  async getDashboardStats(scope) {
+    const shops = { role: "user", ...(scope && { _id: scope }) };
+    const owned = scope ? { userId: scope } : {};
+    const thirtyDaysAgo = new Date(Date.now() - 30 * DAY_MS);
+    const sevenDaysAgo = new Date(Date.now() - 7 * DAY_MS);
+    const active = { ...shops, "subscription.status": "active" };
+    const onPlan = (plan) => User.countDocuments({ ...active, "subscription.plan": plan });
 
-    // Active users (logged in within last 30 days)
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const activeUsers = await User.countDocuments({
-      role: "user",
-      updatedAt: { $gte: thirtyDaysAgo },
-    });
-
-    // Premium users
-    const premiumUsers = await User.countDocuments({
-      role: "user",
-      "subscription.status": "active",
-    });
-
-    // Free users
-    const freeUsers = totalUsers - premiumUsers;
-
-    // Users by plan
-    const starterUsers = await User.countDocuments({
-      role: "user",
-      "subscription.plan": "starter",
-      "subscription.status": "active",
-    });
-
-    const businessUsers = await User.countDocuments({
-      role: "user",
-      "subscription.plan": "business",
-      "subscription.status": "active",
-    });
-
-    const premiumPlanUsers = await User.countDocuments({
-      role: "user",
-      "subscription.plan": "premium",
-      "subscription.status": "active",
-    });
-
-    // Total revenue
-    const totalRevenue = await this.calculateTotalRevenue();
-
-    // Platform connections
-    const whatsappConnected = await User.countDocuments({
-      role: "user",
-      "whatsappConfig.isConnected": true,
-    });
-
-    const instagramConnected = await User.countDocuments({
-      role: "user",
-      "instagramConfig.isConnected": true,
-    });
-    const facebookConnected = await User.countDocuments({
-      role: "user",
-      "facebookConfig.isConnected": true,
-    });
-
-    // Total entities across all users
-    const totalCustomers = await Customer.countDocuments();
-    const totalOrders = await Order.countDocuments();
-    const totalProducts = await Product.countDocuments();
-    const totalMessages = await Message.countDocuments();
-
-    // Recent signups (last 7 days)
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const recentSignups = await User.countDocuments({
-      role: "user",
-      createdAt: { $gte: sevenDaysAgo },
-    });
+    const [totalUsers, activeUsers, premiumUsers, starter, business, premium, whatsapp, instagram, facebook, customers, orders, products, messages, recentSignups] =
+      await Promise.all([
+        User.countDocuments(shops),
+        User.countDocuments({ ...shops, updatedAt: { $gte: thirtyDaysAgo } }),
+        User.countDocuments(active),
+        onPlan("starter"),
+        onPlan("business"),
+        onPlan("premium"),
+        User.countDocuments({ ...shops, "whatsappConfig.isConnected": true }),
+        User.countDocuments({ ...shops, "instagramConfig.isConnected": true }),
+        User.countDocuments({ ...shops, "facebookConfig.isConnected": true }),
+        Customer.countDocuments(owned),
+        Order.countDocuments(owned),
+        Product.countDocuments(owned),
+        Message.countDocuments(owned),
+        User.countDocuments({ ...shops, createdAt: { $gte: sevenDaysAgo } }),
+      ]);
 
     return {
-      users: {
-        total: totalUsers,
-        active: activeUsers,
-        premium: premiumUsers,
-        free: freeUsers,
-        recentSignups,
-      },
-      subscriptions: {
-        starter: starterUsers,
-        business: businessUsers,
-        premium: premiumPlanUsers,
-      },
-      platforms: {
-        whatsapp: whatsappConnected,
-        instagram: instagramConnected,
-        facebook: facebookConnected,
-      },
-      entities: {
-        customers: totalCustomers,
-        orders: totalOrders,
-        products: totalProducts,
-        messages: totalMessages,
-      },
-      revenue: {
-        total: totalRevenue,
-      },
+      users: { total: totalUsers, active: activeUsers, premium: premiumUsers, free: totalUsers - premiumUsers, recentSignups },
+      subscriptions: { starter, business, premium },
+      platforms: { whatsapp, instagram, facebook },
+      entities: { customers, orders, products, messages },
+      // What ChatShop earns is the platform's business, not a shop admin's
+      revenue: { total: scope ? null : await this.calculateTotalRevenue() },
     };
   }
 
@@ -124,7 +58,7 @@ class AdminService {
   }
 
   // Get all users
-  async getAllUsers(filters = {}) {
+  async getAllUsers(filters = {}, scope) {
     const {
       page = 1,
       limit = 20,
@@ -134,7 +68,7 @@ class AdminService {
       status,
     } = filters;
 
-    const query = { role: "user" }; // Shops only: no admins, no shop staff
+    const query = { role: "user", ...(scope && { _id: scope }) }; // Shops only: no admins, no shop staff
 
     if (search) {
       query.$or = [
@@ -203,16 +137,17 @@ class AdminService {
 
   // Platform activity per day for the last `days` days, plus the shops
   // that sold the most in that window
-  async getDailyActivity({ days = 30, tz } = {}) {
+  async getDailyActivity({ days = 30, tz } = {}, scope) {
     tz = validTimeZone(tz || "UTC");
     days = Math.min(Math.max(Number(days) || 30, 7), 365);
     const end = new Date();
     const start = new Date(end.getTime() - days * DAY_MS);
-    const range = { createdAt: { $gte: start, $lt: end } };
+    const range = { createdAt: { $gte: start, $lt: end }, ...(scope && { userId: scope }) };
+    const signupRange = { createdAt: range.createdAt, ...(scope && { _id: scope }) };
     const day = { $dateToString: { format: "%Y-%m-%d", date: "$createdAt", timezone: tz } };
 
     const [signups, orders, messages, top] = await Promise.all([
-      User.aggregate([{ $match: { role: "user", ...range } }, { $group: { _id: day, signups: { $sum: 1 } } }]),
+      User.aggregate([{ $match: { role: "user", ...signupRange } }, { $group: { _id: day, signups: { $sum: 1 } } }]),
       Order.aggregate([
         { $match: { ...range, ...ORDER_MATCH } },
         {
@@ -254,7 +189,9 @@ class AdminService {
   }
 
   // Get single user with stats
-  async getUser(userId) {
+  async getUser(userId, scope) {
+    // An Admin who looks after one shop can open only that shop
+    if (scope && String(scope) !== String(userId)) throw new Error("User not found");
     const user = await User.findById(userId).select("-password");
 
     if (!user) {

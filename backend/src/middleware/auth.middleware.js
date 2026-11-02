@@ -1,6 +1,10 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User.model");
 
+// Scope of an Admin with no shop yet: an id no record has, so they see nothing
+const NO_SHOP = new (require("mongoose").Types.ObjectId)("000000000000000000000000");
+exports.NO_SHOP = NO_SHOP;
+
 // What a staff account may reach: EMI & billing, and its own profile
 const STAFF_PATHS = ["/api/emi", "/api/users/profile", "/api/users/password", "/api/users/announcements"];
 
@@ -79,6 +83,9 @@ exports.protect = async (req, res, next) => {
             message: "Password was changed. Please log in again.",
           });
         }
+        // An Admin account of its own sees one shop only (none until the
+        // Super Admin assigns one); the Super Admin sees every shop
+        if (ownAdmin) req.shopScope = req.user.adminShopId || NO_SHOP;
       }
 
       next();

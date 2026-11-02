@@ -13,16 +13,18 @@ const team = require("./team.service");
 const ALL = { allTenants: true };
 const addDays = (date, days) => new Date(Date.parse(`${date}T00:00:00Z`) + days * 86400000).toISOString().slice(0, 10);
 
-async function dashboard() {
+// Every shop, or only the one shop an Admin looks after (`scope`)
+async function dashboard(scope) {
   const from = addDays(today(), -29);
+  const own = scope ? { tenantId: scope } : {};
   const [tenants, stores, gmv, book, overdue, nbfc, failed] = await Promise.all([
-    Tenant.aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }]),
-    Store.countDocuments({}).setOptions(ALL),
-    Invoice.aggregate([{ $match: { status: { $ne: "CANCELLED" }, date: { $gte: from } } }, { $group: { _id: null, gross: { $sum: "$grossTotal" }, count: { $sum: 1 } } }]).option(ALL),
-    EmiContract.aggregate([{ $match: { status: "ACTIVE" } }, { $group: { _id: null, count: { $sum: 1 }, outstanding: { $sum: { $subtract: ["$principal", "$paidPrincipal"] } } } }]).option(ALL),
-    EmiContract.countDocuments({ status: "ACTIVE", currentDpd: { $gt: 0 } }).setOptions(ALL),
-    NbfcCase.aggregate([{ $match: { status: { $in: ["LOGIN", "APPROVED", "DO_RECEIVED"] } } }, { $group: { _id: null, count: { $sum: 1 }, payout: { $sum: "$expectedPayout" } } }]).option(ALL),
-    Notification.countDocuments({ status: "FAILED" }).setOptions(ALL),
+    Tenant.aggregate([{ $match: scope ? { _id: scope } : {} }, { $group: { _id: "$status", count: { $sum: 1 } } }]),
+    Store.countDocuments(own).setOptions(ALL),
+    Invoice.aggregate([{ $match: { ...own, status: { $ne: "CANCELLED" }, date: { $gte: from } } }, { $group: { _id: null, gross: { $sum: "$grossTotal" }, count: { $sum: 1 } } }]).option(ALL),
+    EmiContract.aggregate([{ $match: { ...own, status: "ACTIVE" } }, { $group: { _id: null, count: { $sum: 1 }, outstanding: { $sum: { $subtract: ["$principal", "$paidPrincipal"] } } } }]).option(ALL),
+    EmiContract.countDocuments({ ...own, status: "ACTIVE", currentDpd: { $gt: 0 } }).setOptions(ALL),
+    NbfcCase.aggregate([{ $match: { ...own, status: { $in: ["LOGIN", "APPROVED", "DO_RECEIVED"] } } }, { $group: { _id: null, count: { $sum: 1 }, payout: { $sum: "$expectedPayout" } } }]).option(ALL),
+    Notification.countDocuments({ ...own, status: "FAILED" }).setOptions(ALL),
   ]);
   const count = (s) => tenants.find((t) => t._id === s)?.count || 0;
   const active = book[0]?.count || 0;
@@ -37,8 +39,8 @@ async function dashboard() {
   };
 }
 
-async function tenants() {
-  const list = await Tenant.find().sort({ createdAt: -1 }).lean();
+async function tenants(scope) {
+  const list = await Tenant.find(scope ? { _id: scope } : {}).sort({ createdAt: -1 }).lean();
   const ids = list.map((t) => t._id);
   const [owners, stores, sales, emi] = await Promise.all([
     User.find({ _id: { $in: ids } }).select("name email subscription").lean(),
@@ -137,11 +139,22 @@ async function createStaffFor(req, { tenantId, ...body }) {
   return team.createStaff(asOwnerOf(req, tenantId), body, { approved: true });
 }
 
-async function updateStaffFor(req, id, body) {
+// `shop`: an Admin who looks after one shop may change only its staff
+async function updateStaffFor(req, id, body, shop) {
   if (!isId(id)) throw new AppError(400, "ID galat hai");
-  const user = await User.findOne({ _id: id, role: "staff" }).select("tenantId");
+  const user = await User.findOne({ _id: id, role: "staff", ...(shop && { tenantId: shop }) }).select("tenantId");
   if (!user) throw new AppError(404, "Staff nahi mila");
   return team.updateStaff(asOwnerOf(req, user.tenantId), id, body);
+}
+
+// What the Add staff form offers for one shop: its stores and the roles its owner made
+async function shopRoles(tenantId) {
+  if (!isId(tenantId)) throw new AppError(400, "Shop chuno");
+  const [stores, roles] = await Promise.all([
+    Store.find({ tenantId, active: { $ne: false } }).select("name invoicePrefix").sort({ name: 1 }).lean(),
+    CustomRole.find({ tenantId }).select("name abilities").sort({ name: 1 }).lean(),
+  ]);
+  return { stores, roles };
 }
 
 async function getSettings() {
@@ -239,9 +252,9 @@ async function invoices({ tenantId, status, financeType, q, limit }) {
   return withNames(rows);
 }
 
-async function invoiceDetail(id) {
+async function invoiceDetail(id, shop) {
   if (!isId(id)) throw new AppError(400, "ID galat hai");
-  const invoice = await Invoice.findOne({ _id: id }).setOptions(ALL).lean();
+  const invoice = await Invoice.findOne({ _id: id, ...(shop && { tenantId: shop }) }).setOptions(ALL).lean();
   if (!invoice) throw new AppError(404, "Invoice nahi mila");
   const scope = { tenantId: invoice.tenantId };
   const [payments, contract, nbfcCase] = await Promise.all([
@@ -269,9 +282,9 @@ async function contracts({ tenantId, view = "active", q, limit }) {
   return (await withNames(rows)).map((c) => ({ ...c, outstandingPrincipal: c.principal - c.paidPrincipal }));
 }
 
-async function contractDetail(id) {
+async function contractDetail(id, shop) {
   if (!isId(id)) throw new AppError(400, "ID galat hai");
-  const contract = await EmiContract.findOne({ _id: id }).setOptions(ALL).lean();
+  const contract = await EmiContract.findOne({ _id: id, ...(shop && { tenantId: shop }) }).setOptions(ALL).lean();
   if (!contract) throw new AppError(404, "EMI contract nahi mila");
   const scope = { tenantId: contract.tenantId };
   const [installments, payments] = await Promise.all([
@@ -323,4 +336,5 @@ module.exports = {
   requests,
   createStaffFor,
   updateStaffFor,
+  shopRoles,
 };

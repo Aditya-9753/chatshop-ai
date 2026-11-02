@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Check, CheckCheck, MessageSquare } from "lucide-react";
 import adminService from "../../services/admin.service";
+import { useAuth } from "../../context/AuthContext";
 import { Avatar, Badge, ChannelBadge, cn, DataTable, Drawer, PageHeader, Skeleton, StatusPill } from "../../components/ui";
 import { formatDayLabel, formatRelative, formatTime } from "../../utils/format";
 import { ShopCell, shopName, useAdminList } from "./AdminRecords";
@@ -65,6 +66,7 @@ function Thread({ conversationId }) {
 }
 
 export default function AdminMessages() {
+  const { isShopAdmin } = useAuth();
   const list = useAdminList("conversations");
   const [open, setOpen] = useState(null);
   const unread = list.rows.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
@@ -105,7 +107,7 @@ export default function AdminMessages() {
 
   return (
     <div>
-      <PageHeader title="Messages" description={`Every conversation on every shop · ${list.rows.length} chats · ${unread} unread`} />
+      <PageHeader title="Messages" description={`Every conversation in ${isShopAdmin ? "your shop" : "every shop"} · ${list.rows.length} chats · ${unread} unread`} />
       <DataTable
         columns={columns}
         rows={list.rows}
@@ -117,7 +119,7 @@ export default function AdminMessages() {
         searchText={(c) => `${c.customerId?.name || ""} ${c.customerId?.phone || ""} ${c.lastMessage?.content || ""} ${shopName(c.userId)}`}
         toolbar={list.shopFilter}
         onRowClick={setOpen}
-        empty={{ icon: MessageSquare, title: "No conversations yet", description: "Chats from every shop appear here." }}
+        empty={{ icon: MessageSquare, title: "No conversations yet", description: `Chats from ${isShopAdmin ? "your shop" : "every shop"} appear here.` }}
         pageSize={20}
       />
       <Drawer

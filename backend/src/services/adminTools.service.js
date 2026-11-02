@@ -261,34 +261,36 @@ class AdminToolsService {
   }
 
   // ---------- Exports and backups ----------
-  async exportCsv(kind) {
+  // CSV of every shop's records, or only the shop an Admin looks after (`scope`)
+  async exportCsv(kind, scope) {
+    const owned = scope ? { userId: scope } : {};
     const shop = (u) => u?.businessInfo?.businessName || u?.name || "";
     const date = (d) => (d ? new Date(d).toISOString().slice(0, 10) : "");
 
     switch (kind) {
       case "shops": {
-        const users = await User.find({ role: "user" }).sort({ createdAt: -1 }).lean();
+        const users = await User.find({ role: "user", ...(scope && { _id: scope }) }).sort({ createdAt: -1 }).lean();
         return toCsv(
           ["Name", "Business", "Email", "Phone", "Plan", "Status", "Joined"],
           users.map((u) => [u.name, u.businessInfo?.businessName, u.email, u.phone, u.subscription?.plan, u.subscription?.status, date(u.createdAt)])
         );
       }
       case "orders": {
-        const orders = await Order.find().populate("userId", "name businessInfo.businessName").populate("customerId", "name phone").sort({ createdAt: -1 }).lean();
+        const orders = await Order.find(owned).populate("userId", "name businessInfo.businessName").populate("customerId", "name phone").sort({ createdAt: -1 }).lean();
         return toCsv(
           ["Order", "Date", "Shop", "Customer", "Phone", "Channel", "Total", "Status", "Payment"],
           orders.map((o) => [o.orderNumber, date(o.createdAt), shop(o.userId), o.customerId?.name, o.customerId?.phone, o.platform, o.total, o.status, o.paymentStatus])
         );
       }
       case "customers": {
-        const customers = await Customer.find().populate("userId", "name businessInfo.businessName").sort({ createdAt: -1 }).lean();
+        const customers = await Customer.find(owned).populate("userId", "name businessInfo.businessName").sort({ createdAt: -1 }).lean();
         return toCsv(
           ["Name", "Shop", "Phone", "Email", "Channel", "Orders", "Spent", "Since"],
           customers.map((c) => [c.name, shop(c.userId), c.phone, c.email, c.platform, c.totalOrders, c.totalSpent, date(c.createdAt)])
         );
       }
       case "products": {
-        const products = await Product.find().populate("userId", "name businessInfo.businessName").sort({ createdAt: -1 }).lean();
+        const products = await Product.find(owned).populate("userId", "name businessInfo.businessName").sort({ createdAt: -1 }).lean();
         return toCsv(
           ["Name", "Shop", "Category", "SKU", "Price", "Stock", "Available"],
           products.map((p) => [p.name, shop(p.userId), p.category, p.sku, p.price, p.stock, p.isActive !== false ? "yes" : "no"])
@@ -359,13 +361,36 @@ class AdminToolsService {
 
   // ---- Admins with their own login (limited Admin panel, own name) ----
 
+  // Each Admin looks after one shop and sees only that shop's data
   async listAdmins() {
-    return User.find({ role: "admin", adminLevel: "admin" }).select("name email phone createdAt lastLogin").sort({ createdAt: 1 }).lean();
+    const admins = await User.find({ role: "admin", adminLevel: "admin" }).select("name email phone createdAt adminShopId").sort({ createdAt: 1 }).lean();
+    const shops = await User.find({ _id: { $in: admins.map((a) => a.adminShopId).filter(Boolean) } }).select("name email businessInfo.businessName").lean();
+    const byId = new Map(shops.map((s) => [String(s._id), s]));
+    return admins.map((a) => this.adminRow(a, byId.get(String(a.adminShopId))));
   }
 
-  async createAdmin({ name, email, phone, password }) {
+  adminRow(admin, shop) {
+    return {
+      _id: admin._id,
+      name: admin.name,
+      email: admin.email,
+      phone: admin.phone,
+      createdAt: admin.createdAt,
+      shop: shop ? { _id: shop._id, name: shop.businessInfo?.businessName || shop.name, email: shop.email } : null,
+    };
+  }
+
+  async shopFor(shopId) {
+    if (!mongoose.isValidObjectId(shopId)) throw new Error("Choose the shop this Admin looks after");
+    const shop = await User.findOne({ _id: shopId, role: "user" }).select("name email businessInfo.businessName");
+    if (!shop) throw new Error("Shop not found");
+    return shop;
+  }
+
+  async createAdmin({ name, email, phone, password, shopId }) {
     if (!name?.trim() || !email?.trim()) throw new Error("Name and email are required");
     if (!password || String(password).length < 8) throw new Error("Use at least 8 characters for the password");
+    const shop = await this.shopFor(shopId);
     const normalized = email.trim().toLowerCase();
     if (await User.exists({ email: normalized })) throw new Error("An account with this email already exists");
     const admin = await User.create({
@@ -375,23 +400,30 @@ class AdminToolsService {
       password: await bcrypt.hash(password, 10),
       role: "admin",
       adminLevel: "admin",
+      adminShopId: shop._id,
       isVerified: true,
     });
-    return { _id: admin._id, name: admin.name, email: admin.email, phone: admin.phone, createdAt: admin.createdAt };
+    return this.adminRow(admin, shop);
   }
 
-  async updateAdmin(id, { name, phone, password }) {
+  async updateAdmin(id, { name, phone, password, shopId }) {
     const admin = await User.findOne({ _id: id, role: "admin", adminLevel: "admin" });
     if (!admin) throw new Error("Admin not found");
     if (name?.trim()) admin.name = name.trim();
     if (phone !== undefined) admin.phone = phone?.trim() || "-";
+    let shop = admin.adminShopId ? await User.findById(admin.adminShopId).select("name email businessInfo.businessName") : null;
+    if (shopId !== undefined && String(shopId) !== String(admin.adminShopId)) {
+      shop = await this.shopFor(shopId);
+      admin.adminShopId = shop._id;
+      admin.passwordChangedAt = new Date(Date.now() - 1000); // a new shop: sign in again
+    }
     if (password) {
       if (String(password).length < 8) throw new Error("Use at least 8 characters for the password");
       admin.password = await bcrypt.hash(password, 10);
       admin.passwordChangedAt = new Date(Date.now() - 1000); // signs them out everywhere
     }
     await admin.save();
-    return { _id: admin._id, name: admin.name, email: admin.email, phone: admin.phone, createdAt: admin.createdAt };
+    return this.adminRow(admin, shop);
   }
 
   async removeAdmin(id) {
