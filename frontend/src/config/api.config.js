@@ -21,6 +21,7 @@ export const API_ENDPOINTS = {
     LOGIN: "/auth/login",
     REGISTER: "/auth/register",
     VERIFY_EMAIL: "/auth/verify-email",
+    VERIFY_EMAIL_CODE: "/auth/verify-email/code",
     FORGOT_PASSWORD: "/auth/forgot-password",
     RESET_PASSWORD: "/auth/reset-password",
   },
@@ -29,6 +30,9 @@ export const API_ENDPOINTS = {
   USER: {
     PROFILE: "/users/profile",
     UPDATE_PROFILE: "/users/profile",
+    RESEND_EMAIL_VERIFICATION: "/users/email-verification/resend",
+    SEND_PHONE_VERIFICATION: "/users/phone-verification/send",
+    VERIFY_PHONE: "/users/phone-verification/verify",
     UPDATE_PASSWORD: "/users/password",
     WHATSAPP_CONFIG: "/users/whatsapp-config",
     INSTAGRAM_CONFIG: "/users/instagram-config",

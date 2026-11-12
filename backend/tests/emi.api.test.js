@@ -403,6 +403,9 @@ test("The shop owner makes up a role: own name, own choice of work", async () =>
   const made = await s.owner.post("/roles", { name: "Stock Checker", abilities: ["stock", "invoices"] });
   assert.equal(made.status, 201, JSON.stringify(made.body));
   const roleId = made.body.data._id;
+  const catalog = await s.owner.get("/roles");
+  assert.ok(catalog.body.data.abilities.some((ability) => ability.key === "invoiceCreate"));
+  assert.ok(catalog.body.data.abilities.some((ability) => ability.key === "paymentReconcile"));
   assert.equal((await s.owner.post("/roles", { name: "stock checker", abilities: ["stock"] })).status, 409, "names are unique, any case");
 
   // A Store Admin may give the role but not make one
@@ -416,6 +419,19 @@ test("The shop owner makes up a role: own name, own choice of work", async () =>
   assert.equal((await s.owner.post("/users", { name: "Checker", email, password: "Password@123", roles: [{ role: "CUSTOM", storeId: s.store._id }] })).status, 422, "a custom role must be picked");
   const staff = await s.owner.post("/users", { name: "Checker", email, password: "Password@123", roles: [{ role: "CUSTOM", customRoleId: roleId, storeId: s.store._id }] });
   assert.equal(staff.status, 201, JSON.stringify(staff.body));
+  const multiEmail = `multi-role-${Date.now()}@crm.local`;
+  const multiRole = await s.owner.post("/users", {
+    name: "Multi-role worker",
+    email: multiEmail,
+    password: "Password@123",
+    roles: [
+      { role: "CASHIER", storeId: s.store._id },
+      { role: "CUSTOM", customRoleId: roleId, storeId: s.store._id },
+    ],
+  });
+  assert.equal(multiRole.status, 201, JSON.stringify(multiRole.body));
+  assert.equal(multiRole.body.data.emiRoles.length, 2, "one staff member can hold multiple roles for a store");
+  await s.owner.patch(`/users/${multiRole.body.data._id}`, { roles: [{ role: "CASHIER", storeId: s.store._id }] });
   const checker = as(await login(email, "Password@123"));
   const me = await checker.get("/me");
   assert.equal(me.body.data.roles[0].label, "Stock Checker");
@@ -431,6 +447,20 @@ test("The shop owner makes up a role: own name, own choice of work", async () =>
   assert.equal((await checker.get("/emi")).status, 200);
   assert.equal((await checker.get("/invoices")).status, 403);
   assert.equal((await checker.get("/reports/my")).body.data.agent.scope, "store");
+
+  const disabled = await s.owner.put(`/roles/${roleId}`, { name: "Stock & EMI", abilities: ["stock", "emi"], active: false });
+  assert.equal(disabled.status, 200);
+  assert.equal((await checker.get("/me")).status, 401, "deactivating a role signs out its staff");
+  const inactiveAssignment = await s.owner.post("/users", {
+    name: "Inactive role holder",
+    email: `inactive-${Date.now()}@crm.local`,
+    password: "Password@123",
+    roles: [{ role: "CUSTOM", customRoleId: roleId, storeId: s.store._id }],
+  });
+  assert.equal(inactiveAssignment.status, 422, "inactive roles cannot be assigned");
+  assert.equal((await s.owner.put(`/roles/${roleId}`, { name: "Stock & EMI", abilities: ["stock", "emi"], active: true })).status, 200);
+  const activeChecker = as(await login(email, "Password@123"));
+  assert.equal((await activeChecker.get("/emi")).status, 200, "reactivating the role restores its permissions at next login");
 
   // A role someone holds can't be deleted
   assert.equal((await s.owner.del(`/roles/${roleId}`)).status, 409);

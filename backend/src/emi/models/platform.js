@@ -66,6 +66,7 @@ const customRoleSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
     abilities: [{ type: String }],
+    active: { type: Boolean, default: true },
     createdBy: { type: ObjectId, ref: "User" },
   },
   { timestamps: true }

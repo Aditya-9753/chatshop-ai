@@ -61,17 +61,26 @@ const grants = (granted, perm) => {
   return false;
 };
 
-// The work a shop owner can pick for a role of their own. Managing staff,
-// stores and settings stay with the owner and Store Admins.
+// The permissions a shop owner can pick for a role of their own. Staff
+// administration, stores and settings stay with the owner and Store Admins.
 const CUSTOM_ABILITIES = {
   overview: { label: "Billing overview", detail: "Sales, EMI book and overdue for the store", perms: ["report.store"] },
   sale: { label: "New sale", detail: "Invoices and Shop EMI sales at list price; also opens Invoices and EMI", perms: ["invoice.create", "invoice.read", "customer.*", "product.read", "emi.create", "emi.read", "approval.create", "payment.collect"] },
+  customers: { label: "View customers", detail: "See customer details", perms: ["customer.read"] },
+  customerManage: { label: "Manage customers", detail: "Add and edit customer details", perms: ["customer.create"] },
+  customerKyc: { label: "Edit customer KYC", detail: "Update customer KYC and verification status", perms: ["customer.kyc"] },
   invoices: { label: "See invoices", detail: "Open and print invoices", perms: ["invoice.read", "customer.read"] },
+  invoiceCreate: { label: "Create invoices", detail: "Create a sale invoice", perms: ["invoice.create", "customer.read", "product.read"] },
   emi: { label: "EMI collections", detail: "Collect EMI and add follow-ups", perms: ["emi.read", "emi.followup", "payment.collect", "customer.read"] },
+  emiCreate: { label: "Create EMI", detail: "Start EMI contracts", perms: ["emi.create", "customer.read", "product.read"] },
+  emiFollowup: { label: "Add EMI follow-ups", detail: "Record collection calls and next actions", perms: ["emi.read", "emi.followup", "customer.read"] },
   stock: { label: "See stock", detail: "Stock summary and IMEI list", perms: ["product.read"] },
   stockManage: { label: "Receive stock", detail: "Add IMEIs, edit HSN and GST", perms: ["product.read", "product.manage"] },
   approvals: { label: "Approve requests", detail: "High EMI, waivers, foreclosures, cancellations", perms: ["approval.read", "approval.decide"] },
+  approvalDecide: { label: "Decide approvals", detail: "Approve or reject requests", perms: ["approval.read", "approval.decide"] },
   payments: { label: "Payments", detail: "See payments and settle card/UPI", perms: ["payment.read", "payment.reconcile"] },
+  paymentCollect: { label: "Collect payments", detail: "Record customer payments", perms: ["payment.read", "payment.collect"] },
+  paymentReconcile: { label: "Reconcile payments", detail: "Settle recorded card and UPI payments", perms: ["payment.read", "payment.reconcile"] },
   accounts: { label: "Accounts & GST", detail: "GST summary, trial balance, journal", perms: ["ledger.read"] },
 };
 
@@ -112,7 +121,7 @@ async function bootstrapTenant(owner) {
 // (a deleted custom role simply drops out)
 async function resolveRoles(tenantId, emiRoles) {
   const ids = emiRoles.filter((r) => r.role === "CUSTOM").map((r) => r.customRoleId);
-  const custom = ids.length ? await CustomRole.find({ tenantId, _id: { $in: ids } }).lean() : [];
+  const custom = ids.length ? await CustomRole.find({ tenantId, _id: { $in: ids }, active: { $ne: false } }).lean() : [];
   const byId = new Map(custom.map((c) => [String(c._id), c]));
   return emiRoles.flatMap((r) => {
     if (r.role !== "CUSTOM") return [{ role: r.role, storeId: r.storeId || null }];

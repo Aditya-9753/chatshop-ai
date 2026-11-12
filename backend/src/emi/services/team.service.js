@@ -4,8 +4,9 @@ const User = require("../../models/User.model");
 const { Store, Tenant, CustomRole } = require("../models/platform");
 const { AppError, audit, isOid } = require("../utils/helpers");
 const { can, CUSTOM_ABILITIES, ROLE_LABELS } = require("../middleware/rbac");
+const authService = require("../../services/auth.service");
 
-const STAFF_FIELDS = "name email phone role tenantId emiRoles staffActive approvalStatus approvalNote createdAt";
+const STAFF_FIELDS = "name email phone role tenantId emiRoles staffActive approvalStatus approvalNote isVerified phoneVerified createdAt";
 
 async function listStores(req) {
   const filter = { tenantId: req.emi.tenantId };
@@ -62,7 +63,7 @@ async function checkRoles(req, roles) {
   if (found !== new Set(storeIds.map(String)).size) throw new AppError(422, "Store nahi mila");
   const customIds = roles.filter((r) => r.role === "CUSTOM").map((r) => r.customRoleId);
   if (customIds.some((id) => !isOid(id))) throw new AppError(422, "Apna banaya role chuno");
-  const customFound = await CustomRole.countDocuments({ tenantId: req.emi.tenantId, _id: { $in: customIds } });
+  const customFound = await CustomRole.countDocuments({ tenantId: req.emi.tenantId, _id: { $in: customIds }, active: { $ne: false } });
   if (customFound !== new Set(customIds.map(String)).size) throw new AppError(422, "Ye role nahi mila");
   for (const r of roles) {
     if (!["STORE_ADMIN", "CASHIER", "ACCOUNTANT", "AGENT", "CUSTOM"].includes(r.role)) throw new AppError(422, `Role ${r.role} galat hai`);
@@ -101,7 +102,7 @@ const ownerOnly = (req) => {
   if (!req.emi.isOwner) throw new AppError(403, "Naye role sirf shop owner bana sakta hai");
 };
 
-async function saveRole(req, roleId, { name, abilities }) {
+async function saveRole(req, roleId, { name, abilities, active }) {
   ownerOnly(req);
   const taken = await CustomRole.findOne({ tenantId: req.emi.tenantId, name, ...(roleId && { _id: { $ne: roleId } }) }).collation({ locale: "en", strength: 2 });
   if (taken || Object.values(ROLE_LABELS).some((l) => l.toLowerCase() === name.toLowerCase())) throw new AppError(409, `"${name}" naam ka role pehle se hai`);
@@ -110,13 +111,21 @@ async function saveRole(req, roleId, { name, abilities }) {
   if (roleId) {
     role = await CustomRole.findOne({ tenantId: req.emi.tenantId, _id: roleId });
     if (!role) throw new AppError(404, "Role nahi mila");
-    const before = { name: role.name, abilities: role.abilities };
-    Object.assign(role, { name, abilities: clean });
+    const nextActive = active === undefined ? role.active !== false : active;
+    const before = { name: role.name, abilities: role.abilities, active: role.active !== false };
+    Object.assign(role, { name, abilities: clean, active: nextActive });
     await role.save();
-    await audit(req, "role.update", { entity: "CustomRole", entityId: role._id, before, after: { name, abilities: clean } });
+    if (before.active && !nextActive) {
+      await User.updateMany(
+        { tenantId: req.emi.tenantId, role: "staff", "emiRoles.customRoleId": role._id },
+        { $inc: { staffAuthVersion: 1 } }
+      );
+    }
+    await audit(req, "role.update", { entity: "CustomRole", entityId: role._id, before, after: { name, abilities: clean, active: nextActive } });
   } else {
-    role = await CustomRole.create({ tenantId: req.emi.tenantId, name, abilities: clean, createdBy: req.user._id });
-    await audit(req, "role.create", { entity: "CustomRole", entityId: role._id, after: { name, abilities: clean } });
+    const isActive = active !== false;
+    role = await CustomRole.create({ tenantId: req.emi.tenantId, name, abilities: clean, active: isActive, createdBy: req.user._id });
+    await audit(req, "role.create", { entity: "CustomRole", entityId: role._id, after: { name, abilities: clean, active: isActive } });
   }
   return role;
 }
@@ -157,10 +166,24 @@ async function createStaff(req, { name, email, phone, password, roles }, { appro
     tenantId: req.emi.tenantId,
     emiRoles,
     approvalStatus: approved ? "APPROVED" : "PENDING",
-    isVerified: true,
+    isVerified: false,
+    phoneVerified: false,
   });
+  const [emailDelivery, phoneDelivery] = await Promise.allSettled([
+    authService.sendEmailVerification(user._id),
+    user.phone !== "-" ? authService.sendPhoneVerification(user._id) : Promise.resolve({ sent: false }),
+  ]);
+  if (emailDelivery.status === "rejected") console.error("Staff email verification failed:", emailDelivery.reason.message);
+  if (phoneDelivery.status === "rejected") console.error("Staff mobile verification failed:", phoneDelivery.reason.message);
   await audit(req, "staff.create", { entity: "User", entityId: user._id, after: { email: user.email, roles: emiRoles, approvalStatus: user.approvalStatus } });
-  return User.findById(user._id).select(STAFF_FIELDS).lean();
+  const staff = await User.findById(user._id).select(STAFF_FIELDS).lean();
+  return {
+    ...staff,
+    verification: {
+      emailSent: emailDelivery.status === "fulfilled" && emailDelivery.value.sent === true,
+      phoneSent: phoneDelivery.status === "fulfilled" && phoneDelivery.value.sent === true,
+    },
+  };
 }
 
 // The shop owner approves or rejects staff a Store Admin asked for
@@ -172,7 +195,7 @@ async function decideStaff(req, staffId, { decision, note }) {
   const before = { approvalStatus: user.approvalStatus };
   user.approvalStatus = decision;
   user.approvalNote = decision === "REJECTED" ? note : undefined;
-  if (decision === "REJECTED") user.passwordChangedAt = new Date(); // ends any session
+  if (decision === "REJECTED") user.staffAuthVersion = (user.staffAuthVersion || 0) + 1;
   await user.save();
   await audit(req, `staff.${decision === "APPROVED" ? "approve" : "reject"}`, { entity: "User", entityId: user._id, before, after: { approvalStatus: decision, email: user.email }, reason: note });
   return User.findById(user._id).select(STAFF_FIELDS).lean();
@@ -189,15 +212,22 @@ async function updateStaff(req, staffId, { roles, staffActive, password, name, p
   if (roles) user.emiRoles = await checkRoles(req, roles);
   if (typeof staffActive === "boolean") user.staffActive = staffActive;
   if (name) user.name = name;
-  if (phone) user.phone = phone;
+  const phoneChanged = phone !== undefined && phone !== user.phone;
+  if (phoneChanged) {
+    user.phone = phone;
+    user.phoneVerified = false;
+    user.phoneVerificationOtpHash = undefined;
+    user.phoneVerificationExpires = undefined;
+    user.phoneVerificationAttempts = 0;
+  }
   if (password) {
     if (password.length < 8) throw new AppError(422, "Password kam se kam 8 characters ka ho");
     user.password = await bcrypt.hash(password, 10);
-    user.passwordChangedAt = new Date();
   }
   // Switching someone off or changing their roles ends their sessions
-  if (staffActive === false || roles) user.passwordChangedAt = new Date();
+  if (staffActive === false || roles || password) user.staffAuthVersion = (user.staffAuthVersion || 0) + 1;
   await user.save();
+  if (phoneChanged && user.phone !== "-") await authService.sendPhoneVerification(user._id);
   await audit(req, "staff.update", { entity: "User", entityId: user._id, before, after: { roles: user.emiRoles, staffActive: user.staffActive, passwordReset: Boolean(password) } });
   return User.findById(user._id).select(STAFF_FIELDS).lean();
 }

@@ -21,16 +21,30 @@ class UserService {
     }
 
     // Check if email is being changed and if it already exists
-    if (email && email !== user.email) {
-      const existingUser = await User.findOne({ email });
+    const normalizedEmail = email === undefined ? undefined : String(email).trim().toLowerCase();
+    if (normalizedEmail && normalizedEmail !== user.email) {
+      const existingUser = await User.findOne({ email: normalizedEmail });
       if (existingUser) {
         throw new Error("Email already in use");
       }
-      user.email = email;
+      user.email = normalizedEmail;
+      user.isVerified = false;
+      user.emailVerifiedAt = undefined;
+      user.emailVerificationToken = undefined;
+      user.emailVerificationExpires = undefined;
+      user.emailVerificationCodeHash = undefined;
+      user.emailVerificationCodeExpires = undefined;
+      user.emailVerificationCodeAttempts = 0;
     }
 
     if (name) user.name = name;
-    if (phone !== undefined) user.phone = phone;
+    if (phone !== undefined && phone !== user.phone) {
+      user.phone = phone;
+      user.phoneVerified = false;
+      user.phoneVerificationOtpHash = undefined;
+      user.phoneVerificationExpires = undefined;
+      user.phoneVerificationAttempts = 0;
+    }
     if (businessName !== undefined) {
       if (!user.businessInfo) {
         user.businessInfo = {};

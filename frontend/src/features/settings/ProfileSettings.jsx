@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { BadgeCheck, Camera } from "lucide-react";
 import api from "../../services/api.service";
+import authService from "../../services/auth.service";
 import { API_ENDPOINTS, assetUrl } from "../../config/api.config";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../components/Toast";
@@ -27,6 +28,9 @@ export default function ProfileSettings({ profile, onProfileChange }) {
   const fileRef = useRef(null);
 
   const [me, setMe] = useState({ name: "", email: "", phone: "" });
+  const [otp, setOtp] = useState("");
+  const [emailCode, setEmailCode] = useState("");
+  const [verificationBusy, setVerificationBusy] = useState(false);
   const [photo, setPhoto] = useState(null);
   const [business, setBusiness] = useState({ businessName: "", businessType: "", website: "", address: "", gstNumber: "", businessEmail: "", businessPhone: "", description: "" });
   const [saving, setSaving] = useState(null);
@@ -48,9 +52,20 @@ export default function ProfileSettings({ profile, onProfileChange }) {
       if (photo) data.append("profilePhoto", photo.file);
       const response = await api.put(API_ENDPOINTS.USER.UPDATE_PROFILE, data);
       onProfileChange(response.data);
-      updateUser({ name: response.data.name, email: response.data.email, phone: response.data.phone, profilePhoto: response.data.profilePhoto });
+      updateUser({
+        name: response.data.name,
+        email: response.data.email,
+        phone: response.data.phone,
+        profilePhoto: response.data.profilePhoto,
+        isVerified: response.data.isVerified,
+        phoneVerified: response.data.phoneVerified,
+      });
       setPhoto(null);
-      toast.success("Profile saved");
+      if (response.data.verification?.email?.sent === false || response.data.verification?.phone?.sent === false || response.data.verification?.phone?.setupRequired) {
+        toast.error("Profile saved, but a verification message could not be delivered. Check the email/SMS setup and try again.");
+      } else {
+        toast.success("Profile saved");
+      }
     } catch (err) {
       toast.error(err.message || "Couldn't save your profile");
     } finally {
@@ -84,6 +99,61 @@ export default function ProfileSettings({ profile, onProfileChange }) {
   const setMeField = (field) => (e) => setMe({ ...me, [field]: e.target.value });
   const setBizField = (field) => (e) => setBusiness({ ...business, [field]: e.target.value });
 
+  const resendEmail = async () => {
+    setVerificationBusy(true);
+    try {
+      await authService.resendEmailVerification();
+      toast.success("Verification link and 6-digit code sent. Check your inbox.");
+    } catch (err) {
+      toast.error(err.message || "Couldn't send a verification email");
+    } finally {
+      setVerificationBusy(false);
+    }
+  };
+
+  const verifyEmailCode = async () => {
+    setVerificationBusy(true);
+    try {
+      await authService.verifyEmailCode(profile.email, emailCode);
+      onProfileChange({ ...profile, isVerified: true });
+      updateUser({ isVerified: true });
+      setEmailCode("");
+      toast.success("Email verified successfully");
+    } catch (err) {
+      toast.error(err.message || "Couldn't verify this email code");
+    } finally {
+      setVerificationBusy(false);
+    }
+  };
+
+  const sendPhoneOtp = async () => {
+    setVerificationBusy(true);
+    try {
+      await authService.sendPhoneVerification();
+      setOtp("");
+      toast.success("Verification code sent to your mobile.");
+    } catch (err) {
+      toast.error(err.message || "Couldn't send a verification code");
+    } finally {
+      setVerificationBusy(false);
+    }
+  };
+
+  const verifyPhone = async () => {
+    setVerificationBusy(true);
+    try {
+      await authService.verifyPhone(otp);
+      onProfileChange({ ...profile, phoneVerified: true });
+      updateUser({ phoneVerified: true });
+      setOtp("");
+      toast.success("Mobile number verified");
+    } catch (err) {
+      toast.error(err.message || "Couldn't verify this mobile number");
+    } finally {
+      setVerificationBusy(false);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <AccountStats />
@@ -105,13 +175,64 @@ export default function ProfileSettings({ profile, onProfileChange }) {
             <Input label="Phone" type="tel" value={me.phone} onChange={setMeField("phone")} autoComplete="tel" />
           </div>
           <Input label="Email" type="email" value={me.email} onChange={setMeField("email")} autoComplete="email" hint="Used to log in and for password resets." />
-          {profile.isVerified ? (
-            <Badge tone="success" className="self-start">
-              <BadgeCheck className="h-3.5 w-3.5" /> Email verified
-            </Badge>
-          ) : (
-            <Badge tone="warning" className="self-start">Email not verified</Badge>
-          )}
+          <div className="flex flex-wrap items-center gap-3">
+            {profile.isVerified ? (
+              <Badge tone="success"><BadgeCheck className="h-3.5 w-3.5" /> Email Verified</Badge>
+            ) : (
+              <>
+                <Badge tone="warning">Email not verified</Badge>
+                <Button type="button" size="sm" variant="secondary" loading={verificationBusy} onClick={resendEmail}>
+                  Resend verification email
+                </Button>
+                <div className="flex flex-wrap items-end gap-2">
+                  <Input
+                    label="6-digit email code"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    value={emailCode}
+                    onChange={(e) => setEmailCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    className="max-w-48"
+                  />
+                  <Button type="button" size="sm" disabled={emailCode.length !== 6} loading={verificationBusy} onClick={verifyEmailCode}>
+                    Verify email code
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+          <div className="flex flex-col gap-3 rounded-lg border border-line p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-fg">Mobile verification</p>
+                <p className="text-xs text-fg-muted">A code is valid for 5 minutes and has up to 5 attempts.</p>
+              </div>
+              {profile.phoneVerified ? (
+                <Badge tone="success"><BadgeCheck className="h-3.5 w-3.5" /> Mobile Verified</Badge>
+              ) : (
+                <Badge tone="warning">Mobile not verified</Badge>
+              )}
+            </div>
+            {!profile.phoneVerified && (
+              <div className="flex flex-wrap items-end gap-2">
+                <Input
+                  label="6-digit code"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  className="max-w-48"
+                />
+                <Button type="button" size="sm" variant="secondary" loading={verificationBusy} onClick={sendPhoneOtp}>
+                  Send code
+                </Button>
+                <Button type="button" size="sm" disabled={otp.length !== 6} loading={verificationBusy} onClick={verifyPhone}>
+                  Verify mobile
+                </Button>
+              </div>
+            )}
+          </div>
         </CardBody>
         <SaveRow saving={saving === "me"} dirty={meDirty} />
       </Card>

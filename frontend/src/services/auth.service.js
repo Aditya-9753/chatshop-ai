@@ -48,8 +48,24 @@ class AuthService {
   }
 
   async verifyEmail(token) {
-    const response = await api.get(`${API_ENDPOINTS.AUTH.VERIFY_EMAIL}/${token}`);
+    const response = await api.post(API_ENDPOINTS.AUTH.VERIFY_EMAIL, { token });
     return response;
+  }
+
+  verifyEmailCode(email, code) {
+    return api.post(API_ENDPOINTS.AUTH.VERIFY_EMAIL_CODE, { email, code });
+  }
+
+  resendEmailVerification() {
+    return api.post(API_ENDPOINTS.USER.RESEND_EMAIL_VERIFICATION);
+  }
+
+  sendPhoneVerification() {
+    return api.post(API_ENDPOINTS.USER.SEND_PHONE_VERIFICATION);
+  }
+
+  verifyPhone(otp) {
+    return api.post(API_ENDPOINTS.USER.VERIFY_PHONE, { otp });
   }
 
   async forgotPassword(email) {

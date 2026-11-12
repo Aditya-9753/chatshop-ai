@@ -24,7 +24,24 @@ const APPROVAL_LABELS = { PENDING: "Waiting for owner", APPROVED: "Approved", RE
 // A role picked in a form: a built-in role, or "CUSTOM:<id>" for the owner's own
 const keyOf = (r) => (r.role === "CUSTOM" ? `CUSTOM:${r.customRoleId}` : r.role);
 const fromKey = (key) => (key.startsWith("CUSTOM:") ? { role: "CUSTOM", customRoleId: key.slice(7) } : { role: key });
-const roleOptionsOf = (customRoles) => [...ROLE_OPTIONS, ...customRoles.map((c) => ({ value: `CUSTOM:${c._id}`, label: c.name }))];
+const groupsOf = (roles, defaultStoreId) => {
+  if (!roles?.length) return [{ storeId: defaultStoreId || "", keys: ["CASHIER"] }];
+  const groups = new Map();
+  for (const role of roles) {
+    const storeId = role.storeId || "";
+    if (!groups.has(storeId)) groups.set(storeId, { storeId, keys: [] });
+    const keys = groups.get(storeId).keys;
+    const key = keyOf(role);
+    if (!keys.includes(key)) keys.push(key);
+  }
+  return [...groups.values()];
+};
+const roleOptionsOf = (customRoles, includeInactive = false) => [
+  ...ROLE_OPTIONS,
+  ...customRoles
+    .filter((c) => includeInactive || c.active !== false)
+    .map((c) => ({ value: `CUSTOM:${c._id}`, label: `${c.name}${c.active === false ? " (inactive)" : ""}`, disabled: c.active === false })),
+];
 
 function StaffModal({ member, customRoles, onClose, onDone }) {
   const { allStores, isOwner } = useBilling();
@@ -34,22 +51,31 @@ function StaffModal({ member, customRoles, onClose, onDone }) {
     email: member?.email || "",
     phone: member?.phone && member.phone !== "-" ? member.phone : "",
     password: "",
-    roles: member?.emiRoles?.length ? member.emiRoles.map((r) => ({ key: keyOf(r), storeId: r.storeId || "" })) : [{ key: "CASHIER", storeId: allStores[0]?._id || "" }],
+    roles: groupsOf(member?.emiRoles, allStores[0]?._id || ""),
   });
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
-  const roles = form.roles.map((r) => ({ ...fromKey(r.key), storeId: r.storeId || null }));
+  const roles = form.roles.flatMap((group) => group.keys.map((key) => ({ ...fromKey(key), storeId: group.storeId || null })));
 
   const submit = async () => {
     setSaving(true);
     setError(null);
     try {
+      let response;
       if (member) {
-        await emiApi.patch(`/users/${member._id}`, { name: form.name, phone: form.phone || undefined, roles, ...(form.password ? { password: form.password } : {}) });
+        response = await emiApi.patch(`/users/${member._id}`, { name: form.name, phone: form.phone || undefined, roles, ...(form.password ? { password: form.password } : {}) });
       } else {
-        await emiApi.post("/users", { ...form, phone: form.phone || undefined, roles });
+        response = await emiApi.post("/users", { ...form, phone: form.phone || undefined, roles });
       }
-      toast.success(member ? "Staff updated" : isOwner ? "Staff added. They can sign in now." : "Staff added. They can sign in once the shop owner approves them.");
+      if (!member && (response?.data?.verification?.emailSent === false || response?.data?.verification?.phoneSent === false)) {
+        const missing = [
+          response?.data?.verification?.emailSent === false && "email",
+          response?.data?.verification?.phoneSent === false && "mobile OTP",
+        ].filter(Boolean);
+        toast.error(`Staff added, but ${missing.join(" and ")} verification could not be sent.`);
+      } else {
+        toast.success(member ? "Staff updated" : isOwner ? "Staff added. They can sign in now." : "Staff added. They can sign in once the shop owner approves them.");
+      }
       onClose();
       onDone();
     } catch (e) {
@@ -60,6 +86,9 @@ function StaffModal({ member, customRoles, onClose, onDone }) {
   };
 
   const storeOptions = [...(isOwner ? [{ value: "", label: "All stores" }] : []), ...allStores.map((s) => ({ value: s._id, label: s.name }))];
+  const assignableRoles = roleOptionsOf(customRoles, Boolean(member)).filter((option) => isOwner || option.value !== "STORE_ADMIN");
+  const updateRoleGroup = (index, update) =>
+    setForm((current) => ({ ...current, roles: current.roles.map((group, i) => (i === index ? { ...group, ...update } : group)) }));
   return (
     <Modal
       open
@@ -67,10 +96,10 @@ function StaffModal({ member, customRoles, onClose, onDone }) {
       title={member ? `${member.name}: role and store` : "Add staff"}
       description={
         member
-          ? "Change their role or store at any time. They are signed out and see the new role's pages at their next sign-in."
+          ? "Choose one or more roles for each store. They are signed out and see the updated access at their next sign-in."
           : isOwner
-            ? "Pick their role and store. They sign in at the normal login page and only see the pages of their role."
-            : "The shop owner approves new staff; after that they sign in at the normal login page and only see the pages of their role."
+            ? "Choose one or more roles for each store. Their permissions are combined."
+            : "Choose one or more roles for your store. The shop owner approves new staff."
       }
       footer={
         <Button loading={saving} onClick={submit}>
@@ -84,19 +113,77 @@ function StaffModal({ member, customRoles, onClose, onDone }) {
         <Input label="Email (login)" required type="email" disabled={Boolean(member)} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
         <Input label={member ? "New password (optional)" : "Password"} required={!member} type="password" hint="At least 8 characters" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
         <div className="sm:col-span-2">
-          <p className="mb-1.5 text-caption font-medium text-fg">Roles</p>
-          {form.roles.map((r, i) => (
-            <div key={i} className="mb-2 grid grid-cols-[1fr_1fr_auto] gap-2">
-              <Select aria-label="Role" value={r.key} onChange={(e) => setForm({ ...form, roles: form.roles.map((x, j) => (j === i ? { ...x, key: e.target.value } : x)) })} options={roleOptionsOf(customRoles).filter((o) => isOwner || o.value !== "STORE_ADMIN")} />
-              <Select aria-label="Store" value={r.storeId} onChange={(e) => setForm({ ...form, roles: form.roles.map((x, j) => (j === i ? { ...x, storeId: e.target.value } : x)) })} options={storeOptions} />
-              <Button size="icon" variant="ghost" aria-label="Remove role" disabled={form.roles.length === 1} onClick={() => setForm({ ...form, roles: form.roles.filter((_, j) => j !== i) })}>
-                ×
-              </Button>
-            </div>
-          ))}
-          <Button size="sm" variant="ghost" icon={Plus} onClick={() => setForm({ ...form, roles: [...form.roles, { key: "CASHIER", storeId: allStores[0]?._id || "" }] })}>
-            Add role
+          <p className="mb-1.5 text-caption font-medium text-fg">Roles and store access</p>
+          <div className="flex flex-col gap-3">
+            {form.roles.map((group, i) => {
+              const selectedOptions = assignableRoles.filter((option) => group.keys.includes(option.value));
+              const availableStores = storeOptions.filter(
+                (option) => option.value === group.storeId || !form.roles.some((other, j) => j !== i && other.storeId === option.value)
+              );
+              return (
+                <div key={i} className="grid gap-2 rounded-lg border border-line p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_auto] sm:items-start">
+                  <Select
+                    aria-label="Store"
+                    value={group.storeId}
+                    onChange={(e) => updateRoleGroup(i, { storeId: e.target.value })}
+                    options={availableStores}
+                  />
+                  <details className="relative min-w-0">
+                    <summary className="flex min-h-9 cursor-pointer list-none items-center justify-between gap-2 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg hover:border-line-strong">
+                      <span className="truncate">
+                        {selectedOptions.length ? selectedOptions.map((option) => option.label).join(", ") : "Choose one or more roles"}
+                      </span>
+                      <span className="shrink-0 text-fg-muted" aria-hidden="true">▾</span>
+                    </summary>
+                    <div className="absolute left-0 right-0 z-20 mt-1 max-h-56 overflow-y-auto rounded-lg border border-line bg-surface p-2 shadow-lg">
+                      {assignableRoles.map((option) => {
+                        const checked = group.keys.includes(option.value);
+                        return (
+                          <div key={option.value} className="rounded px-2 py-1.5 hover:bg-surface-2">
+                            <Checkbox
+                              checked={checked}
+                              disabled={option.disabled && !checked}
+                              onCheckedChange={(on) => {
+                                const keys = on
+                                  ? [...group.keys, option.value]
+                                  : group.keys.filter((key) => key !== option.value);
+                                updateRoleGroup(i, { keys });
+                              }}
+                              label={option.label}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </details>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    aria-label="Remove store role group"
+                    disabled={form.roles.length === 1}
+                    onClick={() => setForm((current) => ({ ...current, roles: current.roles.filter((_, j) => j !== i) }))}
+                  >
+                    ×
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+          <p className="mt-1.5 text-xs text-fg-muted">Select multiple roles in the dropdown. Their access is combined for the selected store.</p>
+          <Button
+            size="sm"
+            className="mt-2"
+            variant="ghost"
+            icon={Plus}
+            disabled={form.roles.length >= storeOptions.length}
+            onClick={() => setForm((current) => ({
+              ...current,
+              roles: [...current.roles, { storeId: storeOptions.find((option) => !current.roles.some((group) => group.storeId === option.value))?.value || "", keys: [] }],
+            }))}
+          >
+            Add store
           </Button>
+          {!roles.length && <p className="mt-1 text-xs text-danger-fg">Choose at least one role.</p>}
         </div>
         {error && <ErrorList error={error} className="sm:col-span-2" />}
       </div>
@@ -147,6 +234,7 @@ function RoleModal({ role, abilities, onClose, onDone }) {
   const toast = useToast();
   const [name, setName] = useState(role?.name || "");
   const [picked, setPicked] = useState(new Set(role?.abilities || []));
+  const [active, setActive] = useState(role?.active !== false);
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
   const toggle = (key, on) => {
@@ -158,7 +246,7 @@ function RoleModal({ role, abilities, onClose, onDone }) {
     setSaving(true);
     setError(null);
     try {
-      const body = { name, abilities: [...picked] };
+      const body = { name, abilities: [...picked], active };
       if (role) await emiApi.put(`/roles/${role._id}`, body);
       else await emiApi.post("/roles", body);
       toast.success(role ? `${name} saved. Staff with it get the new work right away.` : `${name} created. Give it to staff from the Staff tab.`);
@@ -175,7 +263,7 @@ function RoleModal({ role, abilities, onClose, onDone }) {
       open
       onOpenChange={(open) => !open && onClose()}
       title={role ? `Edit ${role.name}` : "New role"}
-      description="Name the role and tick the work it does. Staff with this role see only these pages, plus My work and My account."
+      description="Choose the pages and actions this role can use. Changes apply immediately to everyone assigned this role."
       footer={
         <Button loading={saving} disabled={name.trim().length < 2 || picked.size === 0} onClick={submit}>
           {role ? "Save role" : "Create role"}
@@ -184,6 +272,12 @@ function RoleModal({ role, abilities, onClose, onDone }) {
     >
       <div className="flex flex-col gap-4">
         <Input label="Role name" required placeholder="e.g. Counter helper, Stock manager" maxLength={40} value={name} onChange={(e) => setName(e.target.value)} />
+        <Switch
+          checked={active}
+          onCheckedChange={setActive}
+          label="Role active"
+          description="Inactive roles cannot be assigned and no longer grant access."
+        />
         <fieldset>
           <legend className="mb-2 text-caption font-medium text-fg">Work this role does</legend>
           <div className="grid gap-2 sm:grid-cols-2">
@@ -220,6 +314,16 @@ function RolesTab({ rolesLoad }) {
     }
   };
 
+  const setRoleActive = async (role, active) => {
+    try {
+      await emiApi.put(`/roles/${role._id}`, { name: role.name, abilities: role.abilities, active });
+      toast.success(`${role.name} ${active ? "activated" : "deactivated"}`);
+      reload();
+    } catch (e) {
+      toast.error(e.message);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -243,6 +347,7 @@ function RolesTab({ rolesLoad }) {
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-medium text-fg">
                     {role.name} <span className="font-normal text-fg-muted">· {role.staffCount} staff</span>
+                    <Badge className="ml-1" tone={role.active === false ? "warning" : "success"}>{role.active === false ? "Inactive" : "Active"}</Badge>
                   </span>
                   <span className="mt-1.5 flex flex-wrap gap-1">
                     {workOf(role).map((w) => (
@@ -254,6 +359,11 @@ function RolesTab({ rolesLoad }) {
                 </span>
                 {isOwner && (
                   <span className="flex gap-1.5">
+                    <Switch
+                      checked={role.active !== false}
+                      onCheckedChange={(active) => setRoleActive(role, active)}
+                      label={role.active === false ? "Activate" : "Deactivate"}
+                    />
                     <Button size="sm" variant="secondary" icon={Pencil} onClick={() => setEditing(role)}>
                       Edit
                     </Button>
@@ -321,7 +431,10 @@ function Page() {
   const statusOf = (m) => m.approvalStatus || "APPROVED";
   const rows = all.filter((m) => (!role || m.emiRoles.some((r) => keyOf(r) === role)) && (!approval || statusOf(m) === approval));
   const roleOptions = roleOptionsOf(customRoles);
-  const roleLabel = (r) => roleOptions.find((o) => o.value === keyOf(r))?.label || (r.role === "CUSTOM" ? "Deleted role" : r.role);
+  const roleLabel = (r) =>
+    r.role === "CUSTOM"
+      ? roleOptionsOf(customRoles, true).find((o) => o.value === keyOf(r))?.label || "Deleted role"
+      : roleOptions.find((o) => o.value === keyOf(r))?.label || r.role;
 
   const columns = [
     { key: "name", header: "Name", cell: (r) => (

@@ -4,11 +4,13 @@ import { useAuth } from "../context/AuthContext";
 import AuthLayout from "../components/auth/AuthLayout";
 import { PasswordInput, PasswordStrength } from "../components/auth/PasswordInput";
 import { Alert, Button, Input } from "../components/ui";
+import { useToast } from "../components/Toast";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const Register = () => {
   const navigate = useNavigate();
+  const toast = useToast();
   const { register, login, isAuthenticated } = useAuth();
   const [form, setForm] = useState({
     name: "",
@@ -49,7 +51,7 @@ const Register = () => {
 
     setLoading(true);
     try {
-      await register({
+      const result = await register({
         name: form.name.trim(),
         email: form.email.trim(),
         phone: form.phone.trim(),
@@ -58,6 +60,15 @@ const Register = () => {
       });
       // Sign straight in; the 14-day trial starts now
       await login(form.email.trim(), form.password);
+      if (result.data?.verification?.emailSent === false || result.data?.verification?.phoneSent === false) {
+        const missing = [
+          result.data?.verification?.emailSent === false && "email",
+          result.data?.verification?.phoneSent === false && "mobile OTP",
+        ].filter(Boolean);
+        toast.error(`Account created, but ${missing.join(" and ")} verification could not be sent. Check Profile settings or contact support.`);
+      } else {
+        toast.success("Account created. Verify your email from Settings → Profile.");
+      }
       navigate("/dashboard", { replace: true });
     } catch (err) {
       setError(err.message || "Registration failed. Please try again.");

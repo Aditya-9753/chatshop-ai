@@ -6,7 +6,14 @@ const NO_SHOP = new (require("mongoose").Types.ObjectId)("0000000000000000000000
 exports.NO_SHOP = NO_SHOP;
 
 // What a staff account may reach: EMI & billing, and its own profile
-const STAFF_PATHS = ["/api/emi", "/api/users/profile", "/api/users/password", "/api/users/announcements"];
+const STAFF_PATHS = [
+  "/api/emi",
+  "/api/users/profile",
+  "/api/users/password",
+  "/api/users/announcements",
+  "/api/users/email-verification",
+  "/api/users/phone-verification",
+];
 
 exports.protect = async (req, res, next) => {
   try {
@@ -48,6 +55,20 @@ exports.protect = async (req, res, next) => {
         return res.status(401).json({
           success: false,
           message: "Password was changed. Please log in again.",
+        });
+      }
+
+      if (req.user.role === "staff" && decoded.staffAuthVersion !== (req.user.staffAuthVersion || 0)) {
+        return res.status(401).json({
+          success: false,
+          message: "Staff access changed. Please log in again.",
+        });
+      }
+
+      if (req.user.role === "staff" && req.user.staffActive === false) {
+        return res.status(403).json({
+          success: false,
+          message: "Your staff account is switched off.",
         });
       }
 

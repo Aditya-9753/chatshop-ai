@@ -1,11 +1,13 @@
 const express = require("express");
 const router = express.Router();
+const { body } = require("express-validator");
 // The limited Admin panel shares the Super Admin's account, so it can't
 // change that account's profile, password or two-factor login. ownerOnly:
 // a Super Admin viewing a shop can't change the owner's password, 2FA or
 // delete the account.
 const { protect, ownerOnly } = require("../middleware/auth.middleware");
 const { superAdminOnly } = require("../middleware/admin.middleware");
+const rateLimit = require("express-rate-limit");
 const upload = require("../middleware/upload.middleware");
 const {
   getProfile,
@@ -17,12 +19,33 @@ const {
   updateFacebookConfig,
   updateAIConfig,
   updateBusinessInfo,
+  resendEmailVerification,
+  sendPhoneVerification,
+  verifyPhone,
 } = require("../controllers/user.controller");
+
+const verificationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  keyGenerator: (req) => req.user._id.toString(),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many verification attempts. Please wait and try again." },
+});
 
 // @route   GET /api/users/profile
 // @desc    Get current user profile
 // @access  Private
 router.get("/profile", protect, getProfile);
+router.post("/email-verification/resend", protect, verificationLimiter, resendEmailVerification);
+router.post("/phone-verification/send", protect, verificationLimiter, sendPhoneVerification);
+router.post(
+  "/phone-verification/verify",
+  protect,
+  verificationLimiter,
+  [body("otp").isLength({ min: 6, max: 6 }).isNumeric()],
+  verifyPhone
+);
 
 // @route   PUT /api/users/profile
 // @desc    Update user profile

@@ -38,8 +38,17 @@ export const ADMIN_SECTIONS = [
 // Settings or Security. An Admin who looks after one shop sees that shop's
 // records only, so "Shops" becomes "My shop".
 const SHOP_ADMIN_SECTIONS = ["overview", "users", "orders", "customers", "products", "messages", "analytics", "emi"];
+// Temporarily keep platform-wide order, customer and product screens out of
+// the Super Admin navigation; shop-admin views remain available.
+const SUPER_ADMIN_HIDDEN_SECTIONS = ["orders", "customers", "products"];
 export const sectionsFor = (isSuperAdmin, isShopAdmin = false) =>
-  ADMIN_SECTIONS.filter((s) => (isShopAdmin ? SHOP_ADMIN_SECTIONS.includes(s.value) : isSuperAdmin || !s.superOnly)).map((s) =>
+  ADMIN_SECTIONS.filter((s) =>
+    isShopAdmin
+      ? SHOP_ADMIN_SECTIONS.includes(s.value)
+      : isSuperAdmin
+        ? !SUPER_ADMIN_HIDDEN_SECTIONS.includes(s.value)
+        : !s.superOnly
+  ).map((s) =>
     isShopAdmin && s.value === "users" ? { ...s, label: "My shop" } : s
   );
 

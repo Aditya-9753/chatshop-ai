@@ -7,6 +7,7 @@ Complete backend API for WhatsApp and Instagram automation platform with CRM fun
 - 🔐 **Authentication System**
 
   - User registration with email verification
+  - Email verification links and mobile OTP verification
   - Login with JWT tokens
   - Password reset functionality
   - Role-based access control (User/Admin)
@@ -109,6 +110,8 @@ npm start
 
 Server will run on `http://localhost:3001`
 
+Email verification uses the configured SMTP account and provides both a one-time link (expires in 24 hours) and a six-digit fallback code (expires in five minutes, maximum five attempts). Mobile verification uses the MSG91 OTP endpoint; set `MSG91_AUTH_KEY`, `MSG91_OTP_TEMPLATE_ID`, and optionally `MSG91_COUNTRY_CODE` in `.env`. OTP values are HMAC-hashed before storage, expire in five minutes, and are limited to five attempts. Resend is limited to once per minute.
+
 ## API Endpoints
 
 ### Authentication
@@ -117,12 +120,16 @@ Server will run on `http://localhost:3001`
 - `POST /api/auth/login` - Login user
 - `POST /api/auth/forgot-password` - Request password reset
 - `POST /api/auth/reset-password` - Reset password with token
-- `GET /api/auth/verify-email/:token` - Verify email address
+- `POST /api/auth/verify-email` - Verify email address with `{ "token": "..." }`
+- `POST /api/auth/verify-email/code` - Verify email address with `{ "email": "...", "code": "123456" }`
 
 ### User Management
 
 - `GET /api/users/profile` - Get user profile
 - `PUT /api/users/profile` - Update profile
+- `POST /api/users/email-verification/resend` - Resend the signed-in user's email verification link
+- `POST /api/users/phone-verification/send` - Send a mobile verification OTP
+- `POST /api/users/phone-verification/verify` - Verify the submitted OTP
 - `PUT /api/users/password` - Change password
 - `PUT /api/users/whatsapp-config` - Update WhatsApp settings
 - `PUT /api/users/instagram-config` - Update Instagram settings

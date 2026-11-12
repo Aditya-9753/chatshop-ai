@@ -44,6 +44,7 @@ const userSchema = new mongoose.Schema(
       },
     ],
     staffActive: { type: Boolean, default: true },
+    staffAuthVersion: { type: Number, default: 0 },
     // New staff wait for the Super Admin before they can sign in
     approvalStatus: { type: String, enum: ["PENDING", "APPROVED", "REJECTED"], default: "APPROVED" },
     approvalNote: String,
@@ -56,6 +57,8 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    emailVerifiedAt: Date,
+    phoneVerified: { type: Boolean, default: false },
     // The shop's ChatShop plan. Plan codes live in the plans collection
     // (src/billing), so the Super Admin can add plans.
     subscription: {
@@ -154,6 +157,14 @@ const userSchema = new mongoose.Schema(
     },
     emailVerificationToken: { type: String, select: false },
     emailVerificationExpires: { type: Date, select: false },
+    emailVerificationSentAt: Date,
+    emailVerificationCodeHash: { type: String, select: false },
+    emailVerificationCodeExpires: { type: Date, select: false },
+    emailVerificationCodeAttempts: { type: Number, default: 0, select: false },
+    phoneVerificationOtpHash: { type: String, select: false },
+    phoneVerificationExpires: { type: Date, select: false },
+    phoneVerificationSentAt: Date,
+    phoneVerificationAttempts: { type: Number, default: 0, select: false },
   },
   {
     timestamps: true,
@@ -161,10 +172,21 @@ const userSchema = new mongoose.Schema(
       // Never send platform access tokens or secrets to the browser
       transform(doc, ret) {
         delete ret.password;
+        delete ret.staffAuthVersion;
         delete ret.passwordResetToken;
         delete ret.passwordResetExpires;
         delete ret.emailVerificationToken;
         delete ret.emailVerificationExpires;
+        delete ret.emailVerificationSentAt;
+        delete ret.emailVerificationCodeHash;
+        delete ret.emailVerificationCodeExpires;
+        delete ret.emailVerificationCodeAttempts;
+        ret.isVerified = Boolean(ret.isVerified && ret.emailVerifiedAt);
+        delete ret.emailVerifiedAt;
+        delete ret.phoneVerificationOtpHash;
+        delete ret.phoneVerificationExpires;
+        delete ret.phoneVerificationSentAt;
+        delete ret.phoneVerificationAttempts;
         if (ret.twoFactor) {
           delete ret.twoFactor.secret;
           delete ret.twoFactor.pendingSecret;

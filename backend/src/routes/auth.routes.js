@@ -27,6 +27,14 @@ const forgotPasswordLimiter = rateLimit({
   },
 });
 
+const verificationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 15,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many verification attempts. Please wait and try again." },
+});
+
 // @route   POST /api/auth/register
 // @desc    Register new user
 // @access  Public
@@ -91,9 +99,23 @@ router.post(
 // @access  Public
 router.get("/reset-password/:token", authController.validateResetToken);
 
-// @route   GET /api/auth/verify-email/:token
+// @route   POST /api/auth/verify-email
 // @desc    Verify email address
 // @access  Public
-router.get("/verify-email/:token", authController.verifyEmail);
+router.post(
+  "/verify-email",
+  verificationLimiter,
+  [body("token").isHexadecimal().isLength({ min: 64, max: 64 }).withMessage("Verification token is invalid")],
+  authController.verifyEmail
+);
+router.post(
+  "/verify-email/code",
+  verificationLimiter,
+  [
+    body("email").isEmail().withMessage("Valid email is required"),
+    body("code").isLength({ min: 6, max: 6 }).isNumeric().withMessage("A valid 6-digit code is required"),
+  ],
+  authController.verifyEmailCode
+);
 
 module.exports = router;

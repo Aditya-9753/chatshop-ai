@@ -134,7 +134,11 @@ const TenantIn = z.object({
 });
 
 const RoleIn = z.object({ role: z.enum(["STORE_ADMIN", "CASHIER", "ACCOUNTANT", "AGENT", "CUSTOM"]), customRoleId: id.optional(), storeId: id.nullable().optional() });
-const CustomRoleIn = z.object({ name: z.string().trim().min(2, "Role ka naam likho").max(40), abilities: z.array(z.string()).min(1, "Kam se kam ek kaam chuno") });
+const CustomRoleIn = z.object({
+  name: z.string().trim().min(2, "Role ka naam likho").max(40),
+  abilities: z.array(z.string()).min(1, "Kam se kam ek kaam chuno"),
+  active: z.boolean().optional(),
+});
 const StaffIn = z.object({
   name: z.string().trim().min(1).max(80),
   email: z.string().trim().email("Email galat hai"),

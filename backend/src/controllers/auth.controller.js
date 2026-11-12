@@ -71,11 +71,23 @@ exports.loginWithCode = async (req, res) => {
 // @desc    Verify email
 exports.verifyEmail = async (req, res) => {
   try {
-    const { token } = req.params;
+    const { token } = req.body;
     await authService.verifyEmail(token);
     return ResponseHandler.success(res, null, "Email verified successfully");
   } catch (error) {
     console.error("Verify email controller error:", error);
+    return ResponseHandler.badRequest(res, error.message);
+  }
+};
+
+// @desc    Verify email with the emailed six-digit fallback code
+exports.verifyEmailCode = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return ResponseHandler.validationError(res, errors.array());
+    await authService.verifyEmailCode(req.body.email, req.body.code);
+    return ResponseHandler.success(res, null, "Email verified successfully");
+  } catch (error) {
     return ResponseHandler.badRequest(res, error.message);
   }
 };
