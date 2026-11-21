@@ -8,6 +8,9 @@ const {
   sendWhatsAppMessage,
   handleWebhook,
   verifyWebhook,
+  getEmbeddedSignupConfig,
+  exchangeEmbeddedSignupCode,
+  completeEmbeddedSignup,
 } = require("../controllers/whatsapp.controller");
 
 // @route   POST /api/whatsapp/connect
@@ -24,6 +27,9 @@ router.post("/disconnect", protect, checkSubscription, disconnectWhatsApp);
 // @desc    Send WhatsApp message
 // @access  Private
 router.post("/send", protect, checkSubscription, sendWhatsAppMessage);
+router.get("/embedded-signup/config", protect, checkSubscription, getEmbeddedSignupConfig);
+router.post("/embedded-signup/exchange", protect, checkSubscription, exchangeEmbeddedSignupCode);
+router.post("/embedded-signup/complete", protect, checkSubscription, completeEmbeddedSignup);
 
 // @route   GET /api/whatsapp/webhook
 // @desc    Verify WhatsApp webhook

@@ -52,13 +52,22 @@ function sign(rawBody, secret = APP_SECRET) {
 }
 
 // POST a signed webhook
-function postWebhook(app, path, body, signature) {
+async function postWebhook(app, path, body, signature) {
   const raw = JSON.stringify(body);
-  return request(app)
+  const response = await request(app)
     .post(path)
     .set("Content-Type", "application/json")
     .set("X-Hub-Signature-256", signature === undefined ? sign(raw) : signature)
     .send(raw);
+
+  if (
+    response.status === 200 &&
+    path.includes("/api/whatsapp/webhook") &&
+    process.env.NODE_ENV === "test"
+  ) {
+    await require("../src/services/whatsappWebhookQueue.service").drain();
+  }
+  return response;
 }
 
 // Replace a method for the duration of one test; returns a restore function

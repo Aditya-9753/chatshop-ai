@@ -2,6 +2,7 @@ const whatsappApi = require("../utils/whatsapp.api");
 const instagramApi = require("../utils/instagram.api");
 const facebookApi = require("../utils/facebook.api");
 const { ChannelError, toPublicMediaUrl } = require("../utils/meta");
+const tokenVault = require("../utils/tokenVault");
 
 const MEDIA_TYPES = ["image", "video", "audio", "document", "sticker"];
 
@@ -51,8 +52,17 @@ class ChannelService {
         "WhatsApp phone number ID is missing. Reconnect WhatsApp in Settings → Channels."
       );
     }
+    if (
+      config.accessTokenExpiresAt &&
+      config.accessTokenExpiresAt.getTime() <= Date.now()
+    ) {
+      throw new ChannelError(
+        "TOKEN_EXPIRED",
+        "WhatsApp access expired. Reconnect WhatsApp in Settings → Channels.",
+      );
+    }
 
-    const to = customer.platformId || customer.phone;
+    const to = String(customer.platformId || customer.phone || "").replace(/\D/g, "");
     if (!to) {
       throw new ChannelError("NO_RECIPIENT", "This customer has no WhatsApp number.");
     }
@@ -67,7 +77,7 @@ class ChannelService {
 
     const response = await whatsappApi.sendMessage({
       phoneNumberId: config.phoneNumberId,
-      accessToken: config.accessToken,
+      accessToken: tokenVault.decrypt(config.accessToken),
       to,
       type,
       message: this.textOf(message),

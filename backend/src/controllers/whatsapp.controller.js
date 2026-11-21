@@ -1,4 +1,6 @@
 const whatsappService = require("../services/whatsapp.service");
+const whatsappWebhookQueue = require("../services/whatsappWebhookQueue.service");
+const embeddedSignup = require("../services/whatsappEmbeddedSignup.service");
 const ResponseHandler = require("../utils/response.handler");
 
 // @desc    Connect WhatsApp account
@@ -31,6 +33,38 @@ exports.disconnectWhatsApp = async (req, res) => {
   }
 };
 
+exports.getEmbeddedSignupConfig = (_req, res) => {
+  return ResponseHandler.success(res, embeddedSignup.publicConfig());
+};
+
+exports.exchangeEmbeddedSignupCode = async (req, res) => {
+  try {
+    const result = await embeddedSignup.exchangeCode(req.user._id, req.body);
+    return ResponseHandler.success(res, result, "Meta account authorized");
+  } catch (error) {
+    console.error("WhatsApp Embedded Signup exchange failed:", error.message);
+    return res.status(error.status || 400).json({
+      success: false,
+      message: error.message,
+      ...(error.code && { code: error.code }),
+    });
+  }
+};
+
+exports.completeEmbeddedSignup = async (req, res) => {
+  try {
+    const result = await embeddedSignup.completeSetup(req.user._id, req.body.pin);
+    return ResponseHandler.success(res, result, "WhatsApp connected successfully");
+  } catch (error) {
+    console.error("WhatsApp Embedded Signup setup failed:", error.message);
+    return res.status(error.status || 400).json({
+      success: false,
+      message: error.message,
+      ...(error.code && { code: error.code }),
+    });
+  }
+};
+
 // @desc    Send WhatsApp message
 exports.sendWhatsAppMessage = async (req, res) => {
   try {
@@ -60,10 +94,10 @@ exports.verifyWebhook = (req, res) => {
 // @desc    Handle webhook events
 exports.handleWebhook = async (req, res) => {
   try {
-    await whatsappService.handleWebhook(req.body);
+    await whatsappWebhookQueue.enqueueWebhook(req.body);
     return res.sendStatus(200);
   } catch (error) {
-    console.error("Handle WhatsApp webhook error:", error);
-    return res.sendStatus(500);
+    console.error("Queue WhatsApp webhook error:", error);
+    return res.sendStatus(503);
   }
 };

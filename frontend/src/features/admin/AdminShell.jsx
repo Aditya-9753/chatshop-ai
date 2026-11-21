@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import * as Dialog from "@radix-ui/react-dialog";
-import { BarChart3, Bot, CreditCard, Landmark, LayoutDashboard, Lock, LogOut, Menu, MessageSquare, Moon, Package, RefreshCw, Settings, ShoppingCart, Store, Sun, Users } from "lucide-react";
+import { Activity, BarChart3, BellRing, Bot, CreditCard, Landmark, LayoutDashboard, Lock, LogOut, Menu, MessageSquare, Moon, Package, RefreshCw, ScrollText, Settings, ShoppingCart, Store, Sun, Users, Shield } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import api from "../../services/api.service";
 import { useTheme } from "../../context/ThemeContext";
@@ -18,6 +18,7 @@ import {
   DropdownTrigger,
   TooltipProvider,
 } from "../../components/ui";
+import LiveAlerts from "../systemGuardian/components/LiveAlerts";
 
 export const ADMIN_SECTIONS = [
   { value: "overview", label: "Overview", icon: LayoutDashboard },
@@ -32,6 +33,11 @@ export const ADMIN_SECTIONS = [
   { value: "emi", label: "EMI & Billing", icon: Landmark },
   { value: "settings", label: "Settings", icon: Settings, superOnly: true },
   { value: "security", label: "Security", icon: Lock, superOnly: true },
+  // System Guardian (Super Admin only)
+  { value: "guardian_health", label: "System Health", icon: Activity, superOnly: true, group: "guardian" },
+  { value: "guardian_incidents", label: "Incidents", icon: Shield, superOnly: true, group: "guardian" },
+  { value: "guardian_notifications", label: "Alerts Inbox", icon: BellRing, superOnly: true, group: "guardian" },
+  { value: "guardian_audit", label: "Audit Logs", icon: ScrollText, superOnly: true, group: "guardian" },
 ];
 
 // The limited Admin panel (admin-panel password) has no Billing, AI Assistant,
@@ -67,8 +73,12 @@ function useAdminShop(isShopAdmin) {
 
 function AdminNav({ section, onSection }) {
   const { isSuperAdmin, isShopAdmin } = useAuth();
+  const sections = sectionsFor(isSuperAdmin, isShopAdmin);
+  const mainSections = sections.filter((s) => !s.group);
+  const guardianSections = sections.filter((s) => s.group === "guardian");
+
   return (
-    <div className="flex h-full flex-col gap-2 p-3">
+    <div className="flex h-full flex-col gap-2 p-3 overflow-y-auto">
       <div className="flex items-center gap-2.5 p-1.5">
         <LogoMark />
         <span className="text-sm font-semibold text-fg">ChatShop</span>
@@ -76,7 +86,7 @@ function AdminNav({ section, onSection }) {
       </div>
       <nav aria-label="Admin" className="mt-2 flex-1">
         <ul className="flex flex-col gap-0.5">
-          {sectionsFor(isSuperAdmin, isShopAdmin).map((item) => {
+          {mainSections.map((item) => {
             const active = item.value === section;
             return (
               <li key={item.value}>
@@ -95,6 +105,35 @@ function AdminNav({ section, onSection }) {
             );
           })}
         </ul>
+
+        {/* System Guardian group – Super Admin only */}
+        {guardianSections.length > 0 && (
+          <div className="mt-4">
+            <p className="mb-1 px-2.5 text-[10px] font-semibold uppercase tracking-widest text-fg-muted">
+              System Guardian
+            </p>
+            <ul className="flex flex-col gap-0.5">
+              {guardianSections.map((item) => {
+                const active = item.value === section;
+                return (
+                  <li key={item.value}>
+                    <button
+                      onClick={() => onSection(item.value)}
+                      aria-current={active ? "page" : undefined}
+                      className={cn(
+                        "flex h-8 w-full items-center gap-2.5 rounded-lg px-2.5 text-sm transition-colors",
+                        active ? "bg-surface-2 font-medium text-fg" : "text-fg-muted hover:bg-surface-2 hover:text-fg"
+                      )}
+                    >
+                      <item.icon className={cn("h-4 w-4", active && "text-accent")} aria-hidden="true" />
+                      {item.label}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
       </nav>
     </div>
   );
@@ -148,6 +187,8 @@ export default function AdminShell({ section, onSection, onRefresh, children }) 
               )}
             </span>
             <div className="ml-auto flex items-center gap-2">
+              {/* System Guardian live alerts – Super Admin only */}
+              {isSuperAdmin && <LiveAlerts />}
               <Button variant="secondary" size="sm" icon={RefreshCw} onClick={onRefresh} aria-label="Refresh data">
                 <span className="hidden sm:inline">Refresh data</span>
               </Button>

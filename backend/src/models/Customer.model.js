@@ -55,5 +55,9 @@ const customerSchema = new mongoose.Schema(
 
 customerSchema.index({ userId: 1, phone: 1 });
 customerSchema.index({ userId: 1, platform: 1 });
+customerSchema.index(
+  { userId: 1, platform: 1, platformId: 1 },
+  { name: "shop_platform_contact" },
+);
 
 module.exports = mongoose.model("Customer", customerSchema);

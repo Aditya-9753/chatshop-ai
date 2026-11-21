@@ -1,5 +1,9 @@
 const User = require("../models/User.model");
 const bcrypt = require("bcryptjs");
+const tokenVault = require("../utils/tokenVault");
+const ReservedEmail = require("../models/ReservedEmail.model");
+
+const badRequest = (message) => Object.assign(new Error(message), { statusCode: 400 });
 
 class UserService {
   // Get user profile
@@ -27,6 +31,10 @@ class UserService {
       if (existingUser) {
         throw new Error("Email already in use");
       }
+      const reservedEmail = await ReservedEmail.findOne({ email: normalizedEmail });
+      if (reservedEmail) {
+        throw new Error("This email belongs to a deleted account and cannot be used.");
+      }
       user.email = normalizedEmail;
       user.isVerified = false;
       user.emailVerifiedAt = undefined;
@@ -35,6 +43,8 @@ class UserService {
       user.emailVerificationCodeHash = undefined;
       user.emailVerificationCodeExpires = undefined;
       user.emailVerificationCodeAttempts = 0;
+      user.emailVerificationSentAt = undefined;
+      user.emailVerificationSendCount = 0;
     }
 
     if (name) user.name = name;
@@ -96,10 +106,16 @@ class UserService {
 
   // Delete account
   async deleteAccount(userId) {
-    const user = await User.findByIdAndDelete(userId);
+    const user = await User.findById(userId);
     if (!user) {
       throw new Error("User not found");
     }
+    await ReservedEmail.updateOne(
+      { email: user.email.toLowerCase() },
+      { $set: { email: user.email.toLowerCase(), previousUserId: user._id, reason: "account_deleted" } },
+      { upsert: true }
+    );
+    await User.deleteOne({ _id: userId });
     return true;
   }
 
@@ -124,7 +140,7 @@ class UserService {
     if (phoneNumberId) user.whatsappConfig.phoneNumberId = phoneNumberId;
     if (businessAccountId)
       user.whatsappConfig.businessAccountId = businessAccountId;
-    if (accessToken) user.whatsappConfig.accessToken = accessToken;
+    if (accessToken) user.whatsappConfig.accessToken = tokenVault.encrypt(accessToken);
 
     await user.save();
     return user.toJSON().whatsappConfig;
@@ -158,14 +174,61 @@ class UserService {
       throw new Error("User not found");
     }
 
-    const { isEnabled, language, responseSpeed } = configData;
+    const {
+      isEnabled,
+      whatsappAutoReplyEnabled,
+      whatsappBillCreationEnabled,
+      language,
+      responseSpeed,
+    } = configData;
 
-    if (isEnabled !== undefined) user.aiConfig.isEnabled = isEnabled;
-    if (language) user.aiConfig.language = language;
-    if (responseSpeed) user.aiConfig.responseSpeed = responseSpeed;
+    if (isEnabled !== undefined) {
+      if (typeof isEnabled !== "boolean") throw badRequest("isEnabled must be a boolean");
+      user.aiConfig.isEnabled = isEnabled;
+    }
+    if (whatsappAutoReplyEnabled !== undefined) {
+      if (typeof whatsappAutoReplyEnabled !== "boolean") {
+        throw badRequest("whatsappAutoReplyEnabled must be a boolean");
+      }
+      user.aiConfig.whatsappAutoReplyEnabled = whatsappAutoReplyEnabled;
+    }
+    if (whatsappBillCreationEnabled !== undefined) {
+      if (typeof whatsappBillCreationEnabled !== "boolean") {
+        throw badRequest("whatsappBillCreationEnabled must be a boolean");
+      }
+      if (
+        whatsappBillCreationEnabled &&
+        (!user.aiConfig.isEnabled || !user.aiConfig.whatsappAutoReplyEnabled)
+      ) {
+        throw badRequest(
+          "Enable WhatsApp auto-replies before allowing invoice creation",
+        );
+      }
+      user.aiConfig.whatsappBillCreationEnabled = whatsappBillCreationEnabled;
+    }
+    if (!user.aiConfig.isEnabled || !user.aiConfig.whatsappAutoReplyEnabled) {
+      user.aiConfig.whatsappBillCreationEnabled = false;
+    }
+    if (language !== undefined) {
+      if (!["english", "hindi", "hinglish"].includes(language)) {
+        throw badRequest("Unsupported AI reply language");
+      }
+      user.aiConfig.language = language;
+    }
+    if (responseSpeed !== undefined) {
+      if (!["instant", "natural"].includes(responseSpeed)) {
+        throw badRequest("Unsupported AI response speed");
+      }
+      user.aiConfig.responseSpeed = responseSpeed;
+    }
 
     await user.save();
-    return user.aiConfig;
+    return {
+      ...user.aiConfig.toObject(),
+      whatsappGeminiAvailable:
+        process.env.WHATSAPP_AI_GEMINI_DATA_SHARING_ENABLED === "true" &&
+        Boolean(process.env.GEMINI_API_KEY),
+    };
   }
 
   // Update business information

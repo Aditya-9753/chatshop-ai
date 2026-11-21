@@ -187,7 +187,7 @@ exports.updateAIConfig = async (req, res) => {
     );
   } catch (error) {
     console.error("Update AI config error:", error);
-    return ResponseHandler.error(res, error.message);
+    return ResponseHandler.error(res, error.message, error.statusCode || 500);
   }
 };
 

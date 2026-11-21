@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Sparkles, Users } from "lucide-react";
+import { Users } from "lucide-react";
 import api from "../../services/api.service";
 import authService from "../../services/auth.service";
 import { API_ENDPOINTS } from "../../config/api.config";
@@ -9,7 +9,6 @@ import { useToast } from "../../components/Toast";
 import { PasswordInput, PasswordStrength } from "../../components/auth/PasswordInput";
 import { Alert, Avatar, Badge, Button, Card, CardBody, CardHeader, EmptyState, Input, Modal, Select, Switch } from "../../components/ui";
 
-// AI replies: preferences are stored now; auto-reply ships in a later phase
 export function AiSettings({ profile, onProfileChange }) {
   const toast = useToast();
   const config = profile.aiConfig || {};
@@ -28,20 +27,29 @@ export function AiSettings({ profile, onProfileChange }) {
     <Card>
       <CardHeader
         title="AI replies"
-        description="How AI-drafted replies should sound."
-        action={
-          <Badge tone="accent">
-            <Sparkles className="h-3 w-3" /> Coming soon
-          </Badge>
-        }
+        description="Control automatic replies to new WhatsApp messages."
+        action={<Badge tone={config.whatsappAutoReplyEnabled ? "success" : "neutral"}>{config.whatsappAutoReplyEnabled ? "On" : "Off"}</Badge>}
       />
       <CardBody className="flex flex-col gap-5">
         <Alert tone="info">
-          Automatic AI replies aren't live yet. Your choices here are saved and will apply as soon as they launch.
+          Replies use shop catalog facts and simple local rules first. Gemini is used only when the server owner has enabled customer-data sharing; {config.whatsappGeminiAvailable ? "Gemini replies are available." : "Gemini is currently disabled."} Billing, dues, and order-status questions are not sent to Gemini.
         </Alert>
         <Switch
-          label="Enable AI replies"
-          description="Let AI answer common questions about price, stock and delivery."
+          label="Automatically reply on WhatsApp"
+          description="Send a short reply to new text messages. Turn this on only if your shop is ready to respond automatically."
+          checked={config.whatsappAutoReplyEnabled === true}
+          onCheckedChange={(whatsappAutoReplyEnabled) => save({ whatsappAutoReplyEnabled })}
+        />
+        <Switch
+          label="Allow customer-confirmed WhatsApp invoices"
+          description="After the customer confirms the quoted total, create an unpaid pay-later invoice. Requires pay-later, one active store, the customer's GST state, and non-serialized catalog stock; this does not collect payment."
+          checked={config.whatsappBillCreationEnabled === true}
+          disabled={!config.isEnabled || !config.whatsappAutoReplyEnabled}
+          onCheckedChange={(whatsappBillCreationEnabled) => save({ whatsappBillCreationEnabled })}
+        />
+        <Switch
+          label="Enable AI reply generation"
+          description="Turn off to pause all automatic AI replies."
           checked={config.isEnabled !== false}
           onCheckedChange={(isEnabled) => save({ isEnabled })}
         />

@@ -2,6 +2,7 @@ const User = require("../models/User.model");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
+const ReservedEmail = require("../models/ReservedEmail.model");
 const sendEmail = require("../utils/sendEmail");
 const sendOtp = require("../utils/sendOtp");
 const twoFactorService = require("./twoFactor.service");
@@ -66,6 +67,7 @@ class AuthService {
       // An Admin account of its own looks after one shop (null until assigned)
       ...(user.role === "admin" && user.adminLevel === "admin" && { shopAdmin: true, adminShopId: user.adminShopId || null }),
       isVerified: Boolean(user.isVerified && user.emailVerifiedAt),
+      emailVerificationSendCount: Number(user.emailVerificationSendCount || 0),
       phoneVerified: user.phoneVerified,
       profilePhoto: user.profilePhoto,
       businessInfo: user.businessInfo,
@@ -78,9 +80,16 @@ class AuthService {
     const { name, email, password, phone, businessName } = userData;
 
     // Check if user already exists
-    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const [existingUser, reservedEmail] = await Promise.all([
+      User.findOne({ email: normalizedEmail }),
+      ReservedEmail.findOne({ email: normalizedEmail }),
+    ]);
     if (existingUser) {
       throw new Error("User already exists with this email");
+    }
+    if (reservedEmail) {
+      throw new Error("This email belongs to a deleted account and cannot be used to create a new account.");
     }
 
     // Hash password
@@ -90,7 +99,7 @@ class AuthService {
     // Create an account with both contact channels unverified.
     const user = await User.create({
       name,
-      email,
+      email: normalizedEmail,
       password: hashedPassword,
       phone,
       businessInfo: businessName ? { businessName } : undefined,
@@ -117,7 +126,12 @@ class AuthService {
     return {
       token: this.generateToken(user._id, undefined, user.role === "staff" ? user.staffAuthVersion || 0 : undefined),
       user: this.toSessionUser(user),
-      verification: { emailSent, phoneSent },
+      verification: {
+        emailSent,
+        phoneSent,
+        recipient: emailDelivery.status === "fulfilled" ? emailDelivery.value.recipient : user.email,
+        sender: process.env.EMAIL_FROM_ADDRESS || process.env.EMAIL_USER,
+      },
     };
   }
 
@@ -181,6 +195,8 @@ class AuthService {
       {
         emailVerificationToken: hashToken(token),
         emailVerificationExpires: { $gt: Date.now() },
+        isVerified: { $ne: true },
+        emailVerifiedAt: { $exists: false },
       },
       {
         $set: { isVerified: true, emailVerifiedAt: new Date() },
@@ -261,7 +277,7 @@ class AuthService {
   }
 
   async sendEmailVerification(userId) {
-    const user = await User.findById(userId);
+    const user = await User.findById(userId).select("+emailVerificationSendCount");
     if (!user) throw new Error("User not found");
     if (user.isVerified && user.emailVerifiedAt) return { alreadyVerified: true };
     if (process.env.NODE_ENV !== "test" && process.env.NODE_ENV !== "development" && (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD)) {
@@ -269,11 +285,23 @@ class AuthService {
     }
 
     const now = Date.now();
+    const sendCount = Number(user.emailVerificationSendCount || 0);
+    if (sendCount >= 2) {
+      throw new Error("Verification email limit reached. You can try up to 2 email sends. Contact support if you still need help.");
+    }
     const token = this.generateVerificationToken();
     const code = String(crypto.randomInt(0, 1000000)).padStart(6, "0");
     const claimFilter = {
       _id: user._id,
       emailVerifiedAt: { $exists: false },
+      $and: [
+        {
+          $or: [
+            { emailVerificationSendCount: { $exists: false } },
+            { emailVerificationSendCount: { $lt: 2 } },
+          ],
+        },
+      ],
       $or: [
         { emailVerificationSentAt: { $exists: false } },
         { emailVerificationSentAt: { $lte: new Date(now - VERIFICATION_RESEND_COOLDOWN) } },
@@ -290,6 +318,7 @@ class AuthService {
           emailVerificationCodeExpires: new Date(now + EMAIL_VERIFICATION_CODE_TTL),
           emailVerificationCodeAttempts: 0,
           emailVerificationSentAt: new Date(now),
+          emailVerificationSendCount: sendCount + 1,
         },
         $unset: { emailVerifiedAt: 1 },
       },
@@ -320,9 +349,27 @@ class AuthService {
       });
     } catch (error) {
       console.error("Email verification delivery failed:", error.message);
+      await User.updateOne(
+        { _id: claimed._id, emailVerificationToken: hashToken(token) },
+        {
+          $inc: { emailVerificationSendCount: -1 },
+          $unset: {
+            emailVerificationToken: 1,
+            emailVerificationExpires: 1,
+            emailVerificationCodeHash: 1,
+            emailVerificationCodeExpires: 1,
+            emailVerificationSentAt: 1,
+          },
+        }
+      );
       throw new Error("Email verification could not be delivered. Check SMTP configuration and try again.");
     }
-    return { sent: !["test-mode-no-email", "dev-mode-failed"].includes(delivery?.messageId) };
+    return {
+      sent: !["test-mode-no-email", "dev-mode-failed"].includes(delivery?.messageId),
+      sendCount: sendCount + 1,
+      recipient: claimed.email,
+      sender: process.env.EMAIL_FROM_ADDRESS || process.env.EMAIL_USER,
+    };
   }
 
   async sendPhoneVerification(userId) {

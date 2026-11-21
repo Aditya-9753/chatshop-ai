@@ -7,7 +7,7 @@ import { useAuth } from "../context/AuthContext";
 import { Alert, Button, Input, PageLoader } from "../components/ui";
 
 export default function VerifyEmail() {
-  const { token } = useParams();
+  const { token } = useParams(); 
   const { isAuthenticated, user, updateUser } = useAuth();
   const [status, setStatus] = useState(token ? "checking" : "ready");
   const [error, setError] = useState("");
@@ -32,7 +32,7 @@ export default function VerifyEmail() {
         if (active) {
           setStatus("verified");
           if (isAuthenticated) updateUser({ isVerified: true });
-        }
+        } 
       })
       .catch((err) => {
         if (active) {

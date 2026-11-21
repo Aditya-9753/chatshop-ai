@@ -67,7 +67,8 @@ const Register = () => {
         ].filter(Boolean);
         toast.error(`Account created, but ${missing.join(" and ")} verification could not be sent. Check Profile settings or contact support.`);
       } else {
-        toast.success("Account created. Verify your email from Settings → Profile.");
+        const recipient = result.data?.verification?.recipient || form.email.trim();
+        toast.success(`Account created. Verification email sent to ${recipient}.`);
       }
       navigate("/dashboard", { replace: true });
     } catch (err) {

@@ -22,6 +22,7 @@ const inventoryItemSchema = new mongoose.Schema(
 inventoryItemSchema.plugin(tenantScope);
 inventoryItemSchema.index({ tenantId: 1, imei: 1 }, { unique: true });
 inventoryItemSchema.index({ tenantId: 1, storeId: 1, productId: 1, status: 1 });
+inventoryItemSchema.index({ tenantId: 1, productId: 1, status: 1 });
 
 const lineSchema = new mongoose.Schema(
   {
@@ -88,6 +89,14 @@ invoiceSchema.index({ tenantId: 1, idempotencyKey: 1 }, { unique: true, partialF
 invoiceSchema.index({ tenantId: 1, storeId: 1, createdAt: -1 });
 invoiceSchema.index({ tenantId: 1, customerId: 1 });
 invoiceSchema.index({ tenantId: 1, balanceDue: 1, dueDate: 1 });
+invoiceSchema.index(
+  { tenantId: 1, status: 1, dueDate: 1 },
+  { name: "shop_due_list" },
+);
+invoiceSchema.index(
+  { tenantId: 1, storeId: 1, status: 1, dueDate: 1 },
+  { name: "shop_store_due_list" },
+);
 
 const paymentSchema = new mongoose.Schema(
   {

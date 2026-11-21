@@ -1,10 +1,15 @@
 const fs = require("fs/promises");
 const path = require("path");
+const axios = require("axios");
 const User = require("../models/User.model");
 const Customer = require("../models/Customer.model");
 const Message = require("../models/Message.model");
 const messageService = require("./message.service");
+const whatsappAssistant = require("./whatsappAssistant.service");
+const whatsappBilling = require("./whatsappBilling.service");
 const whatsappApi = require("../utils/whatsapp.api");
+const tokenVault = require("../utils/tokenVault");
+const { GRAPH_API_URL } = require("../utils/meta");
 
 const UPLOADS_DIR = path.join(__dirname, "../../uploads");
 const MEDIA_FOLDERS = {
@@ -22,9 +27,17 @@ class WhatsAppService {
     const { phoneNumber, phoneNumberId, businessAccountId, accessToken } =
       connectionData;
 
-    if (!phoneNumberId || !accessToken) {
+    if (
+      typeof phoneNumberId !== "string" ||
+      !/^\d+$/.test(phoneNumberId) ||
+      typeof accessToken !== "string" ||
+      accessToken.length < 20 ||
+      accessToken.length > 4096 ||
+      (businessAccountId && !/^\d+$/.test(String(businessAccountId)))
+    ) {
       throw new Error("Phone number ID and access token are required");
     }
+    const encryptedToken = tokenVault.encrypt(accessToken);
 
     const user = await User.findById(userId);
     if (!user) {
@@ -38,12 +51,50 @@ class WhatsAppService {
       throw new Error(`Could not verify WhatsApp credentials: ${error.message}`);
     }
 
+    let webhookSubscribed = false;
+    if (businessAccountId) {
+      try {
+        const phones = await axios.get(
+          `${GRAPH_API_URL}/${businessAccountId}/phone_numbers`,
+          {
+            params: { fields: "id", limit: 100 },
+            headers: { Authorization: `Bearer ${accessToken}` },
+            timeout: 10000,
+          },
+        );
+        if (!(phones.data?.data || []).some((number) => number.id === phoneNumberId)) {
+          throw new Error("Phone number ID does not belong to this WhatsApp Business Account");
+        }
+        await axios.post(
+          `${GRAPH_API_URL}/${businessAccountId}/subscribed_apps`,
+          {},
+          {
+            headers: { Authorization: `Bearer ${accessToken}` },
+            timeout: 10000,
+          },
+        );
+        webhookSubscribed = true;
+      } catch (error) {
+        throw new Error(
+          `WhatsApp account could not be subscribed to webhooks: ${
+            error.response?.data?.error?.message || error.message
+          }`,
+        );
+      }
+    }
+
     user.whatsappConfig.isConnected = true;
     user.whatsappConfig.phoneNumberId = phoneNumberId;
     user.whatsappConfig.phoneNumber =
       phoneNumber || verified.display_phone_number || "";
     user.whatsappConfig.businessAccountId = businessAccountId || "";
-    user.whatsappConfig.accessToken = accessToken;
+    user.whatsappConfig.accessToken = encryptedToken;
+    user.whatsappConfig.accessTokenExpiresAt = connectionData.accessTokenExpiresAt
+      ? new Date(connectionData.accessTokenExpiresAt)
+      : undefined;
+    user.whatsappConfig.setupStatus = "connected";
+    user.whatsappConfig.webhookSubscribed = webhookSubscribed;
+    user.whatsappConfig.phoneRegistered = true;
 
     await user.save();
 
@@ -67,6 +118,10 @@ class WhatsAppService {
     user.whatsappConfig.phoneNumberId = "";
     user.whatsappConfig.businessAccountId = "";
     user.whatsappConfig.accessToken = "";
+    user.whatsappConfig.accessTokenExpiresAt = undefined;
+    user.whatsappConfig.setupStatus = undefined;
+    user.whatsappConfig.webhookSubscribed = false;
+    user.whatsappConfig.phoneRegistered = false;
 
     await user.save();
     return true;
@@ -147,7 +202,7 @@ class WhatsAppService {
         content.mediaUrl = await this.saveMedia(user, type, content);
       }
 
-      await messageService.receiveMessage({
+      let received = await messageService.receiveMessage({
         user,
         platform: "whatsapp",
         sender: { platformId: msg.from, name: contact?.profile?.name },
@@ -156,6 +211,31 @@ class WhatsAppService {
         content,
         timestamp: msg.timestamp ? new Date(Number(msg.timestamp) * 1000) : new Date(),
       });
+      const isNewMessage = Boolean(received);
+      if (!received && msg.id) {
+        received = await Message.findOne({
+          "metadata.platformMessageId": msg.id,
+          userId: user._id,
+          platform: "whatsapp",
+          direction: "incoming",
+        });
+      }
+      if (received) {
+        let billingHandled;
+        try {
+          billingHandled = await whatsappBilling.handleIncoming(user, received);
+        } catch (error) {
+          console.error("WhatsApp bill processing failed:", error.message);
+          throw error;
+        }
+        if (isNewMessage && !billingHandled) {
+          try {
+            await whatsappAssistant.replyToIncoming(user, received);
+          } catch (error) {
+            console.error("WhatsApp AI reply processing failed:", error.message);
+          }
+        }
+      }
     }
   }
 
@@ -223,7 +303,7 @@ class WhatsAppService {
   // Best effort: on failure the message is still saved, without the file.
   async saveMedia(user, type, content) {
     try {
-      const { accessToken } = user.whatsappConfig;
+      const accessToken = tokenVault.decrypt(user.whatsappConfig.accessToken);
       const media = await whatsappApi.getMediaUrl(content.mediaId, accessToken);
       const buffer = await whatsappApi.downloadMedia(media.url, accessToken);
 

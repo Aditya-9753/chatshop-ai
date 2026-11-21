@@ -1,0 +1,123 @@
+const Redis = require("ioredis");
+
+const PREFIX = "chatshop:cache:";
+const MAX_LOCAL_ENTRIES = 5000;
+const local = new Map();
+let redis;
+let lastRedisWarningAt = 0;
+
+function getRedis() {
+  if (!process.env.REDIS_URL) return null;
+  if (!redis) {
+    redis = new Redis(process.env.REDIS_URL, {
+      lazyConnect: true,
+      maxRetriesPerRequest: 1,
+      retryStrategy: (attempt) => Math.min(attempt * 250, 5000),
+    });
+    redis.on("error", (error) => {
+      if (Date.now() - lastRedisWarningAt > 60000) {
+        lastRedisWarningAt = Date.now();
+        console.warn("Shared cache Redis connection failed:", error.message);
+      }
+    });
+  }
+  return redis;
+}
+
+function warnRedis(message, error) {
+  if (Date.now() - lastRedisWarningAt > 60000) {
+    lastRedisWarningAt = Date.now();
+    console.warn(`${message}:`, error.message);
+  }
+}
+
+function getLocal(key) {
+  const entry = local.get(key);
+  if (!entry || entry.expiresAt <= Date.now()) {
+    local.delete(key);
+    return undefined;
+  }
+  return entry.value;
+}
+
+function setLocal(key, value, ttlMs) {
+  if (local.size >= MAX_LOCAL_ENTRIES && !local.has(key)) {
+    local.delete(local.keys().next().value);
+  }
+  local.set(key, { value, expiresAt: Date.now() + ttlMs });
+}
+
+async function connect(client) {
+  if (client.status === "wait") await client.connect();
+}
+
+async function remember(key, ttlMs, compute) {
+  const redisKey = `${PREFIX}${key}`;
+  const client = getRedis();
+  if (client) {
+    try {
+      await connect(client);
+      const cached = await client.get(redisKey);
+      if (cached !== null) {
+        const value = JSON.parse(cached);
+        setLocal(key, value, ttlMs);
+        return value;
+      }
+    } catch (error) {
+      warnRedis("Shared cache read failed; loading from MongoDB", error);
+    }
+  }
+
+  const localHit = getLocal(key);
+  if (localHit !== undefined) return localHit;
+
+  const value = await compute();
+  setLocal(key, value, ttlMs);
+  if (client) {
+    try {
+      await connect(client);
+      await client.set(redisKey, JSON.stringify(value), "PX", ttlMs);
+    } catch (error) {
+      warnRedis("Shared cache write failed; keeping a local entry", error);
+    }
+  }
+  return value;
+}
+
+async function deletePrefix(keyPrefix) {
+  for (const key of local.keys()) {
+    if (key.startsWith(keyPrefix)) local.delete(key);
+  }
+
+  const client = getRedis();
+  if (!client) return;
+
+  try {
+    await connect(client);
+    let cursor = "0";
+    do {
+      const [nextCursor, keys] = await client.scan(
+        cursor,
+        "MATCH",
+        `${PREFIX}${keyPrefix}*`,
+        "COUNT",
+        200,
+      );
+      cursor = nextCursor;
+      if (keys.length) await client.unlink(...keys);
+    } while (cursor !== "0");
+  } catch (error) {
+    console.error("Shared cache invalidation failed:", error.message);
+    throw error;
+  }
+}
+
+async function close() {
+  if (!redis) return;
+  const client = redis;
+  redis = null;
+  if (client.status === "ready") await client.quit();
+  else client.disconnect();
+}
+
+module.exports = { remember, deletePrefix, close, _localSize: () => local.size };

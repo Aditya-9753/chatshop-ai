@@ -8,6 +8,7 @@ const messageSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    idempotencyKey: String,
     customerId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Customer",
@@ -174,6 +175,10 @@ const messageSchema = new mongoose.Schema(
 // --- INDEXES FOR PERFORMANCE ---
 // 1. Fetching chat history for a specific customer & user
 messageSchema.index({ userId: 1, customerId: 1, createdAt: -1 });
+messageSchema.index(
+  { userId: 1, idempotencyKey: 1 },
+  { unique: true, partialFilterExpression: { idempotencyKey: { $type: "string" } } },
+);
 
 // 2. Fetching only NOT deleted messages (for standard UI view)
 messageSchema.index({ userId: 1, isDeleted: 1 });

@@ -87,6 +87,10 @@ const userSchema = new mongoose.Schema(
       phoneNumberId: { type: String, index: true },
       businessAccountId: String,
       accessToken: String,
+      accessTokenExpiresAt: Date,
+      setupStatus: { type: String, enum: ["connected", "pending"], default: "connected" },
+      webhookSubscribed: { type: Boolean, default: false },
+      phoneRegistered: { type: Boolean, default: false },
       webhookVerifyToken: String,
     },
     instagramConfig: {
@@ -103,6 +107,8 @@ const userSchema = new mongoose.Schema(
     },
     aiConfig: {
       isEnabled: { type: Boolean, default: true },
+      whatsappAutoReplyEnabled: { type: Boolean, default: false },
+      whatsappBillCreationEnabled: { type: Boolean, default: false },
       language: {
         type: String,
         enum: ["english", "hindi", "hinglish"],
@@ -158,6 +164,7 @@ const userSchema = new mongoose.Schema(
     emailVerificationToken: { type: String, select: false },
     emailVerificationExpires: { type: Date, select: false },
     emailVerificationSentAt: Date,
+    emailVerificationSendCount: { type: Number, default: 0, select: false },
     emailVerificationCodeHash: { type: String, select: false },
     emailVerificationCodeExpires: { type: Date, select: false },
     emailVerificationCodeAttempts: { type: Number, default: 0, select: false },
@@ -183,6 +190,11 @@ const userSchema = new mongoose.Schema(
         delete ret.emailVerificationCodeAttempts;
         ret.isVerified = Boolean(ret.isVerified && ret.emailVerifiedAt);
         delete ret.emailVerifiedAt;
+        if (ret.aiConfig) {
+          ret.aiConfig.whatsappGeminiAvailable =
+            process.env.WHATSAPP_AI_GEMINI_DATA_SHARING_ENABLED === "true" &&
+            Boolean(process.env.GEMINI_API_KEY);
+        }
         delete ret.phoneVerificationOtpHash;
         delete ret.phoneVerificationExpires;
         delete ret.phoneVerificationSentAt;

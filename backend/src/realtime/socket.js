@@ -53,4 +53,8 @@ function close() {
   io = null;
 }
 
-module.exports = { init, emitToUser, close };
+function getIO() {
+  return io;
+}
+
+module.exports = { init, emitToUser, close, getIO };

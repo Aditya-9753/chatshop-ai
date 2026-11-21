@@ -6,15 +6,18 @@ const Conversation = require("../../models/Conversation.model");
 const { Store } = require("../models/platform");
 const { InventoryItem, Invoice, Payment } = require("../models/sales");
 const { EmiContract, NbfcCase, Approval } = require("../models/finance");
+const User = require("../../models/User.model");
 const { buildSchedule } = require("../domain/emi");
 const { fmt } = require("../domain/money");
 const { need, can } = require("../middleware/rbac");
 const { ah, AppError, scoped, audit, isOid, today } = require("../utils/helpers");
 const { resolveSettings } = require("../services/settings.service");
 const checkoutService = require("../services/checkout.service");
+const invoicePdf = require("../services/invoicePdf.service");
 const approvalService = require("../services/approval.service");
 const bridge = require("../services/bridge.service");
 const dues = require("../services/dues.service");
+const whatsappBillQueue = require("../../services/whatsappBillQueue.service");
 const s = require("./schemas");
 
 const r = express.Router();
@@ -317,6 +320,76 @@ r.get(
     const invoices = await Invoice.find(filter).sort({ createdAt: -1 }).limit(Math.min(Number(req.query.limit) || 200, 500)).select("-lines.listPrice").lean();
     ok(res, invoices);
   })
+);
+
+r.get(
+  "/invoices/:id/pdf",
+  need("invoice.read"),
+  ah(async (req, res) => {
+    if (!isOid(req.params.id)) throw new AppError(400, "ID galat hai");
+    const data = await invoicePdf.loadInvoice(req.emi.tenantId, req.params.id);
+    const pdf = await invoicePdf.renderInvoicePdf(data);
+    const filename = `Invoice-${String(data.invoice.invoiceNo || req.params.id).replace(/[^\w.-]/g, "_")}.pdf`;
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename="${filename}"`,
+      "Cache-Control": "private, no-store",
+    });
+    res.send(pdf);
+  }),
+);
+
+r.post(
+  "/invoices/:id/send-whatsapp",
+  need("invoice.read"),
+  ah(async (req, res) => {
+    if (!isOid(req.params.id)) throw new AppError(400, "ID galat hai");
+    const idempotencyKey = String(req.get("Idempotency-Key") || "");
+    if (!/^[\w.-]{1,128}$/.test(idempotencyKey)) {
+      throw new AppError(400, "Idempotency-Key header chahiye");
+    }
+
+    const { invoice } = await invoicePdf.loadInvoice(req.emi.tenantId, req.params.id);
+    if (["CANCELLED", "PENDING_APPROVAL", "NBFC_PENDING"].includes(invoice.status)) {
+      throw new AppError(409, "Is invoice ka bill abhi WhatsApp par share nahi kiya ja sakta");
+    }
+    const customer = await Customer.findOne({
+      _id: invoice.customerId,
+      userId: req.emi.tenantId,
+    }).select("phone platform isBlocked");
+    if (!customer || customer.platform !== "whatsapp" || !customer.phone) {
+      throw new AppError(422, "Customer ka WhatsApp phone number available nahi hai");
+    }
+    if (customer.isBlocked) throw new AppError(422, "Blocked customer ko bill nahi bhej sakte");
+
+    const shop = await User.findById(req.emi.tenantId).select(
+      "whatsappConfig.isConnected whatsappConfig.accessTokenExpiresAt",
+    );
+    if (!shop?.whatsappConfig?.isConnected) {
+      throw new AppError(409, "Pehle Settings se WhatsApp connect karein");
+    }
+    if (
+      shop.whatsappConfig.accessTokenExpiresAt &&
+      shop.whatsappConfig.accessTokenExpiresAt.getTime() <= Date.now()
+    ) {
+      throw new AppError(409, "WhatsApp token expire ho gaya hai; reconnect karein");
+    }
+    invoicePdf.createSignedUrl(invoice._id);
+
+    const job = await whatsappBillQueue.enqueue({
+      tenantId: req.emi.tenantId,
+      invoiceId: invoice._id,
+      customerId: customer._id,
+      idempotencyKey,
+    });
+    if (
+      String(job.invoiceId) !== String(invoice._id) ||
+      String(job.customerId) !== String(customer._id)
+    ) {
+      throw new AppError(409, "Idempotency-Key kisi doosre invoice ke liye use ho chuki hai");
+    }
+    ok(res, { jobId: job._id, status: job.status }, 202);
+  }),
 );
 
 r.get(

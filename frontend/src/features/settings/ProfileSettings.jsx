@@ -31,12 +31,14 @@ export default function ProfileSettings({ profile, onProfileChange }) {
   const [otp, setOtp] = useState("");
   const [emailCode, setEmailCode] = useState("");
   const [verificationBusy, setVerificationBusy] = useState(false);
+  const [emailSendCount, setEmailSendCount] = useState(Number(profile.emailVerificationSendCount || 0));
   const [photo, setPhoto] = useState(null);
   const [business, setBusiness] = useState({ businessName: "", businessType: "", website: "", address: "", gstNumber: "", businessEmail: "", businessPhone: "", description: "" });
   const [saving, setSaving] = useState(null);
 
   useEffect(() => {
     setMe({ name: profile.name || "", email: profile.email || "", phone: profile.phone || "" });
+    setEmailSendCount(Number(profile.emailVerificationSendCount || 0));
     setBusiness({ ...{ businessName: "", businessType: "", website: "", address: "", gstNumber: "", businessEmail: "", businessPhone: "", description: "" }, ...profile.businessInfo });
   }, [profile]);
 
@@ -102,8 +104,14 @@ export default function ProfileSettings({ profile, onProfileChange }) {
   const resendEmail = async () => {
     setVerificationBusy(true);
     try {
-      await authService.resendEmailVerification();
-      toast.success("Verification link and 6-digit code sent. Check your inbox.");
+      const response = await authService.resendEmailVerification();
+      const recipient = response.data?.recipient || profile.email;
+      toast.success(`Verification email sent to ${recipient}`);
+      if (typeof response.data?.sendCount === "number") {
+        setEmailSendCount(response.data.sendCount);
+      } else {
+        setEmailSendCount((count) => count + 1);
+      }
     } catch (err) {
       toast.error(err.message || "Couldn't send a verification email");
     } finally {
@@ -181,9 +189,13 @@ export default function ProfileSettings({ profile, onProfileChange }) {
             ) : (
               <>
                 <Badge tone="warning">Email not verified</Badge>
-                <Button type="button" size="sm" variant="secondary" loading={verificationBusy} onClick={resendEmail}>
-                  Resend verification email
-                </Button>
+                {emailSendCount < 2 ? (
+                  <Button type="button" size="sm" variant="secondary" loading={verificationBusy} onClick={resendEmail}>
+                    Resend verification email
+                  </Button>
+                ) : (
+                  <Badge tone="danger">Verification email limit reached</Badge>
+                )}
                 <div className="flex flex-wrap items-end gap-2">
                   <Input
                     label="6-digit email code"

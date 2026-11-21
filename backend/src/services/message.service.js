@@ -7,6 +7,7 @@ const channelService = require("./channel.service");
 const whatsappApi = require("../utils/whatsapp.api");
 const messageEvents = require("./messageEvents");
 const inboundService = require("./inbound.service");
+const tokenVault = require("../utils/tokenVault");
 
 class MessageService {
   // Get all messages with filters
@@ -46,6 +47,7 @@ class MessageService {
       content = {},
       isAIGenerated = false,
       replyTo = null,
+      idempotencyKey,
     } = messageData;
 
     const customer = await Customer.findOne({ _id: customerId, userId });
@@ -68,6 +70,25 @@ class MessageService {
       location: content.location,
     };
 
+    if (idempotencyKey) {
+      const existing = await Message.findOne({
+        userId,
+        idempotencyKey,
+        direction: "outgoing",
+      });
+      if (existing) {
+        if (String(existing.customerId) !== String(customerId)) {
+          throw new Error("Idempotency key already used for a different customer");
+        }
+        if (["sent", "delivered", "read"].includes(existing.status)) return existing;
+        existing.content = normalizedContent;
+        existing.status = "queued";
+        existing.errorDetails = undefined;
+        await existing.save();
+        return this.deliver(existing, customer);
+      }
+    }
+
     if (!normalizedContent.text && !normalizedContent.mediaUrl && !normalizedContent.location) {
       throw new Error("Message is empty");
     }
@@ -78,18 +99,39 @@ class MessageService {
       platform,
     );
 
-    const message = await Message.create({
-      userId,
-      customerId,
-      conversationId: conversation._id,
-      platform,
-      direction: "outgoing",
-      type,
-      content: normalizedContent,
-      isAIGenerated,
-      replyTo,
-      status: "queued",
-    });
+    let message;
+    try {
+      message = await Message.create({
+        userId,
+        customerId,
+        conversationId: conversation._id,
+        platform,
+        direction: "outgoing",
+        type,
+        content: normalizedContent,
+        isAIGenerated,
+        idempotencyKey,
+        replyTo,
+        status: "queued",
+      });
+    } catch (error) {
+      if (error.code !== 11000 || !idempotencyKey) throw error;
+      const existing = await Message.findOne({
+        userId,
+        idempotencyKey,
+        direction: "outgoing",
+      });
+      if (!existing) throw error;
+      if (String(existing.customerId) !== String(customerId)) {
+        throw new Error("Idempotency key already used for a different customer");
+      }
+      if (["sent", "delivered", "read"].includes(existing.status)) return existing;
+      existing.content = normalizedContent;
+      existing.status = "queued";
+      existing.errorDetails = undefined;
+      await existing.save();
+      return this.deliver(existing, customer);
+    }
 
     const updatedConversation = await conversationService.updateLastMessage(
       conversation._id,
@@ -372,7 +414,7 @@ class MessageService {
       if (!config?.isConnected || !config.phoneNumberId || !config.accessToken) return;
       await whatsappApi.markAsRead(
         config.phoneNumberId,
-        config.accessToken,
+        tokenVault.decrypt(config.accessToken),
         latest.metadata.platformMessageId,
       );
     } catch (error) {

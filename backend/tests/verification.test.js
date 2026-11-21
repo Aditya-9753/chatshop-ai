@@ -15,6 +15,7 @@ const as = (token) => ({
   get: (path) => request(app).get(path).set("Authorization", `Bearer ${token}`),
   post: (path, body) => request(app).post(path).set("Authorization", `Bearer ${token}`).send(body),
   put: (path, body) => request(app).put(path).set("Authorization", `Bearer ${token}`).send(body),
+  delete: (path) => request(app).delete(path).set("Authorization", `Bearer ${token}`),
 });
 
 before(async () => {
@@ -43,12 +44,15 @@ test("registration verification tokens, mobile OTP limits, and contact changes",
   const account = await registerUser(app);
   const userId = account.user.id;
   const token = account.token;
+  assert.equal(account.verification.recipient, account.user.email);
+  assert.notEqual(account.verification.recipient, account.verification.sender);
   const emailHtml = sentEmails.at(-1).html;
   const emailToken = emailHtml.match(/verify-email\/([a-f\d]{64})/i)?.[1];
   const emailCode = emailHtml.match(/font-size:24px;font-weight:bold;letter-spacing:4px">(\d{6})<\/p>/)?.[1];
   const otp = sentOtps.at(-1).otp;
   assert.ok(emailToken);
   assert.ok(emailCode);
+  assert.equal(sentEmails.at(-1).to, account.user.email);
   assert.equal(account.user.isVerified, false);
   assert.equal(account.user.phoneVerified, false);
 
@@ -125,6 +129,39 @@ test("email verification code expires and is limited to five attempts", async ()
   const blocked = await request(app).post("/api/auth/verify-email/code").send({ email: limitedAccount.user.email, code: limitedCode });
   assert.equal(blocked.status, 400);
   assert.match(blocked.body.message, /too many/i);
+});
+
+test("email resend is capped and deleted-account emails cannot be reused", async () => {
+  const account = await registerUser(app);
+  const profile = as(account.token);
+
+  await User.updateOne(
+    { _id: account.user.id },
+    { $set: { emailVerificationSentAt: new Date(Date.now() - 2 * 60 * 1000) } }
+  );
+  const firstResend = await profile.post("/api/users/email-verification/resend", {});
+  assert.equal(firstResend.status, 200);
+
+  await User.updateOne(
+    { _id: account.user.id },
+    { $set: { emailVerificationSentAt: new Date(Date.now() - 2 * 60 * 1000) } }
+  );
+  const secondResend = await profile.post("/api/users/email-verification/resend", {});
+  assert.equal(secondResend.status, 400);
+  assert.match(secondResend.body.message, /limit reached/i);
+
+  const deletedEmail = account.user.email;
+  const deleted = await profile.delete("/api/users/account");
+  assert.equal(deleted.status, 200);
+
+  const duplicate = await request(app).post("/api/auth/register").send({
+    name: "Replacement Account",
+    email: deletedEmail,
+    password: "Password@123",
+    phone: "+919999988888",
+  });
+  assert.equal(duplicate.status, 400);
+  assert.match(duplicate.body.message, /deleted account|cannot be used/i);
 });
 
 test("mobile OTP resend cooldown, expiry, and maximum attempts are enforced", async () => {

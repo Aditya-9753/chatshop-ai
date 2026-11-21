@@ -1,5 +1,17 @@
 const Product = require("../models/Product.model");
 const { assertWithinLimit } = require("../billing/subscriptions");
+const sharedCache = require("../utils/sharedCache");
+
+async function invalidateCatalog(userId) {
+  try {
+    await sharedCache.deletePrefix(`whatsapp-catalog:${userId}:`);
+  } catch (error) {
+    console.error(
+      "WhatsApp catalog cache invalidation failed; cached entries expire shortly:",
+      error.message,
+    );
+  }
+}
 
 class ProductService {
   // Get all products with filters
@@ -85,6 +97,7 @@ class ProductService {
       serialized: serialized === true || serialized === "true",
     });
 
+    await invalidateCatalog(userId);
     return product;
   }
 
@@ -129,6 +142,7 @@ class ProductService {
     if (gstRatePct !== undefined && gstRatePct !== "") product.gstRatePct = Number(gstRatePct);
 
     await product.save();
+    await invalidateCatalog(userId);
     return product;
   }
 
@@ -143,6 +157,7 @@ class ProductService {
       throw new Error("Product not found");
     }
 
+    await invalidateCatalog(userId);
     return true;
   }
 }

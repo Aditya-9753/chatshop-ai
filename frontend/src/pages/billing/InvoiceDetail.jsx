@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Ban, BellRing, CalendarClock, Printer, Wallet } from "lucide-react";
-import { Alert, Button, Card, CardBody, CardHeader, DetailRow, ErrorState, Input, Modal, PageHeader, PageLoader, Select, Textarea } from "../../components/ui";
+import { ArrowLeft, Ban, BellRing, CalendarClock, FileDown, Printer, Send, Wallet } from "lucide-react";
+import { Alert, Button, Card, CardBody, CardHeader, ConfirmDialog, DetailRow, ErrorState, Input, Modal, PageHeader, PageLoader, Select, Textarea } from "../../components/ui";
 import { useToast } from "../../components/Toast";
 import { formatDateTime } from "../../utils/format";
 import { useBilling } from "../../features/billing/BillingContext";
@@ -56,6 +56,69 @@ function CancelRequest({ invoice, onDone }) {
 
 const OPEN = ["UNPAID", "PARTIALLY_PAID"];
 const PURPOSE_LABELS = { SALE: "At sale", EMI: "EMI", FORECLOSURE: "Foreclosure", DUE: "Later payment" };
+
+function InvoicePdfActions({ invoice }) {
+  const toast = useToast();
+  const [sendOpen, setSendOpen] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [sending, setSending] = useState(false);
+  const idempotencyKey = useRef(newKey());
+
+  const download = async () => {
+    setDownloading(true);
+    try {
+      const blob = await emiApi.download(`/invoices/${invoice._id}/pdf`);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `Invoice-${String(invoice.invoiceNo).replace(/[^\w.-]/g, "_")}.pdf`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      toast.error(error.message || "Couldn't download invoice PDF");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const send = async () => {
+    setSending(true);
+    try {
+      await emiApi.post(`/invoices/${invoice._id}/send-whatsapp`, {}, idempotencyKey.current);
+      idempotencyKey.current = newKey();
+      setSendOpen(false);
+      toast.success("Invoice queued for WhatsApp delivery");
+    } catch (error) {
+      toast.error(error.message || "Couldn't queue invoice delivery");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <>
+      <Button variant="secondary" icon={FileDown} loading={downloading} onClick={download}>
+        Download PDF
+      </Button>
+      {invoice.customer?.phone && !["CANCELLED", "PENDING_APPROVAL", "NBFC_PENDING"].includes(invoice.status) && (
+        <Button variant="secondary" icon={Send} onClick={() => setSendOpen(true)}>
+          Send on WhatsApp
+        </Button>
+      )}
+      <ConfirmDialog
+        open={sendOpen}
+        onOpenChange={setSendOpen}
+        title="Send invoice on WhatsApp?"
+        description={`This will send invoice ${invoice.invoiceNo} (${inr(invoice.grossTotal)}) to ${invoice.customer?.phone}. The PDF includes the customer's invoice details and can be sent only within WhatsApp's active 24-hour service window.`}
+        confirmLabel="Queue invoice"
+        tone="accent"
+        loading={sending}
+        onConfirm={send}
+      />
+      {sending && <span className="sr-only" role="status">Queuing invoice delivery</span>}
+    </>
+  );
+}
 
 // Money for a pay-later sale, taken after the sale
 function CollectDue({ invoice, onDone }) {
@@ -167,6 +230,7 @@ function Detail() {
             {owing && can("payment.collect") && <RemindDue invoice={invoice} />}
             {owing && can("payment.collect") && <CollectDue invoice={invoice} onDone={reload} />}
             {can("approval.create") && invoice.status !== "CANCELLED" && !pendingCancel && <CancelRequest invoice={invoice} onDone={reload} />}
+            <InvoicePdfActions invoice={invoice} />
             <Button icon={Printer} onClick={() => printTaxInvoice(data)}>
               Print
             </Button>

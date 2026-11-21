@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Check, Copy, ExternalLink, Unplug } from "lucide-react";
 import api from "../../services/api.service";
 import { SERVER_URL } from "../../config/api.config";
@@ -62,6 +62,181 @@ function CopyField({ label, value }) {
           }}
         />
       </div>
+    </div>
+  );
+}
+
+function EmbeddedSignup({ accountConfig, onChanged }) {
+  const toast = useToast();
+  const [signupConfig, setSignupConfig] = useState(null);
+  const [sdkReady, setSdkReady] = useState(false);
+  const [authCode, setAuthCode] = useState("");
+  const [assets, setAssets] = useState(null);
+  const [pin, setPin] = useState("");
+  const [pending, setPending] = useState(accountConfig?.setupStatus === "pending");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const exchangedSignup = useRef("");
+
+  useEffect(() => {
+    let active = true;
+    api.get("/whatsapp/embedded-signup/config")
+      .then((response) => active && setSignupConfig(response.data))
+      .catch((requestError) => active && setError(requestError.message || "Couldn't load Meta setup"));
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!signupConfig?.enabled) return undefined;
+    let active = true;
+    const initialize = () => {
+      if (!window.FB || !active) return;
+      window.FB.init({
+        appId: signupConfig.appId,
+        cookie: true,
+        xfbml: false,
+        version: signupConfig.graphVersion,
+      });
+      setSdkReady(true);
+    };
+
+    if (window.FB) {
+      initialize();
+    } else {
+      window.fbAsyncInit = initialize;
+      if (!document.getElementById("facebook-jssdk")) {
+        const script = document.createElement("script");
+        script.id = "facebook-jssdk";
+        script.async = true;
+        script.defer = true;
+        script.crossOrigin = "anonymous";
+        script.src = "https://connect.facebook.net/en_US/sdk.js";
+        script.onerror = () => setError("Meta's JavaScript SDK couldn't load. Check network settings and try again.");
+        document.head.appendChild(script);
+      }
+    }
+
+    return () => { active = false; };
+  }, [signupConfig]);
+
+  useEffect(() => {
+    if (!authCode || !assets?.phoneNumberId || !assets?.businessAccountId) return;
+    const requestKey = `${authCode}:${assets.phoneNumberId}`;
+    if (exchangedSignup.current === requestKey) return;
+    exchangedSignup.current = requestKey;
+    let active = true;
+    setBusy(true);
+    setError("");
+    api.post("/whatsapp/embedded-signup/exchange", {
+      code: authCode,
+      phoneNumberId: assets.phoneNumberId,
+      businessAccountId: assets.businessAccountId,
+    })
+      .then(() => {
+        if (!active) return;
+        setPending(true);
+        toast.success("Meta account authorized. Enter the phone's six-digit verification PIN to finish.");
+      })
+      .catch((requestError) => active && setError(requestError.message || "Meta account authorization failed"))
+      .finally(() => active && setBusy(false));
+    return () => { active = false; };
+  }, [authCode, assets]);
+
+  useEffect(() => {
+    const receiveSignupEvent = (event) => {
+      if (!["https://www.facebook.com", "https://web.facebook.com", "https://business.facebook.com"].includes(event.origin)) return;
+      let payload = event.data;
+      if (typeof payload === "string") {
+        try { payload = JSON.parse(payload); } catch { return; }
+      }
+      if (payload?.type !== "WA_EMBEDDED_SIGNUP") return;
+      if (payload.event === "FINISH") {
+        setAssets({
+          phoneNumberId: String(payload.data?.phone_number_id || ""),
+          businessAccountId: String(payload.data?.waba_id || ""),
+        });
+      } else if (payload.event === "CANCEL" || payload.event === "ERROR") {
+        setError("Meta setup was cancelled or could not be completed. You can try again.");
+      }
+    };
+    window.addEventListener("message", receiveSignupEvent);
+    return () => window.removeEventListener("message", receiveSignupEvent);
+  }, []);
+
+  const startSignup = () => {
+    setError("");
+    setAssets(null);
+    setAuthCode("");
+    exchangedSignup.current = "";
+    if (!window.FB || !signupConfig?.enabled) {
+      setError("Meta Embedded Signup isn't configured. Use the manual connection form below.");
+      return;
+    }
+    window.FB.login((response) => {
+      const code = response?.authResponse?.code;
+      if (!code) {
+        setError("Meta didn't return an authorization code. Make sure the business completes the signup window.");
+        return;
+      }
+      setAuthCode(code);
+    }, {
+      config_id: signupConfig.configId,
+      response_type: "code",
+      override_default_response_type: true,
+      extras: { sessionInfoVersion: "3" },
+    });
+  };
+
+  const finishSetup = async (event) => {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      await api.post("/whatsapp/embedded-signup/complete", { pin });
+      setPin("");
+      setPending(false);
+      toast.success("WhatsApp connected");
+      onChanged();
+    } catch (requestError) {
+      setError(requestError.message || "Couldn't finish WhatsApp setup");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-3 border-t border-line p-5">
+      <div>
+        <h4 className="text-sm font-semibold text-fg">Connect with Meta</h4>
+        <p className="mt-1 text-caption text-fg-muted">
+          Embedded Signup needs ChatShop's Meta Tech Provider approval and app configuration. If unavailable, connect manually below.
+        </p>
+      </div>
+      {pending || accountConfig?.setupStatus === "pending" ? (
+        <form onSubmit={finishSetup} className="flex flex-wrap items-end gap-3">
+          <Input
+            label="WhatsApp two-step verification PIN"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={6}
+            value={pin}
+            onChange={(event) => setPin(event.target.value.replace(/\D/g, "").slice(0, 6))}
+          />
+          <Button type="submit" loading={busy} disabled={pin.length !== 6}>Finish setup</Button>
+        </form>
+      ) : (
+        <div>
+          <Button variant="secondary" loading={busy} disabled={!signupConfig?.enabled || !sdkReady} onClick={startSignup}>
+            {signupConfig?.enabled ? "Continue with Meta" : "Embedded Signup not configured"}
+          </Button>
+        </div>
+      )}
+      {!signupConfig?.enabled && (
+        <Alert tone="info">
+          Server setup requires META_APP_ID, META_APP_SECRET, META_EMBEDDED_SIGNUP_CONFIG_ID and an approved Meta Embedded Signup configuration.
+        </Alert>
+      )}
+      {error && <Alert tone="danger">{error}</Alert>}
     </div>
   );
 }
@@ -136,6 +311,12 @@ function ChannelCard({ platform, config = {}, onChanged }) {
         )}
       </div>
 
+      {platform === "whatsapp" && connected && config.webhookSubscribed === false && (
+        <Alert tone="warning" className="mx-5 mb-4">
+          The number can send messages, but Meta has not confirmed this app's webhook subscription. Reconnect with the WhatsApp Business Account ID or subscribe the app to the account in Meta Business Settings.
+        </Alert>
+      )}
+
       {showForm && (
         <form onSubmit={connect} className="flex flex-col gap-4 border-t border-line p-5">
           <p className="text-caption text-fg-muted">
@@ -181,6 +362,10 @@ function ChannelCard({ platform, config = {}, onChanged }) {
             </Button>
           </div>
         </form>
+      )}
+
+      {platform === "whatsapp" && !connected && (
+        <EmbeddedSignup accountConfig={config} onChanged={onChanged} />
       )}
 
       <ConfirmDialog

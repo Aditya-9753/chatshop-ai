@@ -8,6 +8,13 @@ const path = require("path");
 require("dotenv").config();
 const allowedOrigins = require("./utils/origins");
 
+require("./models/WhatsAppAIUsage.model");
+require("./models/WhatsAppWebhookJob.model");
+require("./models/WhatsAppWebhookLock.model");
+require("./models/WhatsAppBillJob.model");
+require("./models/WhatsAppBillDraft.model");
+require("./services/whatsappAssistant.service");
+
 const app = express();
 
 // Behind a load balancer or proxy (Render, Nginx...), trust it so rate
@@ -19,7 +26,7 @@ if (process.env.TRUST_PROXY) {
 
 // Database Connection
 const connectDB = require("./db/connection");
-connectDB();
+const databaseReady = connectDB();
 
 // Middleware
 app.use(
@@ -47,6 +54,9 @@ if (process.env.NODE_ENV !== "test") app.use(morgan("dev")); // Logging
 // Serve static files (uploaded images)
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
+// System Guardian module
+const guardian = require("./modules/systemGuardian");
+
 // Rate Limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -55,6 +65,9 @@ const limiter = rateLimit({
   skip: (req) => req.path.endsWith("/webhook") || req.path.startsWith("/webhooks/"),
 });
 app.use("/api/", limiter);
+
+// System Guardian – request tracking (UUID + timing, before routes)
+app.use(guardian.monitoringMiddleware);
 
 // Routes
 app.use("/api/auth", require("./routes/auth.routes"));
@@ -85,6 +98,9 @@ app.use("/api/admin/assistant", assistantRoutes.admin);
 // Platform name and support contact, shown on public pages
 app.get("/api/settings/public", require("./controllers/adminTools.controller").publicSettings);
 
+// System Guardian – Super Admin only incident / health / recovery API
+app.use("/api/admin/guardian", guardian.router);
+
 // Health Check
 app.get("/", (req, res) => {
   res.json({
@@ -94,14 +110,8 @@ app.get("/", (req, res) => {
   });
 });
 
-// Error Handler
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(err.status || 500).json({
-    success: false,
-    message: err.message || "Internal Server Error",
-  });
-});
+// Error Handler (System Guardian – replaces generic handler, creates incidents for 5xx)
+app.use(guardian.guardianErrorHandler);
 
 // 404 Handler
 app.use((req, res) => {
@@ -110,5 +120,14 @@ app.use((req, res) => {
     message: "Route not found",
   });
 });
+
+app.locals.databaseReady = databaseReady;
+
+if (process.env.NODE_ENV !== "test") {
+  databaseReady.then(() => {
+    require("./services/whatsappWebhookQueue.service").start();
+    require("./services/whatsappBillQueue.service").start();
+  });
+}
 
 module.exports = app;

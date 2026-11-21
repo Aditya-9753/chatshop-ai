@@ -1,14 +1,81 @@
 const express = require("express");
 const crypto = require("crypto");
+const mongoose = require("mongoose");
 const { protect } = require("../../middleware/auth.middleware");
 const { emiContext, ROLE_LABELS, permissionsOf } = require("../middleware/rbac");
 const { AppError, ah } = require("../utils/helpers");
 const { DomainError } = require("../domain/emi");
 const { listStores } = require("../services/team.service");
 const { gatewayWebhook } = require("../services/ops.service");
+const invoicePdf = require("../services/invoicePdf.service");
+const { Invoice } = require("../models/sales");
+const WhatsAppBillJob = require("../../models/WhatsAppBillJob.model");
 
 // EMI & billing API, mounted at /api/emi
 const router = express.Router();
+const isOid = (value) => mongoose.Types.ObjectId.isValid(String(value || ""));
+
+// Meta can fetch a PDF only with a short-lived HMAC URL created by an
+// authenticated invoice-send request. Ordinary public invoice IDs reveal nothing.
+router.get(
+  "/public/whatsapp-bills/:jobId/pdf",
+  ah(async (req, res) => {
+    const { jobId } = req.params;
+    if (
+      !isOid(jobId) ||
+      !invoicePdf.verifyBillSignedUrl(jobId, req.query.expires, req.query.sig)
+    ) {
+      throw new AppError(401, "Invoice PDF link is invalid or expired");
+    }
+    const job = await WhatsAppBillJob.findOne({
+      _id: jobId,
+      status: { $in: ["processing", "completed"] },
+      pdfFileId: { $exists: true },
+    })
+      .select("tenantId invoiceId pdfFileId")
+      .lean();
+    if (!job) throw new AppError(404, "Invoice PDF nahi mila");
+    const pdf = await invoicePdf.loadStoredBillPdf({
+      fileId: job.pdfFileId,
+      tenantId: job.tenantId,
+      jobId,
+    });
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `inline; filename="Invoice-${job.invoiceId}.pdf"`,
+      "Cache-Control": "private, no-store",
+      "X-Content-Type-Options": "nosniff",
+    });
+    res.send(pdf);
+  }),
+);
+
+router.get(
+  "/public/invoices/:id/pdf",
+  ah(async (req, res) => {
+    const { id } = req.params;
+    if (
+      !isOid(id) ||
+      !invoicePdf.verifySignedUrl(id, req.query.expires, req.query.sig)
+    ) {
+      throw new AppError(401, "Invoice PDF link is invalid or expired");
+    }
+    const invoice = await Invoice.collection.findOne(
+      { _id: new mongoose.Types.ObjectId(id) },
+      { projection: { tenantId: 1 } },
+    );
+    if (!invoice) throw new AppError(404, "Invoice nahi mila");
+    const data = await invoicePdf.loadInvoice(invoice.tenantId, id);
+    const pdf = await invoicePdf.renderInvoicePdf(data);
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `inline; filename="Invoice-${String(data.invoice.invoiceNo || id).replace(/[^\w.-]/g, "_")}.pdf"`,
+      "Cache-Control": "private, no-store",
+      "X-Content-Type-Options": "nosniff",
+    });
+    res.send(pdf);
+  }),
+);
 
 // Payment gateway webhook: HMAC-SHA256 of the raw body in x-signature
 router.post(

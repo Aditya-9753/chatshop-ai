@@ -20,6 +20,7 @@ const withKey = (key) => (key ? { headers: { "Idempotency-Key": key } } : undefi
 
 export const emiApi = {
   get: (path, params) => api.get(`/emi${path}`, { params }),
+  download: (path) => api.get(`/emi${path}`, { responseType: "blob" }),
   post: (path, body, key) => api.post(`/emi${path}`, body, withKey(key)),
   patch: (path, body) => api.patch(`/emi${path}`, body),
   put: (path, body) => api.put(`/emi${path}`, body),

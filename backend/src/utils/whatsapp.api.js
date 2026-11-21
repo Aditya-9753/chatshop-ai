@@ -83,6 +83,24 @@ class WhatsAppAPI {
     }
   }
 
+  async sendTypingIndicator(phoneNumberId, accessToken, messageId) {
+    try {
+      const response = await axios.post(
+        `${GRAPH_API_URL}/${phoneNumberId}/messages`,
+        {
+          messaging_product: "whatsapp",
+          status: "read",
+          message_id: messageId,
+          typing_indicator: { type: "text" },
+        },
+        { headers: this.headers(accessToken), timeout: 10000 },
+      );
+      return response.data;
+    } catch (error) {
+      throw toMetaError(error, "Failed to send WhatsApp typing indicator");
+    }
+  }
+
   // Check the credentials by reading the phone number they belong to
   async getPhoneNumber(phoneNumberId, accessToken) {
     try {

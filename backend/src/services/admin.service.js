@@ -5,6 +5,7 @@ const Order = require("../models/Order.model");
 const Product = require("../models/Product.model");
 const Conversation = require("../models/Conversation.model");
 const InternalNote = require("../models/InternalNote.model");
+const ReservedEmail = require("../models/ReservedEmail.model");
 const { currentPlan } = require("../billing/plans");
 const revenue = require("../billing/revenue");
 const { REVENUE_MATCH, ORDER_MATCH } = require("../utils/revenue");
@@ -253,6 +254,11 @@ class AdminService {
     if (!user) {
       throw new Error("User not found");
     }
+    await ReservedEmail.updateOne(
+      { email: user.email.toLowerCase() },
+      { $set: { email: user.email.toLowerCase(), previousUserId: user._id, reason: "account_deleted" } },
+      { upsert: true }
+    );
 
     // Delete all user data
     await Promise.all([

@@ -13,6 +13,7 @@ import { AdminCustomers, AdminOrders, AdminProducts } from "../features/admin/Ad
 import AdminMessages from "../features/admin/AdminMessages";
 import AdminSettings from "../features/admin/AdminSettings";
 import AdminSecurity from "../features/admin/AdminSecurity";
+import { SystemHealth, IncidentCenter, IncidentDetails, GuardianNotifications, AuditLogs } from "../features/systemGuardian";
 
 const SECTIONS = {
   overview: AdminOverview,
@@ -27,20 +28,30 @@ const SECTIONS = {
   emi: AdminEmi,
   settings: AdminSettings,
   security: AdminSecurity,
+  // System Guardian sections (Super Admin only)
+  guardian_health: SystemHealth,
+  guardian_incidents: IncidentCenter,
+  guardian_notifications: GuardianNotifications,
+  guardian_audit: AuditLogs,
 };
 
 const AdminDashboard = () => {
   const [params, setParams] = useSearchParams();
   const { isSuperAdmin, isShopAdmin } = useAuth();
   const section = sectionsFor(isSuperAdmin, isShopAdmin).some((s) => s.value === params.get("section")) ? params.get("section") : "overview";
+  const incidentId = params.get("incident");
   // An Admin who looks after one shop gets that shop's overview, not the platform's
-  const Section = isShopAdmin && section === "overview" ? ShopAdminOverview : SECTIONS[section];
+  let Section = isShopAdmin && section === "overview" ? ShopAdminOverview : SECTIONS[section];
+  if (section === "guardian_incidents" && incidentId) Section = IncidentDetails;
   // "Refresh data" remounts the section, which reloads everything it shows
   const [refreshKey, setRefreshKey] = useState(0);
 
   return (
     <AdminShell section={section} onSection={(value) => setParams({ section: value })} onRefresh={() => setRefreshKey((k) => k + 1)}>
-      <Section key={`${section}-${refreshKey}`} />
+      <Section
+        key={`${section}-${incidentId || ""}-${refreshKey}`}
+        incidentId={incidentId || undefined}
+      />
     </AdminShell>
   );
 };
