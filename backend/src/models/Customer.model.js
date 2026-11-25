@@ -60,4 +60,4 @@ customerSchema.index(
   { name: "shop_platform_contact" },
 );
 
-module.exports = mongoose.model("Customer", customerSchema);
+module.exports = mongoose.models["Customer"] || mongoose.model("Customer", customerSchema);

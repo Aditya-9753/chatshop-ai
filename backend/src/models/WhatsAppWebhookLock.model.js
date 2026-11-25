@@ -11,4 +11,4 @@ const webhookLockSchema = new mongoose.Schema(
 
 webhookLockSchema.index({ leaseExpiresAt: 1 }, { expireAfterSeconds: 0 });
 
-module.exports = mongoose.model("WhatsAppWebhookLock", webhookLockSchema);
+module.exports = mongoose.models["WhatsAppWebhookLock"] || mongoose.model("WhatsAppWebhookLock", webhookLockSchema);

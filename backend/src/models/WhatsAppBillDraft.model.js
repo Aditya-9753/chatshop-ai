@@ -33,4 +33,4 @@ const billDraftSchema = new mongoose.Schema(
 billDraftSchema.index({ tenantId: 1, customerId: 1, status: 1, expiresAt: -1 });
 billDraftSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
-module.exports = mongoose.model("WhatsAppBillDraft", billDraftSchema);
+module.exports = mongoose.models["WhatsAppBillDraft"] || mongoose.model("WhatsAppBillDraft", billDraftSchema);

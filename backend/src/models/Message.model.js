@@ -183,4 +183,4 @@ messageSchema.index(
 // 2. Fetching only NOT deleted messages (for standard UI view)
 messageSchema.index({ userId: 1, isDeleted: 1 });
 
-module.exports = mongoose.model("Message", messageSchema);
+module.exports = mongoose.models["Message"] || mongoose.model("Message", messageSchema);

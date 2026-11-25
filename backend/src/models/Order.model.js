@@ -89,4 +89,4 @@ const orderSchema = new mongoose.Schema(
 orderSchema.index({ userId: 1, status: 1 });
 orderSchema.index({ orderNumber: 1 }, { unique: true });
 
-module.exports = mongoose.model("Order", orderSchema);
+module.exports = mongoose.models["Order"] || mongoose.model("Order", orderSchema);

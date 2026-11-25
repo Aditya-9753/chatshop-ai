@@ -123,10 +123,15 @@ app.use((req, res) => {
 
 app.locals.databaseReady = databaseReady;
 
-if (process.env.NODE_ENV !== "test") {
-  databaseReady.then(() => {
-    require("./services/whatsappWebhookQueue.service").start();
-    require("./services/whatsappBillQueue.service").start();
+if (process.env.NODE_ENV !== "test" && process.env.RUN_BACKGROUND_WORKERS !== "false") {
+  databaseReady.then(async () => {
+    await require("./services/whatsappWebhookQueue.service").start();
+    await require("./services/whatsappBillQueue.service").start();
+    if (process.env.PRODUCT_VECTOR_SEARCH_ENABLED === "true") {
+      await require("./services/productEmbeddingQueue.service").start();
+    }
+  }).catch((error) => {
+    console.error("Background worker startup failed:", error.message);
   });
 }
 

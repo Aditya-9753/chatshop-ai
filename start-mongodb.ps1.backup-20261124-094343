@@ -1,0 +1,32 @@
+# Self-elevating MongoDB starter script
+# Automatically requests admin rights via UAC popup
+
+param([switch]$Elevated)
+
+function Test-Admin {
+    $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = New-Object Security.Principal.WindowsPrincipal($currentUser)
+    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+# If not admin, re-launch this script as admin (UAC popup will appear)
+if (-not (Test-Admin)) {
+    Write-Host "🔑 Admin rights needed for MongoDB data folder..." -ForegroundColor Yellow
+    Write-Host "   UAC popup aayega - 'Yes' click karo" -ForegroundColor Cyan
+    Start-Sleep -Seconds 1
+    Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" -Elevated" -Verb RunAs
+    exit
+}
+
+Write-Host ""
+Write-Host "✅ Admin rights confirmed!" -ForegroundColor Green
+Write-Host "🚀 Starting MongoDB on port 27017 (auth disabled)..." -ForegroundColor Cyan
+Write-Host ""
+Write-Host "   Press Ctrl+C to stop MongoDB" -ForegroundColor Gray
+Write-Host "   Keep this window open!" -ForegroundColor Yellow
+Write-Host ""
+
+$mongod = "C:\Program Files\MongoDB\Server\8.2\bin\mongod.exe"
+$dataPath = "C:\Program Files\MongoDB\Server\8.2\data"
+
+& $mongod --dbpath $dataPath --port 27017 --noauth --logpath "$dataPath\mongod.log" --logappend

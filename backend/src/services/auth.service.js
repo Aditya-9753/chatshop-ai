@@ -137,8 +137,9 @@ class AuthService {
 
   // Login user
   async login(email, password) {
-    // Find user and explicitly select password field
-    const user = await User.findOne({ email: email.toLowerCase() }).select("+password +adminPanel.password");
+    // Match the normalized email format used for stored accounts.
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+    const user = await User.findOne({ email: normalizedEmail }).select("+password +adminPanel.password");
     if (!user) {
       throw new Error("Invalid email or password");
     }

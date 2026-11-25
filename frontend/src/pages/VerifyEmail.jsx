@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { BadgeCheck } from "lucide-react";
 import authService from "../services/auth.service";
 import AuthLayout from "../components/auth/AuthLayout";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/AuthContext"; 
 import { Alert, Button, Input, PageLoader } from "../components/ui";
 
 export default function VerifyEmail() {

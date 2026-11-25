@@ -1,4 +1,6 @@
 const { Server } = require("socket.io");
+const { createAdapter } = require("@socket.io/redis-adapter");
+const Redis = require("ioredis");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User.model");
 const allowedOrigins = require("../utils/origins");
@@ -6,6 +8,9 @@ const allowedOrigins = require("../utils/origins");
 // Socket.io server. Each logged-in user joins the room "user:<id>", and the
 // services push inbox events into it (message:new, message:status).
 let io = null;
+let pubClient = null;
+let subClient = null;
+let adapterReady = Promise.resolve();
 
 const roomFor = (userId) => `user:${userId}`;
 
@@ -13,6 +18,18 @@ function init(httpServer) {
   io = new Server(httpServer, {
     cors: { origin: allowedOrigins, credentials: true },
   });
+  if (process.env.NODE_ENV !== "test" && process.env.REDIS_URL) {
+    pubClient = new Redis(process.env.REDIS_URL, {
+      lazyConnect: true,
+      maxRetriesPerRequest: null,
+    });
+    subClient = pubClient.duplicate();
+    adapterReady = Promise.all([pubClient.connect(), subClient.connect()]).then(() => {
+      io.adapter(createAdapter(pubClient, subClient));
+    });
+  } else {
+    adapterReady = Promise.resolve();
+  }
 
   // Authenticate the socket with the same JWT the REST API uses
   io.use(async (socket, next) => {
@@ -48,13 +65,27 @@ function emitToUser(userId, event, payload) {
   io.to(roomFor(userId.toString())).emit(event, payload);
 }
 
-function close() {
-  if (io) io.close();
+async function close() {
+  const currentIo = io;
   io = null;
+  if (currentIo) await new Promise((resolve) => currentIo.close(resolve));
+  const clients = [pubClient, subClient].filter(Boolean);
+  pubClient = null;
+  subClient = null;
+  adapterReady = Promise.resolve();
+  await Promise.all(
+    clients.map((client) =>
+      client.status === "ready" ? client.quit() : client.disconnect(),
+    ),
+  );
+}
+
+function ready() {
+  return adapterReady;
 }
 
 function getIO() {
   return io;
 }
 
-module.exports = { init, emitToUser, close, getIO };
+module.exports = { init, emitToUser, close, getIO, ready };

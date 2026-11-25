@@ -233,4 +233,4 @@ userSchema.methods.changedAdminPanelPasswordAfter = function (iat) {
 userSchema.index({ email: 1 }, { unique: true });
 userSchema.index({ "subscription.status": 1 });
 
-module.exports = mongoose.model("User", userSchema);
+module.exports = mongoose.models["User"] || mongoose.model("User", userSchema);

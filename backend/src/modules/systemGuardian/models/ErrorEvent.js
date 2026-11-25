@@ -24,4 +24,4 @@ const errorEventSchema = new mongoose.Schema(
 errorEventSchema.index({ incidentId: 1, createdAt: -1 });
 errorEventSchema.index({ requestId: 1 });
 
-module.exports = mongoose.model("ErrorEvent", errorEventSchema);
+module.exports = mongoose.models["ErrorEvent"] || mongoose.model("ErrorEvent", errorEventSchema);

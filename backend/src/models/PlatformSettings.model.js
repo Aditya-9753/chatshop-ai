@@ -36,4 +36,4 @@ const platformSettingsSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-module.exports = mongoose.model("PlatformSettings", platformSettingsSchema);
+module.exports = mongoose.models["PlatformSettings"] || mongoose.model("PlatformSettings", platformSettingsSchema);

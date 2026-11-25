@@ -13,6 +13,7 @@ const billJobSchema = new mongoose.Schema(
     },
     attempts: { type: Number, default: 0 },
     availableAt: { type: Date, default: Date.now },
+    leaseOwner: String,
     leaseExpiresAt: Date,
     pdfFileId: { type: mongoose.Schema.Types.ObjectId },
     messageId: { type: mongoose.Schema.Types.ObjectId, ref: "Message" },
@@ -26,4 +27,4 @@ billJobSchema.index({ tenantId: 1, idempotencyKey: 1 }, { unique: true });
 billJobSchema.index({ status: 1, availableAt: 1, createdAt: 1 });
 billJobSchema.index({ deleteAfter: 1 }, { expireAfterSeconds: 0 });
 
-module.exports = mongoose.model("WhatsAppBillJob", billJobSchema);
+module.exports = mongoose.models["WhatsAppBillJob"] || mongoose.model("WhatsAppBillJob", billJobSchema);

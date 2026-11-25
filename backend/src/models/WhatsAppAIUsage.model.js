@@ -13,4 +13,4 @@ const usageSchema = new mongoose.Schema(
 usageSchema.index({ userId: 1, windowStart: 1 }, { unique: true });
 usageSchema.index({ deleteAfter: 1 }, { expireAfterSeconds: 0 });
 
-module.exports = mongoose.model("WhatsAppAIUsage", usageSchema);
+module.exports = mongoose.models["WhatsAppAIUsage"] || mongoose.model("WhatsAppAIUsage", usageSchema);

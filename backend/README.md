@@ -108,6 +108,12 @@ Production mode:
 npm start
 ```
 
+For a separate WhatsApp queue worker service, set `RUN_BACKGROUND_WORKERS=false`
+on API instances and run `npm run worker` in the worker service. Both services
+must use the same MongoDB database. See
+[`docs/ai-engine-implementation.md`](../docs/ai-engine-implementation.md) for
+queue caps, retry behavior, and graceful shutdown.
+
 Server will run on `http://localhost:3001`
 
 Email verification uses the configured SMTP account and provides both a one-time link (expires in 24 hours) and a six-digit fallback code (expires in five minutes, maximum five attempts). Mobile verification uses the MSG91 OTP endpoint; set `MSG91_AUTH_KEY`, `MSG91_OTP_TEMPLATE_ID`, and optionally `MSG91_COUNTRY_CODE` in `.env`. OTP values are HMAC-hashed before storage, expire in five minutes, and are limited to five attempts. Resend is limited to once per minute.

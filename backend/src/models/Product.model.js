@@ -30,6 +30,19 @@ const productSchema = new mongoose.Schema(
       default: true,
     },
     tags: [String],
+    vectorEmbedding: {
+      type: [Number],
+      default: undefined,
+      select: false,
+    },
+    embeddingModel: { type: String, select: false },
+    embeddingContentHash: { type: String, select: false },
+    embeddingStatus: {
+      type: String,
+      enum: ["pending", "ready", "failed", "disabled"],
+      default: "disabled",
+      select: false,
+    },
     // GST invoice details; serialized products (phones) are sold by IMEI
     hsn: { type: String, trim: true },
     gstRatePct: { type: Number, enum: [0, 5, 12, 18, 28], default: 18 },
@@ -41,5 +54,9 @@ const productSchema = new mongoose.Schema(
 );
 
 productSchema.index({ userId: 1, isActive: 1 });
+productSchema.index(
+  { userId: 1, isActive: 1, name: "text", description: "text", category: "text", tags: "text" },
+  { name: "shop_active_product_text" },
+);
 
-module.exports = mongoose.model("Product", productSchema);
+module.exports = mongoose.models["Product"] || mongoose.model("Product", productSchema);

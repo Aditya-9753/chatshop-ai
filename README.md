@@ -224,6 +224,10 @@ npm run dev
 
 ## 📊 API Endpoints
 
+Scalable AI request flow, provider limits, streaming events, webhook queue
+backpressure, and separate worker deployment are documented in
+[the AI engine implementation guide](docs/ai-engine-implementation.md).
+
 ### Authentication
 
 - `POST /api/auth/register` - Register new user

@@ -7,6 +7,7 @@ const whatsappApi = require("../utils/whatsapp.api");
 const tokenVault = require("../utils/tokenVault");
 const sharedCache = require("../utils/sharedCache");
 const { isMetaAIAllowed } = require("../utils/whatsappAISettings");
+const productVectorSearch = require("./productVectorSearch.service");
 
 const WINDOW_MS = 60 * 1000;
 function positiveIntegerEnv(name, fallback, maximum) {
@@ -104,13 +105,30 @@ async function relevantProducts(userId, text) {
     .split(/\s+/)
     .filter((term) => term.length > 2 && !STOP_WORDS.has(term))
     .slice(0, 3);
-  if (!terms.length) return [];
-
   const cachePrefix = `whatsapp-catalog:${userId}:`;
   const products = await sharedCache.remember(
-    `${cachePrefix}${terms.join(" ")}`,
+    `${cachePrefix}${String(text || "").toLowerCase().trim().slice(0, 1000)}`,
     CATALOG_CACHE_TTL_MS,
     async () => {
+      if (process.env.PRODUCT_VECTOR_SEARCH_ENABLED === "true") {
+        try {
+          const matches = await productVectorSearch.searchProducts(userId, text, 5);
+          if (matches?.length) {
+            return matches.map(({ _id, name, price, serialized }) => ({
+              _id,
+              name,
+              price,
+              serialized,
+            }));
+          }
+        } catch (error) {
+          console.warn(
+            "WhatsApp vector catalog search failed; trying text search:",
+            error.message,
+          );
+        }
+      }
+      if (!terms.length) return [];
       const matches = await Product.find({
         userId,
         isActive: true,
@@ -351,4 +369,5 @@ module.exports = {
   _localReply: localReply,
   _redactContactDetails: redactContactDetails,
   _isSensitiveQuestion: (text) => NON_LLM_INTENT.test(String(text || "")),
+  _relevantProducts: relevantProducts,
 };

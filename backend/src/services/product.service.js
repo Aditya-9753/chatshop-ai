@@ -2,6 +2,18 @@ const Product = require("../models/Product.model");
 const { assertWithinLimit } = require("../billing/subscriptions");
 const sharedCache = require("../utils/sharedCache");
 
+async function scheduleProductEmbedding(productId) {
+  if (process.env.PRODUCT_VECTOR_SEARCH_ENABLED !== "true") return;
+  try {
+    await require("./productEmbeddingQueue.service").enqueueProduct(productId);
+  } catch (error) {
+    console.error(
+      `Product ${productId} was saved, but vector embedding could not be queued:`,
+      error.message,
+    );
+  }
+}
+
 async function invalidateCatalog(userId) {
   try {
     await sharedCache.deletePrefix(`whatsapp-catalog:${userId}:`);
@@ -98,6 +110,7 @@ class ProductService {
     });
 
     await invalidateCatalog(userId);
+    await scheduleProductEmbedding(product._id);
     return product;
   }
 
@@ -126,6 +139,14 @@ class ProductService {
       hsn,
       gstRatePct,
     } = updateData;
+    const embeddingContentChanged = [
+      "name",
+      "description",
+      "category",
+      "sku",
+      "tags",
+      "isActive",
+    ].some((field) => Object.prototype.hasOwnProperty.call(updateData, field));
 
     if (name) product.name = name;
     if (description) product.description = description;
@@ -143,6 +164,7 @@ class ProductService {
 
     await product.save();
     await invalidateCatalog(userId);
+    if (embeddingContentChanged) await scheduleProductEmbedding(product._id);
     return product;
   }
 

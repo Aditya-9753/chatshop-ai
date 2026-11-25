@@ -22,4 +22,5 @@ const auditLogSchema = new mongoose.Schema(
 
 auditLogSchema.index({ createdAt: -1 });
 
-module.exports = mongoose.model("AuditLog", auditLogSchema);
+// Guard against OverwriteModelError on hot-reload (nodemon)
+module.exports = mongoose.models.AuditLog || mongoose.model("AuditLog", auditLogSchema);

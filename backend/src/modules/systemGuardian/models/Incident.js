@@ -43,4 +43,4 @@ incidentSchema.index({ shopId: 1, status: 1, lastSeenAt: -1 });
 incidentSchema.index({ fingerprint: 1, status: 1 });
 incidentSchema.index({ createdAt: -1 });
 
-module.exports = mongoose.model("Incident", incidentSchema);
+module.exports = mongoose.models["Incident"] || mongoose.model("Incident", incidentSchema);

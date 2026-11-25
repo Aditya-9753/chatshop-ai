@@ -1,13 +1,13 @@
 # WhatsApp Cloud API, shop onboarding, and performance
 
 **Implementation note:** the backend acknowledges signed WhatsApp webhooks only
-after durable MongoDB enqueue. The Mongo queue is shared by app instances and
-uses per-sender leases; it already provides durable distributed work without
-requiring BullMQ. Shop auto-replies and customer-confirmed invoices are separate
-opt-ins. Catalog search can use a short-lived Redis cache, while stock and
-financial data remain fresh database reads. Meta onboarding still needs the
-deployment's approval and credentials; the local load test is not a production
-capacity guarantee.
+after durable MongoDB enqueue. MongoDB stores the idempotency and recovery
+records; with `JOB_QUEUE_BACKEND=bullmq`, Redis/BullMQ dispatches webhook and
+invoice work, and workers reconcile pending records after restarts. Shop
+auto-replies and customer-confirmed invoices are separate opt-ins. Catalog
+search can use a short-lived Redis cache, while stock and financial data remain
+fresh database reads. Meta onboarding still needs the deployment's approval
+and credentials; the local load test is not a production capacity guarantee.
 
 ## 1. Meta Cloud API in one page
 
@@ -117,12 +117,22 @@ Customer
 ```
 
 Webhook jobs retry with backoff (8 attempts); a Mongo lease serializes one
-sender across instances while different senders run concurrently. Completed
-jobs expire in 7 days, permanent failures in 30. Bill-PDF deliveries use a
-separate durable Mongo queue, an idempotency key, bounded retries, and an
-outgoing-message idempotency record. This queue was retained instead of adding
-BullMQ because it is already persistent and multi-instance; revisit Redis/BullMQ
-only if measured Mongo queue pressure justifies another service.
+sender across instances while different senders run concurrently. Queue
+admission is serialized across API instances and caps queued plus processing
+events at `WHATSAPP_WEBHOOK_MAX_BACKLOG` (default 5,000); a full or busy queue
+returns 503 so Meta retries. Each delivery is capped at
+`WHATSAPP_WEBHOOK_MAX_EVENTS_PER_REQUEST` (default 5,000). Completed jobs expire
+in 7 days, permanent failures in 30. Bill-PDF deliveries use a
+separate durable Mongo record, an idempotency key, bounded retries, and an
+outgoing-message idempotency record. Set `JOB_QUEUE_BACKEND=bullmq` and
+`REDIS_URL` on API and worker services to enable BullMQ dispatch; MongoDB
+remains the recovery source of truth.
+
+The workers can run in a separate `npm run worker` service. Set
+`RUN_BACKGROUND_WORKERS=false` on API instances to avoid starting duplicate
+queue pollers there. A graceful stop stops new claims and waits for active
+delivery jobs; see [the AI engine operations guide](ai-engine-implementation.md)
+for deployment configuration and capacity limits.
 
 ## 3. Ranked performance improvements
 
@@ -134,7 +144,7 @@ only if measured Mongo queue pressure justifies another service.
 | 4 | Shop rate cap + per-process/per-shop LLM concurrency (done) | M | Limits noisy shops; tune for number of app instances |
 | 5 | Shared Redis catalog search cache + product-write invalidation (done) | M | Fewer text searches; stock is still read fresh |
 | 6 | Per-step queue/DB/LLM/send timings (done); p95/p99 alerting | S–M | Timings are logged; dashboards/alerts need deployment monitoring |
-| 7 | Durable Mongo queue across instances (done); BullMQ only if saturated | S | Avoids another worker service until metrics justify it |
+| 7 | Mongo-backed idempotency/recovery with optional BullMQ dispatch (done) | S | Redis dispatch is enabled for the local Compose scale setup |
 | 8 | WhatsApp typing indicator for slow Gemini work (done) | S | Shows progress after a short delay |
 
 Replies default off per shop. Deterministic replies cover greetings, matching
@@ -151,6 +161,15 @@ per-process concurrency caps avoid unrestricted provider load. When a Gemini
 call is still running after `WHATSAPP_AI_TYPING_DELAY_MS` (default 1.2s), the
 Cloud API receives a typing indicator; indicator failure does not block the
 reply.
+
+The public website assistant also caps simultaneous provider calls with
+`ASSISTANT_MAX_CONCURRENCY` (default 20, valid range 1-1000). When that local
+limit is full, it answers with the existing deterministic rules and records a
+`CAPACITY` failure for the Super Admin status screen. This cap is per API
+process: with multiple replicas, aggregate provider concurrency is the
+per-process value multiplied by the number of live replicas. A shared provider
+semaphore or queue should be added only if deployment metrics show a need for
+cross-instance coordination.
 
 The app sends a completed WhatsApp message, not streamed tokens. Prompt
 caching for shop replies is not implemented. Catalog text-search results use

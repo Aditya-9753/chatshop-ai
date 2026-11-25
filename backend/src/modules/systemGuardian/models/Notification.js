@@ -29,5 +29,5 @@ const notificationSchema = new mongoose.Schema(
 notificationSchema.index({ recipientRole: 1, readAt: 1, createdAt: -1 });
 notificationSchema.index({ recipientUserId: 1, readAt: 1 });
 
-const GuardianNotification = mongoose.model("GuardianNotification", notificationSchema);
+const GuardianNotification = mongoose.models["GuardianNotification"] || mongoose.model("GuardianNotification", notificationSchema);
 module.exports = { GuardianNotification };

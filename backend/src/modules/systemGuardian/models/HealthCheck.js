@@ -19,4 +19,4 @@ const healthCheckSchema = new mongoose.Schema(
 
 healthCheckSchema.index({ serviceName: 1, checkedAt: -1 });
 
-module.exports = mongoose.model("HealthCheck", healthCheckSchema);
+module.exports = mongoose.models["HealthCheck"] || mongoose.model("HealthCheck", healthCheckSchema);

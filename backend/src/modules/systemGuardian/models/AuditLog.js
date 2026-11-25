@@ -26,4 +26,5 @@ const auditLogSchema = new mongoose.Schema(
 
 auditLogSchema.index({ incidentId: 1, createdAt: -1 });
 
-module.exports = mongoose.model("GuardianAuditLog", auditLogSchema);
+// Guard against OverwriteModelError on hot-reload (nodemon)
+module.exports = mongoose.models.GuardianAuditLog || mongoose.model("GuardianAuditLog", auditLogSchema);

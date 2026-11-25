@@ -10,4 +10,4 @@ const reservedEmailSchema = new mongoose.Schema(
   { timestamps: true, collection: "reserved_emails" }
 );
 
-module.exports = mongoose.model("ReservedEmail", reservedEmailSchema);
+module.exports = mongoose.models["ReservedEmail"] || mongoose.model("ReservedEmail", reservedEmailSchema);

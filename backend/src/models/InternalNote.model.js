@@ -32,4 +32,4 @@ const internalNoteSchema = new mongoose.Schema(
 
 internalNoteSchema.index({ customerId: 1, createdAt: -1 });
 
-module.exports = mongoose.model("InternalNote", internalNoteSchema);
+module.exports = mongoose.models["InternalNote"] || mongoose.model("InternalNote", internalNoteSchema);

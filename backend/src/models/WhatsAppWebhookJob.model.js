@@ -26,4 +26,4 @@ webhookJobSchema.index({ status: 1, availableAt: 1, createdAt: 1 });
 webhookJobSchema.index({ partitionKey: 1, status: 1, createdAt: 1 });
 webhookJobSchema.index({ deleteAfter: 1 }, { expireAfterSeconds: 0 });
 
-module.exports = mongoose.model("WhatsAppWebhookJob", webhookJobSchema);
+module.exports = mongoose.models["WhatsAppWebhookJob"] || mongoose.model("WhatsAppWebhookJob", webhookJobSchema);

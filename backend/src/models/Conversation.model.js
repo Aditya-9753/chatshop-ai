@@ -66,4 +66,4 @@ const conversationSchema = new mongoose.Schema(
 conversationSchema.index({ userId: 1, customerId: 1, platform: 1 }, { unique: true });
 conversationSchema.index({ userId: 1, "lastMessage.timestamp": -1 });
 
-module.exports = mongoose.model("Conversation", conversationSchema);
+module.exports = mongoose.models["Conversation"] || mongoose.model("Conversation", conversationSchema);

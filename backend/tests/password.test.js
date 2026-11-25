@@ -73,6 +73,13 @@ test("wrong password on login returns 401 with a readable message", async () => 
   assert.equal(res.body.message, "Invalid email or password");
 });
 
+test("login accepts existing credentials with email casing and surrounding spaces", async () => {
+  const { user } = await registerUser(app, { password: "LegacyPass123" });
+  const res = await login(`  ${user.email.toUpperCase()}  `, "LegacyPass123");
+  assert.equal(res.status, 200);
+  assert.equal(res.body.data.user.id, user.id);
+});
+
 test("forgot → email → reset → login works end to end, and the link works once", async () => {
   const { user } = await registerUser(app, { password: "Original123" });
   sentEmails = [];

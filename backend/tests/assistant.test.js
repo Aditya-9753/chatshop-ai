@@ -182,6 +182,67 @@ test("route: Gemini answers when chosen; a busy model passes to the next, total 
   }
 });
 
+test("multiple questions run independently in parallel and retain per-question outcomes", async () => {
+  process.env.ANTHROPIC_API_KEY = "test-key";
+  process.env.ASSISTANT_PROVIDER = "claude";
+  let active = 0;
+  let peak = 0;
+  const questions = [];
+  assistant._setClient({
+    beta: {
+      messages: {
+        create: async ({ messages }) => {
+          active += 1;
+          peak = Math.max(peak, active);
+          const question = messages[messages.length - 1].content;
+          questions.push(question);
+          await new Promise((resolve) => setTimeout(resolve, 15));
+          active -= 1;
+          return {
+            stop_reason: "end_turn",
+            model: "test-model",
+            content: [{ type: "text", text: `Answer: ${question}` }],
+          };
+        },
+      },
+    },
+  });
+  try {
+    const result = await assistant.chat(
+      [{ role: "user", content: "ChatShop kya hai? price kitna hai?" }],
+      { track: false },
+    );
+    assert.equal(questions.length, 2);
+    assert.equal(peak, 2);
+    assert.match(result.reply, /^1\. Answer: ChatShop kya hai\n2\. Answer: price kitna hai$/);
+    assert.deepEqual(result.taskResults.map(({ status, source }) => ({ status, source })), [
+      { status: "completed", source: "ai" },
+      { status: "completed", source: "ai" },
+    ]);
+    assert.ok(result.modelMs >= 20);
+
+    process.env.ASSISTANT_AI = "off";
+    const stream = await request(app)
+      .post("/api/assistant/chat/stream")
+      .send({ messages: [{ role: "user", content: "ChatShop kya hai? price kitna hai?" }] });
+    delete process.env.ASSISTANT_AI;
+    assert.equal(stream.status, 200);
+    assert.match(stream.text, /event: plan\.created/);
+    assert.equal((stream.text.match(/event: answer\.question\.completed/g) || []).length, 2);
+    const requestId = JSON.parse(stream.text.match(/event: request\.accepted\ndata: (.+)/)[1]).requestId;
+    const status = await request(app).get(`/api/assistant/requests/${requestId}`);
+    assert.deepEqual(status.body.data.taskResults.map(({ status: taskStatus }) => taskStatus), [
+      "completed",
+      "completed",
+    ]);
+  } finally {
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.ASSISTANT_PROVIDER;
+    delete process.env.ASSISTANT_AI;
+    assistant._setClient(null);
+  }
+});
+
 test("Super Admin status: which AI, keys, counts, last error; test chat isn't counted", async () => {
   const { registerUser } = require("./helpers");
   const User = require("../src/models/User.model");
@@ -202,6 +263,7 @@ test("Super Admin status: which AI, keys, counts, last error; test chat isn't co
   const s = res.body.data;
   assert.equal(s.active, null); // no key in tests
   assert.deepEqual(s.keys, { claude: false, gemini: false });
+  assert.equal(s.productEmbeddingQueue.enabled, false);
   assert.equal(s.series.length, 14);
   // Earlier tests in this file: AI answers, built-in answers, failures and a declined reply
   assert.ok(s.today.total >= 8, `today ${JSON.stringify(s.today)}`);

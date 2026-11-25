@@ -15,11 +15,20 @@ const ERRORS = {
   MODEL: ["Model not available for this key", "Set GEMINI_MODEL in backend/.env to a model your key can use."],
   BUSY: ["AI service busy", "Usually temporary. The next model in the list is tried by itself; visitors get built-in answers if all are busy."],
   NETWORK: ["Couldn't reach the AI service", "Check the server's internet connection."],
+  CAPACITY: ["AI concurrency limit reached", "Reduce ASSISTANT_MAX_CONCURRENCY or add API capacity only after checking provider quotas; visitors get built-in answers in the meantime."],
+  TIMEOUT: ["AI provider timed out", "Check provider latency and ASSISTANT_REQUEST_TIMEOUT_MS; visitors get built-in answers meanwhile."],
+  QUESTION_LIMIT: ["Too many questions in one request", "Visitors are asked to split messages into smaller groups."],
   OTHER: ["Unexpected error", "See the message below and the backend terminal."],
 };
 
 const seconds = (ms) => (ms === null || ms === undefined ? "—" : `${(ms / 1000).toFixed(1)}s`);
 const pct = (part, total) => (total ? `${Math.round((part / total) * 100)}%` : "—");
+const usd = (value) => value === null || value === undefined
+  ? "Not configured"
+  : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 4 }).format(value);
+const bytes = (value) => value === null || value === undefined
+  ? "—"
+  : `${(value / 1024 / 1024).toFixed(1)} MB`;
 
 // Working, problem, or no AI at all, from the last success and failure
 function health(s) {
@@ -64,7 +73,9 @@ function StatusCard({ s }) {
           <DetailRow label="Models">
             {s.active === "claude" ? s.models.claude : s.active === "gemini" ? s.models.gemini.join(" → ") : "—"}
           </DetailRow>
-          <DetailRow label="Limit per visitor">{s.rateLimitPerMinute} messages a minute</DetailRow>
+          <DetailRow label="Limit per visitor">{s.rateLimitPerMinute} messages/minute {s.sharedRateLimitEnabled ? "(shared Redis)" : "(per API process)"}</DetailRow>
+          <DetailRow label="Provider concurrency">{s.activeCalls}/{s.maxConcurrentCalls} this process; {s.sharedConcurrencyEnabled ? `${s.globalMaxConcurrentCalls} shared` : `${s.globalMaxConcurrentCalls} configured, Redis off`}</DetailRow>
+          <DetailRow label="Provider timeout">{seconds(s.requestTimeoutMs)}</DetailRow>
           <DetailRow label="Last AI answer">
             {s.lastSuccess ? `${formatDateTime(s.lastSuccess.at)} · ${s.lastSuccess.model || s.lastSuccess.provider} · ${seconds(s.lastSuccess.ms)}` : "Never"}
           </DetailRow>
@@ -196,14 +207,18 @@ export default function AdminAssistant() {
     <div>
       <PageHeader
         title="AI Assistant"
-        description="The ChatShop AI chat on the website: which AI answers and how it's doing. Visitors' messages aren't stored, only counts."
+        description="Website AI health and WhatsApp queue operations. Visitor conversation history isn't stored; request results expire after 24 hours."
       />
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 2xl:grid-cols-9">
         <StatCard label="Questions today" icon={MessageSquare} loading={!s} value={formatNumber(s?.today.total)} deltaNote={s && `${formatNumber(s.period.total)} in ${s.period.days} days`} />
         <StatCard label="Answered by AI" icon={Bot} loading={!s} value={formatNumber(s?.today.ai)} deltaNote={s && `${pct(s.today.ai, s.today.total)} of today`} />
         <StatCard label="Built-in answers" icon={Zap} loading={!s} value={formatNumber(s?.today.rules)} deltaNote="When there's no AI or it fails" />
         <StatCard label="AI failures" icon={AlertTriangle} loading={!s} value={formatNumber(s?.today.failures)} deltaNote={s && (s.today.declined ? `${s.today.declined} declined by safety filter` : `${formatNumber(s.period.failures)} in ${s.period.days} days`)} />
         <StatCard label="AI reply time" icon={Timer} loading={!s} value={seconds(s?.today.avgMs ?? s?.period.avgMs)} deltaNote={s && `Average, ${s.today.avgMs !== null ? "today" : `last ${s.period.days} days`}`} />
+        <StatCard label="P95 response" icon={Timer} loading={!s} value={seconds(s?.today.p95Ms ?? s?.period.p95Ms)} deltaNote="Approximate latency bucket" />
+        <StatCard label="P99 response" icon={Timer} loading={!s} value={seconds(s?.today.p99Ms ?? s?.period.p99Ms)} deltaNote="Approximate latency bucket" />
+        <StatCard label="Tokens" icon={Zap} loading={!s} value={formatNumber((s?.period.inputTokens || 0) + (s?.period.outputTokens || 0))} deltaNote="Input + output over period" />
+        <StatCard label="Estimated provider cost" icon={Timer} loading={!s} value={usd(s?.period.estimatedCostUsd)} deltaNote="Configure USD / 1M token rates in backend/.env" />
       </div>
 
       {!s ? (
@@ -212,6 +227,57 @@ export default function AdminAssistant() {
           <Skeleton className="h-96 rounded-xl" />
         </div>
       ) : (
+        <>
+        <div className="mt-6 grid gap-4 xl:grid-cols-2">
+          <Card>
+            <CardHeader title="WhatsApp webhook queue" description="Durable inbound events across all API and worker instances." />
+            <CardBody>
+              <dl className="divide-y divide-line">
+                <DetailRow label="Queued">{formatNumber(s.whatsappWebhookQueue.queued)} / {formatNumber(s.whatsappWebhookQueue.maxBacklog)}</DetailRow>
+                <DetailRow label="Processing">{formatNumber(s.whatsappWebhookQueue.processing)} ({formatNumber(s.whatsappWebhookQueue.activeHere)} on this process)</DetailRow>
+                <DetailRow label="Failed">{formatNumber(s.whatsappWebhookQueue.failed)}</DetailRow>
+                <DetailRow label="Oldest waiting">{seconds(s.whatsappWebhookQueue.oldestWaitMs)}</DetailRow>
+              </dl>
+            </CardBody>
+          </Card>
+          <Card>
+            <CardHeader title="WhatsApp invoice delivery queue" description="Queued invoice PDFs and message delivery jobs." />
+            <CardBody>
+              <dl className="divide-y divide-line">
+                <DetailRow label="Queued">{formatNumber(s.whatsappBillQueue.queued)}</DetailRow>
+                <DetailRow label="Processing">{formatNumber(s.whatsappBillQueue.processing)} ({formatNumber(s.whatsappBillQueue.activeHere)} on this process)</DetailRow>
+                <DetailRow label="Failed">{formatNumber(s.whatsappBillQueue.failed)}</DetailRow>
+                <DetailRow label="Oldest waiting">{seconds(s.whatsappBillQueue.oldestWaitMs)}</DetailRow>
+              </dl>
+            </CardBody>
+          </Card>
+        </div>
+        <div className="mt-4">
+          <Card>
+            <CardHeader title="Product vector indexing" description="Tenant-filtered WhatsApp catalog embeddings; Gemini is used only when enabled." />
+            <CardBody>
+              <dl className="divide-y divide-line">
+                <DetailRow label="Vector search">
+                  {s.productEmbeddingQueue.enabled ? <Badge tone="success">Enabled</Badge> : <Badge>Disabled</Badge>}
+                </DetailRow>
+                <DetailRow label="Embedding jobs">{formatNumber(s.productEmbeddingQueue.waiting)} queued · {formatNumber(s.productEmbeddingQueue.active)} active</DetailRow>
+                <DetailRow label="Failed jobs">{formatNumber(s.productEmbeddingQueue.failed)}</DetailRow>
+              </dl>
+            </CardBody>
+          </Card>
+        </div>
+        <div className="mt-4">
+          <Card>
+            <CardHeader title="Runtime and cache" description="Process-local snapshot; CPU values are cumulative since process start." />
+            <CardBody>
+              <dl className="divide-y divide-line">
+                <DetailRow label="Memory RSS">{bytes(s.runtime.memoryRssBytes)} · heap {bytes(s.runtime.heapUsedBytes)} / {bytes(s.runtime.heapTotalBytes)}</DetailRow>
+                <DetailRow label="CPU time">{formatNumber(s.runtime.cpuUserMs)} ms user · {formatNumber(s.runtime.cpuSystemMs)} ms system</DetailRow>
+                <DetailRow label="Cache hits / misses">{formatNumber(s.cache.hits)} / {formatNumber(s.cache.misses)} ({s.cache.scope})</DetailRow>
+              </dl>
+            </CardBody>
+          </Card>
+        </div>
         <div className="mt-6 grid gap-6 xl:grid-cols-2">
           <div className="flex min-w-0 flex-col gap-6">
             <StatusCard s={s} />
@@ -236,12 +302,13 @@ export default function AdminAssistant() {
                   <li>The AI set in backend/.env (Gemini or Claude) answers from ChatShop's real features and live plan prices, in the visitor's language, and greets them by name.</li>
                   <li>If a Gemini model is busy, the next one in the list is tried.</li>
                   <li>With no key, or if the AI fails or declines, the built-in answers reply, so the chat never stops working.</li>
-                  <li>Each visitor can ask {s.rateLimitPerMinute} questions a minute, which keeps AI costs down.</li>
+                  <li>Each visitor can ask {s.rateLimitPerMinute} questions a minute per API process; simultaneous provider calls are capped at {s.maxConcurrentCalls} per process.</li>
                 </ol>
               </CardBody>
             </Card>
           </div>
         </div>
+        </>
       )}
     </div>
   );

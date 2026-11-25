@@ -1,5 +1,7 @@
 const crypto = require("crypto");
 const os = require("os");
+const { DelayedError, Queue, Worker } = require("bullmq");
+const IORedis = require("ioredis");
 const WhatsAppWebhookJob = require("../models/WhatsAppWebhookJob.model");
 const WhatsAppWebhookLock = require("../models/WhatsAppWebhookLock.model");
 const whatsappService = require("./whatsapp.service");
@@ -17,6 +19,10 @@ function positiveIntegerEnv(name, fallback, minimum = 1) {
 const LEASE_MS = positiveIntegerEnv("WHATSAPP_WEBHOOK_LEASE_MS", 60000, 6000);
 const MAX_ATTEMPTS = positiveIntegerEnv("WHATSAPP_WEBHOOK_MAX_ATTEMPTS", 8);
 const WORKER_CONCURRENCY = positiveIntegerEnv("WHATSAPP_WEBHOOK_CONCURRENCY", 8);
+const MAX_BACKLOG = positiveIntegerEnv("WHATSAPP_WEBHOOK_MAX_BACKLOG", 5000);
+const MAX_EVENTS_PER_REQUEST = positiveIntegerEnv("WHATSAPP_WEBHOOK_MAX_EVENTS_PER_REQUEST", MAX_BACKLOG);
+if (MAX_EVENTS_PER_REQUEST > MAX_BACKLOG) throw new Error("WHATSAPP_WEBHOOK_MAX_EVENTS_PER_REQUEST cannot exceed WHATSAPP_WEBHOOK_MAX_BACKLOG");
+const ADMISSION_LOCK = "__whatsapp_webhook_admission__";
 const WORKER_ID = `${os.hostname()}:${process.pid}:${crypto.randomUUID()}`;
 const RETRY_BASE_MS = 1000;
 const RETRY_MAX_MS = 5 * 60 * 1000;
@@ -24,6 +30,58 @@ const RETRY_MAX_MS = 5 * 60 * 1000;
 let activeJobs = 0;
 let pumping = false;
 let timer;
+let stopping = false;
+let bullQueue;
+let bullWorker;
+let bullConnection;
+let bullWorkerConnection;
+let reconcileTimer;
+const BULL_QUEUE_NAME = "chatshop-whatsapp-webhooks";
+
+function bullMode() {
+  const backend = process.env.JOB_QUEUE_BACKEND || "mongodb";
+  if (!["mongodb", "bullmq"].includes(backend)) {
+    throw new Error("JOB_QUEUE_BACKEND must be either mongodb or bullmq");
+  }
+  return backend === "bullmq";
+}
+
+function createRedisConnection() {
+  if (!process.env.REDIS_URL) throw new Error("REDIS_URL is required when JOB_QUEUE_BACKEND=bullmq");
+  return new IORedis(process.env.REDIS_URL, {
+    maxRetriesPerRequest: null,
+    enableReadyCheck: false,
+  });
+}
+
+function getBullQueue() {
+  if (!bullQueue) {
+    bullConnection = createRedisConnection();
+    bullQueue = new Queue(BULL_QUEUE_NAME, { connection: bullConnection });
+  }
+  return bullQueue;
+}
+
+async function dispatchBullJob(job) {
+  return getBullQueue().add(
+    "process-webhook",
+    { mongoJobId: String(job._id) },
+    {
+      jobId: `webhook-${job._id}-${job.attempts || 0}`,
+      delay: Math.max(0, new Date(job.availableAt).getTime() - Date.now()),
+      attempts: 5,
+      backoff: { type: "exponential", delay: 1000 },
+      removeOnComplete: 1000,
+      removeOnFail: true,
+    },
+  );
+}
+
+async function deferBullJob(job, delayMs = 500) {
+  if (!job.token) throw new Error("BullMQ worker did not provide a job lock token");
+  await job.moveToDelayed(Date.now() + Math.max(250, delayMs), job.token);
+  throw new DelayedError();
+}
 
 const digest = (value) =>
   crypto.createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -99,26 +157,56 @@ function splitWebhookEvents(webhookData) {
 }
 
 async function enqueueWebhook(webhookData) {
-  const events = splitWebhookEvents(webhookData);
+  const allEvents = splitWebhookEvents(webhookData);
+  if (allEvents.length > MAX_EVENTS_PER_REQUEST) {
+    const error = new Error("WhatsApp webhook contains too many events for one delivery");
+    error.code = "WEBHOOK_EVENT_BATCH_LIMIT";
+    throw error;
+  }
+  const events = [...new Map(allEvents.map((event) => [event.idempotencyKey, event])).values()];
   if (!events.length) return { accepted: 0 };
 
   const startedAt = Date.now();
-  for (const event of events) {
-    try {
-      await WhatsAppWebhookJob.updateOne(
-        { idempotencyKey: event.idempotencyKey },
-        {
-          $setOnInsert: {
-            ...event,
-            status: "queued",
-            availableAt: new Date(),
-          },
-        },
-        { upsert: true },
-      );
-    } catch (error) {
-      if (error.code !== 11000) throw error;
+  const admissionLocked = await acquirePartitionLock(ADMISSION_LOCK, new Date());
+  if (!admissionLocked) {
+    const error = new Error("WhatsApp webhook queue admission is busy");
+    error.code = "WEBHOOK_QUEUE_BUSY";
+    throw error;
+  }
+  try {
+    const existing = await WhatsAppWebhookJob.find({ idempotencyKey: { $in: events.map((event) => event.idempotencyKey) } }).select("idempotencyKey").lean();
+    const seen = new Set(existing.map((job) => job.idempotencyKey));
+    const newEvents = events.filter((event) => !seen.has(event.idempotencyKey));
+    const pending = await WhatsAppWebhookJob.countDocuments({ status: { $in: ["queued", "processing"] } });
+    if (pending + newEvents.length > MAX_BACKLOG) {
+      const error = new Error("WhatsApp webhook queue is at its configured backlog limit");
+      error.code = "WEBHOOK_QUEUE_FULL";
+      throw error;
     }
+
+    for (const event of newEvents) {
+      try {
+        await WhatsAppWebhookJob.updateOne(
+          { idempotencyKey: event.idempotencyKey },
+          { $setOnInsert: { ...event, status: "queued", availableAt: new Date() } },
+          { upsert: true },
+        );
+      } catch (error) {
+        if (error.code !== 11000) throw error;
+      }
+    }
+  } finally {
+    await releaseLease(ADMISSION_LOCK);
+  }
+
+  if (bullMode()) {
+    const queuedJobs = await WhatsAppWebhookJob.find({
+      idempotencyKey: { $in: events.map((event) => event.idempotencyKey) },
+      status: "queued",
+    })
+      .select("_id attempts availableAt")
+      .lean();
+    await Promise.all(queuedJobs.map(dispatchBullJob));
   }
 
   console.info(
@@ -276,11 +364,123 @@ async function processJob(job) {
   }
 }
 
+async function processBullJob(queueJob) {
+  const current = await WhatsAppWebhookJob.findById(queueJob.data.mongoJobId).lean();
+  if (!current || ["completed", "failed"].includes(current.status)) return;
+
+  const now = new Date();
+  if (current.status === "queued" && current.availableAt > now) {
+    return deferBullJob(queueJob, current.availableAt.getTime() - now.getTime());
+  }
+  if (current.status === "processing" && current.leaseExpiresAt > now) {
+    return deferBullJob(queueJob, current.leaseExpiresAt.getTime() - now.getTime());
+  }
+
+  const earlier = await WhatsAppWebhookJob.exists({
+    _id: { $ne: current._id },
+    partitionKey: current.partitionKey,
+    status: { $in: ["queued", "processing"] },
+    $or: [
+      { createdAt: { $lt: current.createdAt } },
+      { createdAt: current.createdAt, _id: { $lt: current._id } },
+    ],
+  });
+  if (earlier) return deferBullJob(queueJob);
+
+  if (!(await acquirePartitionLock(current.partitionKey, now))) {
+    return deferBullJob(queueJob);
+  }
+  const claimed = await WhatsAppWebhookJob.findOneAndUpdate(
+    {
+      _id: current._id,
+      $or: [
+        { status: "queued", availableAt: { $lte: now } },
+        { status: "processing", leaseExpiresAt: { $lte: now } },
+      ],
+    },
+    {
+      $set: {
+        status: "processing",
+        leaseOwner: WORKER_ID,
+        leaseExpiresAt: new Date(now.getTime() + LEASE_MS),
+      },
+      $inc: { attempts: 1 },
+    },
+    { new: true },
+  );
+  if (!claimed) {
+    await releaseLease(current.partitionKey);
+    return deferBullJob(queueJob);
+  }
+
+  activeJobs += 1;
+  try {
+    await processJob(claimed);
+  } finally {
+    activeJobs -= 1;
+  }
+  const updated = await WhatsAppWebhookJob.findById(current._id)
+    .select("_id attempts availableAt status")
+    .lean();
+  if (updated?.status === "queued") await dispatchBullJob(updated);
+}
+
+async function reconcileBullJobs() {
+  const now = new Date();
+  const pending = await WhatsAppWebhookJob.find({
+    $or: [
+      { status: "queued", availableAt: { $lte: now } },
+      { status: "processing", leaseExpiresAt: { $lte: now } },
+    ],
+  })
+    .sort({ createdAt: 1, _id: 1 })
+    .limit(WORKER_CONCURRENCY * 20)
+    .select("_id attempts availableAt")
+    .lean();
+  await Promise.all(pending.map(dispatchBullJob));
+}
+
+async function startBullWorker() {
+  if (bullWorker) return;
+  bullWorkerConnection = createRedisConnection();
+  bullWorker = new Worker(BULL_QUEUE_NAME, processBullJob, {
+    connection: bullWorkerConnection,
+    concurrency: WORKER_CONCURRENCY,
+  });
+  bullWorker.on("error", (error) =>
+    console.error("WhatsApp BullMQ worker error:", error.message),
+  );
+  bullWorker.on("failed", (job, error) =>
+    console.error(`WhatsApp BullMQ job ${job?.id || "unknown"} failed:`, error.message),
+  );
+  try {
+    await bullWorker.waitUntilReady();
+    await reconcileBullJobs();
+    reconcileTimer = setInterval(() => {
+      reconcileBullJobs().catch((error) =>
+        console.error("WhatsApp BullMQ reconciliation failed:", error.message),
+      );
+    }, 5000);
+    if (reconcileTimer.unref) reconcileTimer.unref();
+  } catch (error) {
+    const failedWorker = bullWorker;
+    bullWorker = null;
+    if (failedWorker) {
+      await failedWorker.close().catch((closeError) =>
+        console.error("Failed to close WhatsApp BullMQ worker after startup error:", closeError.message),
+      );
+    }
+    if (bullWorkerConnection) bullWorkerConnection.disconnect();
+    bullWorkerConnection = null;
+    throw error;
+  }
+}
+
 async function pump() {
   if (pumping) return;
   pumping = true;
   try {
-    while (activeJobs < WORKER_CONCURRENCY) {
+    while (!stopping && activeJobs < WORKER_CONCURRENCY) {
       const job = await claimNextJob();
       if (!job) break;
       activeJobs += 1;
@@ -298,8 +498,13 @@ async function pump() {
   }
 }
 
-function start() {
-  if (timer || process.env.NODE_ENV === "test") return;
+async function start() {
+  if (timer || bullWorker || process.env.NODE_ENV === "test") return;
+  stopping = false;
+  if (bullMode()) {
+    await startBullWorker();
+    return;
+  }
   timer = setInterval(() => {
     pump().catch((error) =>
       console.error("WhatsApp webhook queue poll failed:", error),
@@ -309,6 +514,40 @@ function start() {
   pump().catch((error) =>
     console.error("WhatsApp webhook queue startup failed:", error),
   );
+}
+
+async function stop() {
+  stopping = true;
+  if (timer) clearInterval(timer);
+  if (reconcileTimer) clearInterval(reconcileTimer);
+  timer = null;
+  reconcileTimer = null;
+  const currentWorker = bullWorker;
+  const currentQueue = bullQueue;
+  bullWorker = null;
+  bullQueue = null;
+  if (currentWorker) await currentWorker.close();
+  if (currentQueue) await currentQueue.close();
+  await Promise.all(
+    [bullWorkerConnection, bullConnection]
+      .filter(Boolean)
+      .map((connection) =>
+        connection.status === "ready" ? connection.quit() : connection.disconnect(),
+      ),
+  );
+  bullWorkerConnection = null;
+  bullConnection = null;
+  while (activeJobs || pumping) await new Promise((resolve) => setTimeout(resolve, 25));
+}
+
+async function status() {
+  const [queued, processing, failed, oldest] = await Promise.all([
+    WhatsAppWebhookJob.countDocuments({ status: "queued" }),
+    WhatsAppWebhookJob.countDocuments({ status: "processing" }),
+    WhatsAppWebhookJob.countDocuments({ status: "failed" }),
+    WhatsAppWebhookJob.findOne({ status: "queued" }).sort({ createdAt: 1 }).select("createdAt").lean(),
+  ]);
+  return { backend: bullMode() ? "bullmq" : "mongodb", queued, processing, failed, activeHere: activeJobs, maxBacklog: MAX_BACKLOG, concurrency: WORKER_CONCURRENCY, oldestWaitMs: oldest ? Math.max(0, Date.now() - oldest.createdAt.getTime()) : 0 };
 }
 
 async function drain() {
@@ -324,4 +563,4 @@ async function drain() {
   return drain();
 }
 
-module.exports = { enqueueWebhook, start, drain, _splitWebhookEvents: splitWebhookEvents };
+module.exports = { enqueueWebhook, start, stop, drain, status, _splitWebhookEvents: splitWebhookEvents };

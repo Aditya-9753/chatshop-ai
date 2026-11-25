@@ -20,4 +20,4 @@ const announcementSchema = new mongoose.Schema(
 
 announcementSchema.index({ createdAt: -1 });
 
-module.exports = mongoose.model("Announcement", announcementSchema);
+module.exports = mongoose.models["Announcement"] || mongoose.model("Announcement", announcementSchema);
